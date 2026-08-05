@@ -1,0 +1,290 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
+        
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f0f2f5;
+    margin: 0;
+    padding: 10px;
+    color: #333;
+    transition: background-color 0.3s, color 0.3s;
+}
+h2 {
+    text-align: center;
+    color: #1a73e8;
+    margin: 5px 0 15px 0;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+/* Dashboard */
+.dashboard {
+    background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
+    color: white;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-around;
+    text-align: center;
+    box-shadow: 0 4px 10px rgba(26, 115, 232, 0.3);
+}
+.dash-box h4 { margin: 0; font-size: 13px; opacity: 0.9; font-weight: 400; }
+.dash-box h3 { margin: 5px 0 0 0; font-size: 24px; font-weight: 600; }
+
+/* Controls & Buttons */
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+.btn {
+    background-color: #1a73e8;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: 0.2s;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+.btn-danger { background-color: #ea4335; }
+.btn-success { background-color: #34a853; }
+.btn-warning { background-color: #fbbc05; color: #333; }
+.btn-secondary { background-color: #5f6368; }
+.btn-view { background-color: #ffffff; color: #1a73e8; border: 1px solid #1a73e8; font-weight: 600; }
+.btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn:active { transform: scale(0.95); }
+
+/* Search Bar & Sorting */
+.search-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.search-box {
+    flex-grow: 1;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 14px;
+    font-family: 'Poppins', sans-serif;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
+    transition: border-color 0.3s;
+}
+.search-box:focus {
+    outline: none;
+    border-color: #1a73e8;
+}
+select.search-box {
+    flex-grow: 0;
+    width: auto;
+    cursor: pointer;
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    margin-bottom: 15px;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+.tab {
+    flex: 1;
+    text-align: center;
+    padding: 12px;
+    cursor: pointer;
+    font-weight: 500;
+    background: #fff;
+    color: #555;
+    border-bottom: 3px solid transparent;
+    transition: 0.3s;
+}
+.tab.active {
+    color: #1a73e8;
+    border-bottom: 3px solid #1a73e8;
+    background: #f8fbff;
+}
+
+/* View Toggle Container */
+.view-controls {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 10px;
+}
+
+/* Folders Base */
+#folderView { transition: all 0.3s ease; }
+.folder, .month-folder {
+    background: white; padding: 15px; margin-bottom: 12px;
+    border-radius: 10px; border-left: 5px solid #fbbc05; cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08); display: flex;
+    justify-content: space-between; align-items: center;
+    font-size: 16px; font-weight: 600; transition: 0.2s;
+}
+.month-folder { border-left-color: #34a853; }
+.folder:hover, .month-folder:hover { transform: translateX(3px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+.folder:active, .month-folder:active { transform: scale(0.98); }
+.folder span, .month-folder span { font-size: 13px; color: #666; font-weight: 400; }
+
+/* Grid View Mode */
+#folderView.grid-view {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;
+}
+#folderView.grid-view .folder {
+    flex-direction: column; justify-content: center; text-align: center;
+    margin-bottom: 0; padding: 20px 10px; border-left: none; border-top: 5px solid #fbbc05;
+}
+#folderView.grid-view .folder:hover { transform: translateY(-3px); }
+#folderView.grid-view .folder span {
+    display: block; margin-top: 10px; background: #f0f2f5;
+    padding: 4px 8px; border-radius: 6px; color: #333; font-size: 12px;
+}
+
+#loanList {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px;
+}
+
+/* Cards */
+.card {
+    background: white; padding: 15px; border-radius: 10px;
+    border-left: 5px solid #1a73e8; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    display: flex; flex-direction: column; justify-content: space-between;
+}
+.card p { margin: 5px 0; }
+.emi-text {
+    white-space: pre-wrap; background: #f8f9fa; padding: 10px;
+    border-radius: 6px; font-size: 13px; border: 1px solid #eee;
+    margin-top: 10px; line-height: 1.5; flex-grow: 1;
+}
+
+/* Monthly View List */
+.monthly-item {
+    background: #f8f9fa; padding: 10px; margin-bottom: 8px;
+    border-radius: 6px; display: flex; justify-content: space-between;
+    border-left: 3px solid #34a853; font-size: 14px;
+}
+.monthly-item strong { color: #1a73e8; }
+.month-header {
+    background: #e8f0fe; color: #1a73e8; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-weight: 600; text-align: center;
+}
+
+/* Form */
+#loanFormContainer {
+    display: none; background: white; padding: 15px;
+    border-radius: 12px; margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #34a853;
+}
+.form-group { margin-bottom: 12px; }
+.form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px; }
+.form-group input, .form-group textarea {
+    width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px;
+    box-sizing: border-box; font-family: 'Poppins', sans-serif; transition: border-color 0.3s;
+}
+.form-group input:focus, .form-group textarea:focus {
+    border-color: #34a853; outline: none;
+}
+
+/* Dynamic EMI Styles */
+.emi-row {
+    display: flex; gap: 5px; margin-bottom: 8px;
+}
+.emi-row input {
+    padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: 'Poppins', sans-serif;
+}
+
+/* ================================== */
+/* CONTACT PAGE COMPACT STYLES        */
+/* ================================== */
+#contactPageContainer {
+    display: none; background: white; padding: 15px;
+    border-radius: 12px; margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #1a73e8;
+}
+.contact-compact-container {
+    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+}
+.contact-btn {
+    flex: 1; min-width: 130px; display: flex; align-items: center; gap: 8px;
+    padding: 12px 10px; border-radius: 8px; text-decoration: none;
+    color: white; transition: 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+.contact-btn:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+.contact-btn:active { transform: scale(0.96); }
+.contact-btn .icon { font-size: 22px; }
+.contact-btn .details { display: flex; flex-direction: column; text-align: left; line-height: 1.2; }
+.contact-btn .label { font-size: 11px; opacity: 0.9; font-weight: 500; }
+.contact-btn .value { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
+
+.phone-btn { background: linear-gradient(135deg, #34a853, #25813e); }
+.email-btn { background: linear-gradient(135deg, #ea4335, #b82c20); }
+
+/* Dark Mode Styles */
+body.dark-mode { background-color: #121212; color: #e0e0e0; }
+.dark-mode .dashboard { box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+.dark-mode .folder, .dark-mode .month-folder, .dark-mode .card { background-color: #1e1e1e; border-left-color: #fbbc05; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
+.dark-mode .card { border-left-color: #1a73e8; }
+.dark-mode .folder span, .dark-mode .month-folder span { color: #aaa; }
+.dark-mode #folderView.grid-view .folder span { background: #333; color: #ddd; }
+.dark-mode .tabs { background: #1e1e1e; }
+.dark-mode .tab { background: #1e1e1e; color: #999; }
+.dark-mode .tab.active { background: #2c2c2c; color: #66b2ff; border-bottom-color: #66b2ff; }
+.dark-mode .search-box { background-color: #1e1e1e; color: #fff; border-color: #444; }
+.dark-mode #loanFormContainer, .dark-mode #contactPageContainer { background: #1e1e1e; }
+.dark-mode #contactPageContainer { border-top-color: #66b2ff; }
+.dark-mode #contactPageContainer h3 { color: #66b2ff !important; }
+.dark-mode .form-group input, .dark-mode .form-group textarea, .dark-mode .emi-row input { background: #333; color: #fff; border-color: #555; }
+.dark-mode .emi-text, .dark-mode .monthly-item { background: #2c2c2c; color: #ddd; border-color: #444; }
+.dark-mode .emi-sum-box, .dark-mode .month-header { background: #333 !important; color: #66b2ff !important; border: 1px solid #444; }
+.dark-mode h2, .dark-mode #currentFolderName, .dark-mode .btn-view { color: #66b2ff; }
+.dark-mode .btn-view { border-color: #66b2ff; background: #1e1e1e; }
+
+/* Sync Button & Animation Styles */
+.clickable-badge {
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+}
+.clickable-badge:active {
+    transform: scale(0.92);
+}
+.dark-mode .clickable-badge {
+    background: #333 !important;
+    border-color: #66b2ff !important;
+    color: #66b2ff !important;
+}
+@keyframes spin-anim {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+.spin-icon {
+    display: inline-block;
+    animation: spin-anim 1s linear infinite;
+}
+
+/* Clean Print Styles */
+.print-only { display: none; }
+@media print {
+    @page { margin: 1.5cm; size: A4 portrait; }
+    body { background: white; padding: 0; color: #000; font-family: Arial, Helvetica, sans-serif; }
+    .no-print { display: none !important; }
+    .print-only { display: block; text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1a73e8; padding-bottom: 12px; }
+    .print-only h1 { margin: 0; font-size: 26px; text-transform: uppercase; letter-spacing: 1px; color: #1a73e8; }
+    .print-only p { margin: 4px 0 0 0; font-size: 13px; color: #333; }
+    
+    #detailView { display: block !important; }
+    #currentFolderName { text-align: left !important; margin-top: 0 !important; color: #000 !important; font-size: 20px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
+    #currentFolderName span { background: none !important; padding: 0 !important; color: #000 !important; border: 1px solid #1a73e8; padding: 4px 10px !important; border-radius: 4px !important; }
+    
+    #loanList { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .card { box-shadow: none; border: 1px solid #ccc !important; border-left: 5px solid #1a73e8 !important; page-break-inside: avoid; margin-bottom: 0; padding: 12px; border-radius: 6px; background: #fff; }
+    .card p { color: #000 !important; font-size: 13px; }
+    .emi-text { background: #fdfdfd; border: 1px dashed #888; color: #000; font-family: monospace; font-size: 12px; }
+    .emi-sum-box { background: transparent !important; color: #1a73e8 !important; border: 1px solid #1a73e8 !important; box-shadow: none !important; padding: 4px 8px !important; font-size: 13px; }
+}
