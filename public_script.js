@@ -1,7 +1,7 @@
 // ==========================================
 // ☁️ GITHUB GIST CLOUD SYNC SETTINGS (Read-Only)
 // ==========================================
-const GIST_ID = "0a7dd7da399568015dd766c79348a2b3";
+const GIST_ID = "2d93e5e61cf6e2f7292d57edebf29fac";
 const GIST_FILENAME = "abhishek_loans.json"; 
 // ==========================================
 
