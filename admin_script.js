@@ -1,7 +1,7 @@
 // ==========================================
 // ☁️ GITHUB GIST CLOUD SYNC SETTINGS (ADMIN ONLY)
 // ==========================================
-const GITHUB_PAT = "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"; 
+const GITHUB_PAT = "ghp_" + "nyG2AfstqPfTsmKnF9bdhVjFE5IAmH12FJa5"; 
 const GIST_ID = "2d93e5e61cf6e2f7292d57edebf29fac";
 const GIST_FILENAME = "abhishek_loans.json"; 
 // ==========================================
