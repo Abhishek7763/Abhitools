@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AbhiTools Legacy Migration</title>
+  <style>
+    body{font-family:Arial,sans-serif;background:#f5f7fb;margin:0;padding:20px;color:#222}
+    .card{max-width:480px;margin:40px auto;background:#fff;padding:22px;border-radius:14px;box-shadow:0 6px 25px rgba(0,0,0,.08)}
+    h2{margin-top:0}
+    input,button{width:100%;box-sizing:border-box;padding:12px;margin-top:10px;border-radius:8px;border:1px solid #ccd2da;font-size:16px}
+    button{border:0;background:#1a73e8;color:#fff;font-weight:700;cursor:pointer}
+    button:disabled{opacity:.6;cursor:not-allowed}
+    #result{margin-top:16px;white-space:pre-wrap;background:#f1f3f4;padding:12px;border-radius:8px;min-height:48px}
+    .note{font-size:13px;color:#555;line-height:1.5}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>AbhiTools Old Data Migration</h2>
+    <p class="note">
+      Temporary Stage-1 page. It logs in through the secure server API and imports
+      the existing legacy Gist into Supabase. It does not upload a local JSON file.
+    </p>
+
+    <input id="userId" type="text" placeholder="Admin ID" autocomplete="username">
+    <input id="password" type="password" placeholder="Admin Password" autocomplete="current-password">
+    <button id="runBtn" onclick="runMigration()">Login & Import Old Data</button>
+
+    <div id="result">Ready.</div>
+  </div>
+
+<script>
+async function runMigration() {
+  const btn = document.getElementById('runBtn');
+  const result = document.getElementById('result');
+  const userId = document.getElementById('userId').value.trim();
+  const password = document.getElementById('password').value;
+
+  if (!userId || !password) {
+    result.textContent = 'Admin ID and password required.';
+    return;
+  }
+
+  btn.disabled = true;
+  result.textContent = 'Logging in...';
+
+  try {
+    const auth = await fetch('/api/auth', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      credentials: 'same-origin',
+      body: JSON.stringify({userId, password})
+    });
+
+    const authData = await auth.json().catch(() => ({}));
+    if (!auth.ok) throw new Error(authData.error || 'Login failed');
+
+    result.textContent = 'Logged in. Importing legacy Gist data...';
+
+    const migrate = await fetch('/api/migrate-legacy', {
+      method: 'POST',
+      credentials: 'same-origin'
+    });
+
+    const data = await migrate.json().catch(() => ({}));
+    if (!migrate.ok) throw new Error(data.error || 'Migration failed');
+
+    result.textContent =
+      'SUCCESS\n\n' +
+      'Legacy records: ' + data.legacyRecords + '\n' +
+      'Borrowers imported: ' + data.importedBorrowers + '\n' +
+      'Loans imported: ' + data.importedLoans + '\n' +
+      'EMIs imported: ' + data.importedEmis + '\n' +
+      'Skipped invalid: ' + data.skippedInvalidRecords + '\n\n' +
+      'Now open the Admin Dashboard and verify the records.';
+  } catch (err) {
+    result.textContent = 'ERROR\n\n' + err.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>
