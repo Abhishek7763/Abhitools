@@ -139,6 +139,24 @@
             script.dataset.abhiUiShell = 'yes';
             document.body.appendChild(script);
         }
+
+
+        // Design Build 2: Loans + EMI presentation layer. Existing financial handlers remain authoritative.
+        if (!document.querySelector('link[data-abhi-loans-ui]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = '/ui_loans.css';
+            link.dataset.abhiLoansUi = 'yes';
+            document.head.appendChild(link);
+        }
+
+        if (!document.querySelector('script[data-abhi-loans-ui]')) {
+            const script = document.createElement('script');
+            script.src = '/ui_loans.js';
+            script.defer = true;
+            script.dataset.abhiLoansUi = 'yes';
+            document.body.appendChild(script);
+        }
     }
 
     window.addEventListener('beforeinstallprompt', event => {

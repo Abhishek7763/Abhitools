@@ -1,0 +1,42 @@
+ABHITOOLS DESIGN BUILD 2
+Date: 2026-08-24
+Scope: Loans + EMI presentation redesign
+
+CHANGED / NEW:
+- pwa.js (loads Design Build 2 assets)
+- service-worker.js (cache name bump + new static assets)
+- ui_loans.css (new)
+- ui_loans.js (new)
+
+INTENTIONALLY NOT CHANGED:
+- admin.html
+- admin_script.js
+- any /api/* file
+- Supabase schema/data
+- payment/settlement/follow-up business logic
+- Vercel serverless function count
+
+LOANS:
+- Compact loan summary cards instead of full EMI schedule inside each collapsed card.
+- Borrower, loan ID, status, original amount, outstanding, next due/data-incomplete, EMI progress.
+- Open action launches responsive loan detail sheet.
+- Loan detail tabs: Overview / EMI Schedule / Payments / Documents / Follow-up / More.
+- Existing Edit, Statement, Settlement, WhatsApp, Follow-up, Recycle handlers are reused.
+
+EMI:
+- Mobile vertical compact cards; desktop hybrid rows.
+- Clearly visible installment, date, amount, paid, remaining and status.
+- Record Payment shown when amount remains; Payment History when settled/closed.
+- Manual status correction moved under More and only available for dated unpaid EMI.
+- Legacy unknown-year/date EMI is ALWAYS Date Incomplete (or Partial • Date Incomplete), never Overdue.
+- Fix Date opens existing Data Quality Center; no date guessing.
+
+SAFETY:
+- ui_loans.js overrides presentation functions only: renderLoanList + renderEmiList.
+- Existing money/payment/due/settlement APIs are untouched.
+- Unknown dates are detected from due_date + due_year before any overdue UI state is allowed.
+- No new serverless function.
+- /api/* remains network-only in service worker.
+
+NEXT AFTER LIVE VERIFICATION:
+Design Build 3 — Home + Collections consolidation.
