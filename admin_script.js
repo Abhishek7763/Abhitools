@@ -67,6 +67,8 @@ let currentPaymentId = null;
 let currentPaymentHistory = [];
 let dueCenterData = null;
 let currentDueBucket = 'overdue';
+let currentProfileBorrowerId = null;
+let currentProfileData = null;
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -746,6 +748,225 @@ async function saveBorrower() {
         alert('Borrower save nahi hua. Try again.');
     }
 }
+
+
+
+// ==========================================
+// PHASE 4 - ADVANCED BORROWER PROFILE
+// ==========================================
+function profileMoney(value) {
+    return '₹' + Number(value || 0).toLocaleString('en-IN');
+}
+
+function safeProfilePhotoUrl(value) {
+    const url = String(value || '').trim();
+    return /^https:\/\//i.test(url) ? url : '';
+}
+
+function profileInitials(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '👤';
+    return parts.slice(0, 2).map(x => x[0]).join('').toUpperCase();
+}
+
+function openBorrowerDirectory() {
+    const modal = document.getElementById('borrowerDirectoryModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    const search = document.getElementById('profileDirectorySearch');
+    if (search) search.value = '';
+    renderBorrowerDirectory('');
+}
+
+function closeBorrowerDirectory() {
+    const modal = document.getElementById('borrowerDirectoryModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleDirectoryOverlayClick(event) {
+    if (event.target?.id === 'borrowerDirectoryModal') closeBorrowerDirectory();
+}
+
+function renderBorrowerDirectory(query = '') {
+    const list = document.getElementById('borrowerDirectoryList');
+    if (!list) return;
+    const q = String(query || '').trim().toUpperCase();
+    const rows = borrowers.filter(b => {
+        if (!q) return true;
+        return String(b.name || '').toUpperCase().includes(q) ||
+               String(b.phone || '').includes(q) ||
+               String(b.whatsapp || '').includes(q);
+    });
+    if (!rows.length) {
+        list.innerHTML = '<div class="profile-empty">Koi borrower nahi mila.</div>';
+        return;
+    }
+    list.innerHTML = rows.map(b => {
+        const related = loans.filter(l => l.borrower_id === b.id || l.borrowers?.id === b.id);
+        const active = related.filter(l => l.status === 'active').length;
+        const principal = related.reduce((sum,l) => sum + (Number(l.amount)||0), 0);
+        return `<button class="profile-directory-item" onclick="closeBorrowerDirectory(); openBorrowerProfile('${b.id}')">
+            <span class="profile-mini-avatar">${escapeHtml(profileInitials(b.name))}</span>
+            <span class="profile-directory-main"><strong>${escapeHtml(b.name || 'Unknown')}</strong><small>${b.phone ? '📱 ' + escapeHtml(b.phone) + ' • ' : ''}${active} active loan</small></span>
+            <span class="profile-directory-side">${profileMoney(principal)}</span>
+        </button>`;
+    }).join('');
+}
+
+function openBorrowerProfileByName(name) {
+    const borrower = borrowers.find(b => String(b.name || '').toUpperCase() === String(name || '').toUpperCase());
+    if (!borrower) {
+        alert('Borrower profile nahi mila.');
+        return;
+    }
+    openBorrowerProfile(borrower.id);
+}
+
+async function openBorrowerProfile(borrowerId) {
+    currentProfileBorrowerId = borrowerId;
+    currentProfileData = null;
+    const modal = document.getElementById('borrowerProfileModal');
+    const loading = document.getElementById('profileLoading');
+    const content = document.getElementById('profileContent');
+    if (!modal) return;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    if (loading) { loading.style.display = 'block'; loading.textContent = 'Loading borrower profile...'; }
+    if (content) content.style.display = 'none';
+
+    try {
+        const response = await adminFetch(`/api/borrowers?action=profile&id=${encodeURIComponent(borrowerId)}`);
+        const data = await response.json();
+        currentProfileData = data;
+        renderBorrowerProfile(data);
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+    } catch (err) {
+        if (loading) loading.textContent = err.message || 'Profile load nahi hua.';
+    }
+}
+
+function closeBorrowerProfile() {
+    const modal = document.getElementById('borrowerProfileModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+    currentProfileBorrowerId = null;
+    currentProfileData = null;
+}
+
+function handleProfileOverlayClick(event) {
+    if (event.target?.id === 'borrowerProfileModal') closeBorrowerProfile();
+}
+
+function profileDetail(label, value, fallback = 'Not set') {
+    const text = value ? escapeHtml(String(value)) : fallback;
+    return `<div class="profile-detail"><small>${label}</small><strong>${text}</strong></div>`;
+}
+
+function renderBorrowerProfile(data) {
+    const b = data?.borrower || {};
+    const s = data?.summary || {};
+    const profileTitle = document.getElementById('borrowerProfileTitle');
+    const subtitle = document.getElementById('profileSubtitle');
+    const avatar = document.getElementById('profileAvatar');
+    if (profileTitle) profileTitle.textContent = b.name || 'Borrower Profile';
+    if (subtitle) subtitle.textContent = `${Number(s.activeLoans || 0)} active • ${Number(s.closedLoans || 0)} closed • ${Number(s.totalLoans || 0)} total loan`;
+    if (avatar) {
+        const photoUrl = safeProfilePhotoUrl(b.photo_url);
+        if (photoUrl) avatar.innerHTML = `<img src="${escapeHtml(photoUrl)}" alt="Borrower photo">`;
+        else avatar.textContent = profileInitials(b.name);
+    }
+
+    const grid = document.getElementById('profileSummaryGrid');
+    if (grid) grid.innerHTML = [
+        ['💰 Principal', profileMoney(s.principalTotal)],
+        ['✅ Collected', profileMoney(s.paidTotal)],
+        ['⏳ EMI Remaining', profileMoney(s.remainingTotal)],
+        ['🔴 Overdue', profileMoney(s.overdueAmount)],
+        ['📄 Loans', `${Number(s.totalLoans || 0)}`],
+        ['📎 Documents', `${Number(s.documentCount || 0)}`]
+    ].map(([label,value]) => `<div class="profile-summary-tile"><small>${label}</small><strong>${value}</strong></div>`).join('');
+
+    const details = document.getElementById('profilePersonalDetails');
+    if (details) details.innerHTML = [
+        profileDetail('Name', b.name),
+        profileDetail("Father's Name", b.father_name),
+        profileDetail('Phone', b.phone),
+        profileDetail('WhatsApp', b.whatsapp),
+        profileDetail('Address', b.address),
+        profileDetail('Aadhaar', b.aadhaar),
+        profileDetail('PAN', b.pan),
+        profileDetail('Notes', b.notes)
+    ].join('');
+
+    const contact = document.getElementById('profileContactActions');
+    if (contact) {
+        const phone = String(b.phone || '').replace(/[^0-9+]/g, '');
+        const rawWa = String(b.whatsapp || b.phone || '').replace(/\D/g, '');
+        const wa = rawWa.length === 10 ? `91${rawWa}` : rawWa;
+        const msg = encodeURIComponent(`Namaste ${b.name || ''}, aapke loan account ke sambandh me sampark kar raha hoon. - Abhishek`);
+        contact.innerHTML = `${phone ? `<a class="btn btn-view" href="tel:${escapeHtml(phone)}">📞 Call</a>` : ''}${wa ? `<a class="btn btn-success" target="_blank" href="https://wa.me/${escapeHtml(wa)}?text=${msg}">💬 WhatsApp</a>` : ''}` || '<span class="profile-muted">Contact number not set.</span>';
+    }
+
+    const loanList = document.getElementById('profileLoanHistory');
+    const profileLoans = data?.loans || [];
+    if (loanList) {
+        if (!profileLoans.length) loanList.innerHTML = '<div class="profile-empty">Is borrower ka koi loan nahi hai.</div>';
+        else loanList.innerHTML = profileLoans.map(loan => {
+            let scheduled = 0, paid = 0, overdue = 0;
+            const emis = loan.emis || [];
+            for (const e of emis) {
+                const amount = Number(e.amount || 0);
+                const p = Math.max(0, Math.min(Number(e.paid_amount || 0), amount));
+                const r = Math.max(amount-p,0);
+                scheduled += amount; paid += p;
+                if (e.status === 'overdue') overdue += r;
+            }
+            const remaining = Math.max(scheduled-paid,0);
+            const statusClass = loan.status === 'closed' ? 'closed' : loan.status === 'defaulted' ? 'defaulted' : 'active';
+            const emiHtml = emis.length ? emis.map(e => {
+                const amount = Number(e.amount || 0);
+                const p = Math.max(0, Math.min(Number(e.paid_amount || 0), amount));
+                const r = Math.max(amount-p,0);
+                const dateLabel = `${e.due_day || ''} ${e.due_month || ''}${e.due_year ? ' ' + e.due_year : ' • year not set'}`;
+                return `<div class="profile-emi-row"><span><strong>EMI #${Number(e.installment_number || 0)}</strong><small>${escapeHtml(dateLabel)} • ${escapeHtml(e.status || 'pending')}</small></span><span><strong>${profileMoney(r)}</strong><button class="btn btn-success" onclick="openProfilePayment('${e.id}')">${p > 0 ? '🧾' : '💰'}</button></span></div>`;
+            }).join('') : '<div class="profile-muted">No EMI schedule.</div>';
+            return `<div class="profile-loan-card ${statusClass}">
+                <div class="profile-loan-head"><div><strong>${escapeHtml(loan.loan_code || '')}</strong><small>${loan.loan_year || 'Year not set'} • ${escapeHtml(loan.status || 'active')}</small></div><strong>${profileMoney(loan.amount)}</strong></div>
+                <div class="profile-loan-metrics"><span>Scheduled <b>${profileMoney(scheduled)}</b></span><span>Paid <b>${profileMoney(paid)}</b></span><span>Remaining <b>${profileMoney(remaining)}</b></span>${overdue ? `<span class="danger">Overdue <b>${profileMoney(overdue)}</b></span>` : ''}</div>
+                <div class="profile-emi-list">${emiHtml}</div>
+            </div>`;
+        }).join('');
+    }
+
+    const count = document.getElementById('profileDocumentCount');
+    if (count) count.textContent = `${Number(s.documentCount || 0)} files`;
+    const docs = document.getElementById('profileDocumentsPreview');
+    const documents = data?.documents || [];
+    if (docs) docs.innerHTML = documents.length ? documents.slice(0,5).map(d => `<div class="profile-doc-row"><span>📄 ${escapeHtml(d.doc_type || 'Document')}</span><small>${escapeHtml(d.file_name || '')}</small></div>`).join('') : '<div class="profile-empty compact">Koi document upload nahi hai.</div>';
+}
+
+function editCurrentBorrowerProfile() {
+    const id = currentProfileBorrowerId;
+    if (!id) return;
+    closeBorrowerProfile();
+    showBorrowerForm(id);
+}
+
+function addLoanFromProfile() {
+    const id = currentProfileBorrowerId;
+    if (!id) return;
+    closeBorrowerProfile();
+    showForm(id);
+}
+
+function openProfilePayment(emiId) {
+    closeBorrowerProfile();
+    openPaymentModal(emiId);
+}
+
 
 // ==========================================
 // LOAN FORM

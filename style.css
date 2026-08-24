@@ -746,3 +746,83 @@ body.dark-mode .due-item { background:#0f172a; border-color:#334155; }
     .due-item { align-items:stretch; flex-direction:column; }
     .due-item-side { width:100%; justify-content:space-between; }
 }
+
+/* ==========================================
+   PHASE 4 - ADVANCED BORROWER PROFILE
+   ========================================== */
+.profile-overlay { position:fixed; inset:0; z-index:10040; background:rgba(15,23,42,.76); padding:18px; overflow-y:auto; }
+.profile-card { width:min(980px,100%); margin:16px auto; padding:20px; border-radius:16px; background:#fff; box-shadow:0 24px 70px rgba(0,0,0,.32); }
+.profile-directory-card { width:min(650px,100%); }
+.profile-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; border-bottom:1px solid #e5e7eb; padding-bottom:14px; }
+.profile-header h3 { margin:0 0 4px; color:#1d4ed8; }
+.profile-header small { color:#64748b; }
+.profile-identity { display:flex; align-items:center; gap:12px; min-width:0; }
+.profile-avatar { width:58px; height:58px; border-radius:50%; display:grid; place-items:center; flex:0 0 auto; background:linear-gradient(135deg,#dbeafe,#bfdbfe); color:#1d4ed8; font-weight:800; font-size:20px; overflow:hidden; border:2px solid #93c5fd; }
+.profile-avatar img { width:100%; height:100%; object-fit:cover; }
+.profile-close { width:auto; min-width:42px; margin:0; }
+.profile-loading,.profile-empty { padding:18px; margin-top:14px; text-align:center; color:#64748b; border:1px dashed #cbd5e1; border-radius:10px; }
+.profile-empty.compact { padding:10px; margin-top:0; }
+.profile-summary-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; margin:15px 0; }
+.profile-summary-tile { border:1px solid #dbe4f0; background:#f8fafc; border-radius:11px; padding:12px; }
+.profile-summary-tile small,.profile-summary-tile strong { display:block; }
+.profile-summary-tile small { color:#64748b; margin-bottom:4px; }
+.profile-summary-tile strong { font-size:18px; color:#0f172a; }
+.profile-section { margin-top:14px; padding:14px; border:1px solid #e2e8f0; border-radius:12px; background:#fff; }
+.profile-section-head { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:10px; }
+.profile-section-head h4 { margin:0; color:#0f172a; }
+.profile-section-head .btn { width:auto; margin:0; padding:7px 10px; font-size:11px; }
+.profile-details-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+.profile-detail { padding:10px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:9px; min-width:0; }
+.profile-detail small,.profile-detail strong { display:block; }
+.profile-detail small { color:#64748b; margin-bottom:3px; }
+.profile-detail strong { color:#111827; word-break:break-word; }
+.profile-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+.profile-actions .btn { width:auto; text-decoration:none; margin:0; }
+.profile-chip { display:inline-block; padding:4px 9px; border-radius:999px; background:#e0f2fe; color:#0369a1; font-size:11px; font-weight:700; }
+.profile-muted { color:#64748b; line-height:1.45; }
+.profile-loan-list { display:grid; gap:10px; }
+.profile-loan-card { padding:12px; border:1px solid #dbe4f0; border-left:4px solid #22c55e; border-radius:10px; background:#f8fafc; }
+.profile-loan-card.closed { border-left-color:#64748b; }
+.profile-loan-card.defaulted { border-left-color:#dc2626; }
+.profile-loan-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+.profile-loan-head strong { color:#111827; }
+.profile-loan-head small { display:block; color:#64748b; margin-top:3px; }
+.profile-loan-metrics { display:flex; gap:8px; flex-wrap:wrap; margin:9px 0; font-size:11px; }
+.profile-loan-metrics span { background:#fff; border:1px solid #e2e8f0; padding:5px 7px; border-radius:7px; }
+.profile-loan-metrics .danger { color:#b91c1c; background:#fef2f2; border-color:#fecaca; }
+.profile-emi-list { display:grid; gap:6px; }
+.profile-emi-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px; border-radius:8px; background:#fff; border:1px solid #e2e8f0; }
+.profile-emi-row span:first-child { min-width:0; }
+.profile-emi-row span:first-child strong,.profile-emi-row span:first-child small { display:block; }
+.profile-emi-row span:first-child small { color:#64748b; margin-top:2px; }
+.profile-emi-row span:last-child { display:flex; align-items:center; gap:7px; flex-shrink:0; }
+.profile-emi-row .btn { width:auto; margin:0; padding:5px 7px; font-size:10px; }
+.profile-docs-preview { display:grid; gap:6px; margin-bottom:8px; }
+.profile-doc-row { display:flex; justify-content:space-between; gap:10px; padding:8px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; }
+.profile-doc-row small { color:#64748b; word-break:break-all; }
+.profile-directory-search { width:100%; box-sizing:border-box; margin:14px 0 10px; padding:11px; border:1px solid #cbd5e1; border-radius:9px; font:inherit; }
+.profile-directory-list { display:grid; gap:7px; }
+.profile-directory-item { width:100%; border:1px solid #e2e8f0; border-radius:10px; padding:10px; background:#f8fafc; cursor:pointer; display:flex; align-items:center; gap:10px; text-align:left; font:inherit; color:#0f172a; }
+.profile-directory-item:hover { border-color:#60a5fa; background:#eff6ff; }
+.profile-mini-avatar { width:38px; height:38px; border-radius:50%; display:grid; place-items:center; background:#dbeafe; color:#1d4ed8; font-weight:800; flex:0 0 auto; }
+.profile-directory-main { min-width:0; flex:1; }
+.profile-directory-main strong,.profile-directory-main small { display:block; }
+.profile-directory-main small { color:#64748b; margin-top:3px; }
+.profile-directory-side { font-weight:800; color:#0f172a; flex-shrink:0; }
+body.dark-mode .profile-card,body.dark-mode .profile-section { background:#111827; color:#e5e7eb; border-color:#374151; }
+body.dark-mode .profile-header { border-bottom-color:#374151; }
+body.dark-mode .profile-header h3,body.dark-mode .profile-section-head h4,body.dark-mode .profile-summary-tile strong,body.dark-mode .profile-detail strong,body.dark-mode .profile-loan-head strong,body.dark-mode .profile-directory-side { color:#f8fafc; }
+body.dark-mode .profile-summary-tile,body.dark-mode .profile-detail,body.dark-mode .profile-loan-card,body.dark-mode .profile-emi-row,body.dark-mode .profile-doc-row,body.dark-mode .profile-directory-item { background:#0f172a; border-color:#334155; }
+body.dark-mode .profile-loan-metrics span { background:#111827; border-color:#334155; }
+body.dark-mode .profile-directory-item:hover { background:#172554; border-color:#3b82f6; }
+body.dark-mode .profile-directory-search { background:#1f2937; color:#e5e7eb; border-color:#475569; }
+@media (max-width:650px) {
+    .profile-overlay { padding:8px; }
+    .profile-card { margin:8px auto; padding:14px; border-radius:13px; }
+    .profile-summary-grid { grid-template-columns:1fr 1fr; }
+    .profile-details-grid { grid-template-columns:1fr; }
+    .profile-section-head { align-items:flex-start; }
+    .profile-loan-head,.profile-emi-row,.profile-doc-row { flex-direction:column; align-items:stretch; }
+    .profile-emi-row span:last-child { justify-content:space-between; }
+    .profile-directory-side { font-size:12px; }
+}

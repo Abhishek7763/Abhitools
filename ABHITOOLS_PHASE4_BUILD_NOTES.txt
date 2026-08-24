@@ -1,0 +1,22 @@
+AbhiTools Phase 4 - Advanced Borrower Profile
+
+Added:
+- Borrower Profiles directory with search by name/phone.
+- Complete admin-only borrower profile modal.
+- Personal details: name, father name, phone, WhatsApp, address, Aadhaar, PAN, notes.
+- Profile photo display when a secure HTTPS photo_url already exists; initials fallback otherwise.
+- Summary cards: total principal, collected, EMI remaining, overdue amount, loan count, document count.
+- Active/closed/defaulted loan summary.
+- Full loan + EMI history in the profile.
+- Per-EMI payment/history shortcut using existing Phase 2 payment system.
+- Quick Call and WhatsApp actions.
+- Edit Details and Add Loan quick actions.
+- Existing document metadata preview; full upload/management reserved for Phase 5.
+- Mobile-responsive and dark-mode styling.
+
+Security / compatibility:
+- Profile endpoint is admin-session protected.
+- No new environment variables.
+- No Supabase schema migration required for Phase 4.
+- Existing Phase 1/2/3 features remain included.
+- Legacy year-not-set EMI records remain unchanged.

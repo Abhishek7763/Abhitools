@@ -19,6 +19,82 @@ export default async function handler(req, res) {
             return res.status(200).json(data || []);
         }
 
+
+        if (req.method === 'GET' && action === 'profile') {
+            const id = String(req.query?.id || '').trim();
+            const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+            if (!uuidRe.test(id)) return res.status(400).json({ error: 'Valid borrower id required' });
+
+            const [borrowerRes, loansRes, documentsRes] = await Promise.all([
+                supabaseRequest(`borrowers?id=eq.${encodeURIComponent(id)}&select=*`),
+                supabaseRequest(`loans?borrower_id=eq.${encodeURIComponent(id)}&select=*,emis(*)&order=created_at.desc`),
+                supabaseRequest(`documents?borrower_id=eq.${encodeURIComponent(id)}&select=id,loan_id,doc_type,file_name,file_url,uploaded_at&order=uploaded_at.desc`)
+            ]);
+
+            const borrower = borrowerRes.data?.[0] || null;
+            if (!borrower) return res.status(404).json({ error: 'Borrower not found' });
+
+            const loans = loansRes.data || [];
+            const documents = documentsRes.data || [];
+            let principalTotal = 0;
+            let activePrincipal = 0;
+            let scheduledTotal = 0;
+            let paidTotal = 0;
+            let remainingTotal = 0;
+            let overdueAmount = 0;
+            let overdueEmis = 0;
+            let paidEmis = 0;
+            let partialEmis = 0;
+            let pendingEmis = 0;
+            let yearNotSetEmis = 0;
+
+            for (const loan of loans) {
+                const principal = Number.parseInt(loan.amount, 10) || 0;
+                principalTotal += principal;
+                if (loan.status === 'active') activePrincipal += principal;
+                for (const emi of (loan.emis || [])) {
+                    const amount = Number.parseInt(emi.amount, 10) || 0;
+                    const paid = Math.max(0, Math.min(Number.parseInt(emi.paid_amount, 10) || 0, amount));
+                    const remaining = Math.max(amount - paid, 0);
+                    scheduledTotal += amount;
+                    paidTotal += paid;
+                    remainingTotal += remaining;
+                    if (!emi.due_year || !emi.due_date) yearNotSetEmis += 1;
+                    if (emi.status === 'paid' || (amount > 0 && paid >= amount)) paidEmis += 1;
+                    else if (paid > 0) partialEmis += 1;
+                    else pendingEmis += 1;
+                    if (emi.status === 'overdue' && remaining > 0) {
+                        overdueEmis += 1;
+                        overdueAmount += remaining;
+                    }
+                }
+            }
+
+            return res.status(200).json({
+                borrower,
+                loans,
+                documents,
+                summary: {
+                    totalLoans: loans.length,
+                    activeLoans: loans.filter(l => l.status === 'active').length,
+                    closedLoans: loans.filter(l => l.status === 'closed').length,
+                    defaultedLoans: loans.filter(l => l.status === 'defaulted').length,
+                    principalTotal,
+                    activePrincipal,
+                    scheduledTotal,
+                    paidTotal,
+                    remainingTotal,
+                    overdueAmount,
+                    overdueEmis,
+                    paidEmis,
+                    partialEmis,
+                    pendingEmis,
+                    yearNotSetEmis,
+                    documentCount: documents.length
+                }
+            });
+        }
+
         if (req.method === 'GET' && action === 'single') {
             const id = String(req.query?.id || '');
             if (!id) return res.status(400).json({ error: 'id required' });

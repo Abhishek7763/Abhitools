@@ -64,6 +64,7 @@
         <button class="btn btn-success" onclick="showBorrowerForm()">👤 Add Borrower</button>
         <button class="btn btn-success" onclick="showForm()">➕ Add Loan</button>
         <button class="btn btn-warning" onclick="downloadFullBackup()">💾 Full Backup</button>
+        <button class="btn btn-view" onclick="openBorrowerDirectory()">👥 Borrower Profiles</button>
         <button class="btn btn-view" onclick="openDueCenter('overdue')">⏰ Due Center</button>
         <button class="btn btn-view" onclick="openDataSafetyCenter('import')">📥 Import / Restore</button>
         <button class="btn btn-danger" onclick="logoutAdmin()">🚪 Logout</button>
@@ -192,7 +193,10 @@
                     <button class="btn btn-secondary" onclick="goBackToFolders()">🔙 Back</button>
                     <button class="btn btn-warning" onclick="printStatement()">🖨️ Print</button>
                 </div>
-                <button class="btn btn-success" onclick="showForm()">➕ Add Loan</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-view" onclick="openBorrowerProfileByName(currentOpenFolder)">👤 Profile</button>
+                    <button class="btn btn-success" onclick="showForm()">➕ Add Loan</button>
+                </div>
             </div>
             <h3 id="currentFolderName" style="text-align:center;color:#ea4335;margin:15px 0;"></h3>
             <div id="loanList"></div>
@@ -329,6 +333,72 @@
                 </div>
                 <div id="backupHistoryList" class="backup-history-list"></div>
             </section>
+        </div>
+    </div>
+
+
+
+
+
+    <!-- Phase 4: Borrower Directory -->
+    <div id="borrowerDirectoryModal" class="profile-overlay no-print" style="display:none;" onclick="handleDirectoryOverlayClick(event)">
+        <div class="profile-card profile-directory-card" role="dialog" aria-modal="true" aria-labelledby="borrowerDirectoryTitle">
+            <div class="profile-header">
+                <div>
+                    <h3 id="borrowerDirectoryTitle">👥 Borrower Profiles</h3>
+                    <small>Borrower select karke complete account profile dekhein.</small>
+                </div>
+                <button class="btn btn-danger profile-close" onclick="closeBorrowerDirectory()" aria-label="Close">✕</button>
+            </div>
+            <input id="profileDirectorySearch" class="profile-directory-search" type="search" placeholder="Naam ya phone search..." oninput="renderBorrowerDirectory(this.value)">
+            <div id="borrowerDirectoryList" class="profile-directory-list"></div>
+        </div>
+    </div>
+
+    <!-- Phase 4: Advanced Borrower Profile -->
+    <div id="borrowerProfileModal" class="profile-overlay no-print" style="display:none;" onclick="handleProfileOverlayClick(event)">
+        <div class="profile-card" role="dialog" aria-modal="true" aria-labelledby="borrowerProfileTitle">
+            <div class="profile-header">
+                <div class="profile-identity">
+                    <div id="profileAvatar" class="profile-avatar">👤</div>
+                    <div>
+                        <h3 id="borrowerProfileTitle">Borrower Profile</h3>
+                        <small id="profileSubtitle">Loading...</small>
+                    </div>
+                </div>
+                <button class="btn btn-danger profile-close" onclick="closeBorrowerProfile()" aria-label="Close">✕</button>
+            </div>
+
+            <div id="profileLoading" class="profile-loading">Loading borrower profile...</div>
+            <div id="profileContent" style="display:none;">
+                <div id="profileSummaryGrid" class="profile-summary-grid"></div>
+
+                <div class="profile-section">
+                    <div class="profile-section-head">
+                        <h4>👤 Personal Details</h4>
+                        <button class="btn btn-warning" onclick="editCurrentBorrowerProfile()">✏️ Edit Details</button>
+                    </div>
+                    <div id="profilePersonalDetails" class="profile-details-grid"></div>
+                    <div id="profileContactActions" class="profile-actions"></div>
+                </div>
+
+                <div class="profile-section">
+                    <div class="profile-section-head">
+                        <h4>💳 Loan & EMI History</h4>
+                        <button class="btn btn-success" onclick="addLoanFromProfile()">➕ Add Loan</button>
+                    </div>
+                    <div id="profileLoanHistory" class="profile-loan-list"></div>
+                </div>
+
+                <div class="profile-section">
+                    <div class="profile-section-head">
+                        <h4>📎 Documents</h4>
+                        <span id="profileDocumentCount" class="profile-chip">0 files</span>
+                    </div>
+                    <div id="profileDocumentsPreview" class="profile-docs-preview"></div>
+                    <small class="profile-muted">Full document upload/management Phase 5 me add hoga. Existing document metadata yahan visible rahega.</small>
+                </div>
+            </div>
         </div>
     </div>
 
