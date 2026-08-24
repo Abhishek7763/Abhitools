@@ -72,6 +72,8 @@ let calendarSelectedDate = null;
 let reportsCenterData = null;
 let reportsAllDates = false;
 let reportsPeriod = '12m';
+let reminderCenterData = null;
+let reminderBucket = 'all';
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -123,6 +125,7 @@ async function loadAllData() {
         renderFolders();
         if (currentTab === 'month') renderMonthFolders();
         if (currentOpenFolder) openFolder(currentOpenFolder);
+        refreshReminderBadge(true).catch(err => console.warn('Reminder badge refresh failed:', err));
 
         if (badge) badge.innerHTML = `Updated! ✅🥰`;
         setTimeout(() => {
@@ -2728,6 +2731,290 @@ function printSettlementCertificate() {
         <div class="summary"><div class="metric"><small>Remaining Before</small><strong>${phase6Money(st.scheduled_remaining_before)}</strong></div><div class="metric"><small>Final Payment</small><strong>${phase6Money(st.final_payment_amount)}</strong></div><div class="metric"><small>Waived / Adjusted</small><strong>${phase6Money(st.waived_amount)}</strong></div><div class="metric"><small>Account Remaining</small><strong>₹0</strong></div></div>
         ${st.notes ? `<h2>Settlement Note</h2><div class="box">${escapeHtml(st.notes)}</div>` : ''}
         <p class="note">This receipt records the settlement/closing entry stored in AbhiTools. Reopening this settlement reverses settlement-generated closing payment entries and restores the loan to Active status while retaining this audit record.</p>`);
+}
+
+
+// ==========================================
+// PHASE 17 - NOTIFICATION & REMINDER CENTER
+// ==========================================
+function reminderMoney(value) {
+    return `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
+}
+
+function reminderDate(value) {
+    if (!value) return '-';
+    const d = new Date(`${String(value).slice(0,10)}T00:00:00Z`);
+    return Number.isNaN(d.getTime()) ? String(value).slice(0,10) : d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' });
+}
+
+function reminderContactTime(value) {
+    if (!value) return '';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' });
+}
+
+function reminderSetText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function updateReminderAlertButton() {
+    const btn = document.getElementById('reminderBrowserAlertBtn');
+    if (!btn) return;
+    const enabled = localStorage.getItem('abhi_reminder_browser_alerts') === 'yes' && typeof Notification !== 'undefined' && Notification.permission === 'granted';
+    btn.textContent = enabled ? '🔔 Browser Alerts On' : '🔕 Browser Alerts';
+    btn.classList.toggle('btn-success', enabled);
+    btn.classList.toggle('btn-secondary', !enabled);
+}
+
+function updateReminderHomeState(data) {
+    const summary = data?.summary || {};
+    const count = Number(summary.uncontactedToday || 0);
+    const badge = document.getElementById('reminderActionBadge');
+    if (badge) {
+        badge.textContent = String(count);
+        badge.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+    const btn = document.getElementById('reminderCenterBtn');
+    if (btn) btn.title = count > 0 ? `${count} reminder action pending` : 'Reminder queue clear';
+}
+
+async function maybeShowReminderBrowserAlert(data, force = false) {
+    if (localStorage.getItem('abhi_reminder_browser_alerts') !== 'yes') return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    const summary = data?.summary || {};
+    const urgent = (data?.items || []).filter(x => !x.contacted_today && (x.bucket === 'overdue' || x.bucket === 'today'));
+    if (!urgent.length) return;
+    const today = data?.businessDate || '';
+    const fingerprint = `${today}:${urgent.length}:${urgent.reduce((a,x)=>a+Number(x.remaining||0),0)}`;
+    if (!force && localStorage.getItem('abhi_reminder_last_alert') === fingerprint) return;
+    try {
+        const registration = await navigator.serviceWorker?.ready;
+        if (!registration) return;
+        await registration.showNotification('AbhiTools • Collection Reminder', {
+            body: `${urgent.length} urgent EMI • ${reminderMoney(urgent.reduce((a,x)=>a+Number(x.remaining||0),0))} follow-up pending`,
+            icon: '/icon-192.png',
+            badge: '/icon-192.png',
+            tag: `abhi-reminders-${today}`,
+            renotify: false,
+            data: { url: '/admin.html' }
+        });
+        localStorage.setItem('abhi_reminder_last_alert', fingerprint);
+    } catch (err) {
+        console.warn('Browser reminder notification failed:', err);
+    }
+}
+
+async function enableReminderBrowserAlerts() {
+    if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+        alert('Is browser/device me notification support available nahi hai.');
+        return;
+    }
+    if (Notification.permission === 'denied') {
+        alert('Browser notification permission blocked hai. Browser/site settings se allow karna hoga.');
+        return;
+    }
+    const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
+    if (permission === 'granted') {
+        localStorage.setItem('abhi_reminder_browser_alerts', 'yes');
+        updateReminderAlertButton();
+        if (reminderCenterData) await maybeShowReminderBrowserAlert(reminderCenterData, true);
+        alert('✅ Browser alerts enabled. App open/refresh hone par urgent reminder summary dikh sakti hai.');
+    } else {
+        localStorage.removeItem('abhi_reminder_browser_alerts');
+        updateReminderAlertButton();
+    }
+}
+
+function openReminderCenter() {
+    const modal = document.getElementById('reminderCenterModal');
+    if (!modal) return;
+    reminderBucket = 'all';
+    const search = document.getElementById('reminderSearch');
+    if (search) search.value = '';
+    const hide = document.getElementById('reminderHideContacted');
+    if (hide) hide.checked = true;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    updateReminderAlertButton();
+    refreshReminderCenter();
+}
+
+function closeReminderCenter() {
+    const modal = document.getElementById('reminderCenterModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleReminderOverlayClick(event) {
+    if (event?.target?.id === 'reminderCenterModal') closeReminderCenter();
+}
+
+function setReminderBucket(bucket, button = null) {
+    reminderBucket = bucket || 'all';
+    document.querySelectorAll('#reminderBuckets .reminder-bucket').forEach(btn => btn.classList.toggle('active', btn.dataset.bucket === reminderBucket));
+    if (button?.classList?.contains('reminder-bucket')) button.classList.add('active');
+    if (reminderBucket === 'contacted') {
+        const hide = document.getElementById('reminderHideContacted');
+        if (hide) hide.checked = false;
+    }
+    renderReminderList();
+}
+
+function reminderDueText(item) {
+    if (item.bucket === 'overdue') return `${Number(item.days_from_due || 0)} day late`;
+    if (item.bucket === 'today') return 'Due today';
+    if (item.bucket === 'tomorrow') return 'Due tomorrow';
+    const days = Math.abs(Number(item.days_from_due || 0));
+    return `Due in ${days} day${days === 1 ? '' : 's'}`;
+}
+
+function reminderPriorityMeta(item) {
+    if (item.bucket === 'overdue') return ['critical','🔴 Overdue'];
+    if (item.bucket === 'today') return ['high','🟠 Today'];
+    if (item.bucket === 'tomorrow') return ['medium','🟡 Tomorrow'];
+    return [item.partial ? 'medium' : 'normal', item.partial ? '🌓 Partial' : '🟢 Upcoming'];
+}
+
+function reminderFilteredItems() {
+    let rows = Array.isArray(reminderCenterData?.items) ? [...reminderCenterData.items] : [];
+    const q = String(document.getElementById('reminderSearch')?.value || '').trim().toLowerCase();
+    const hideContacted = Boolean(document.getElementById('reminderHideContacted')?.checked);
+    if (reminderBucket === 'overdue' || reminderBucket === 'today' || reminderBucket === 'tomorrow') rows = rows.filter(x => x.bucket === reminderBucket);
+    else if (reminderBucket === 'next7') rows = rows.filter(x => x.bucket !== 'overdue');
+    else if (reminderBucket === 'partial') rows = rows.filter(x => x.partial);
+    else if (reminderBucket === 'uncontacted') rows = rows.filter(x => !x.contacted_today);
+    else if (reminderBucket === 'contacted') rows = rows.filter(x => x.contacted_today);
+    if (hideContacted && reminderBucket !== 'contacted') rows = rows.filter(x => !x.contacted_today);
+    if (q) rows = rows.filter(x => [x.borrower_name,x.loan_code,x.installment_number,x.phone,x.whatsapp].map(v => String(v ?? '').toLowerCase()).join(' ').includes(q));
+    return rows;
+}
+
+function renderReminderItem(item) {
+    const [tone, label] = reminderPriorityMeta(item);
+    const phone = String(item.whatsapp || item.phone || '').replace(/[^0-9+]/g, '');
+    const contacted = item.contacted_today ? `<span class="reminder-contacted">✅ Contacted ${escapeHtml(reminderContactTime(item.contacted_at))}${item.contacted_channel ? ` • ${escapeHtml(item.contacted_channel)}` : ''}</span>` : '';
+    return `<article class="reminder-item ${tone} ${item.contacted_today ? 'is-contacted' : ''}">
+        <div class="reminder-priority"><span>${escapeHtml(label)}</span><small>${escapeHtml(reminderDueText(item))}</small></div>
+        <div class="reminder-main">
+            <div class="reminder-title"><strong>${escapeHtml(item.borrower_name || 'Unknown')}</strong><span>EMI #${Number(item.installment_number || 0)}</span>${contacted}</div>
+            <div class="reminder-meta">${escapeHtml(item.loan_code || 'Loan')} • Due ${escapeHtml(reminderDate(item.due_date))}${item.partial ? ' • Partial payment' : ''}${!item.has_contact ? ' • ⚠️ Contact missing' : ''}</div>
+            <div class="reminder-money"><span>Scheduled <b>${reminderMoney(item.amount)}</b></span><span>Paid <b>${reminderMoney(item.paid_amount)}</b></span><span>Remaining <b>${reminderMoney(item.remaining)}</b></span></div>
+        </div>
+        <div class="reminder-actions">
+            <button class="btn btn-view" onclick="reminderOpenProfile('${item.borrower_id || ''}')">👤 Profile</button>
+            <button class="btn btn-success" onclick="reminderOpenPayment('${item.emi_id}')">💰 Pay</button>
+            <button class="btn btn-success" ${item.has_contact ? '' : 'disabled'} onclick="reminderOpenWhatsApp('${item.emi_id}','${item.bucket}')">💬 WhatsApp</button>
+            <button class="btn btn-secondary" ${phone ? '' : 'disabled'} onclick="reminderCall('${escapeHtml(phone)}')">📞 Call</button>
+            <button class="btn btn-warning" ${item.contacted_today ? 'disabled' : ''} onclick="markReminderContacted('${item.emi_id}')">${item.contacted_today ? '✅ Done Today' : '✓ Mark Contacted'}</button>
+        </div>
+    </article>`;
+}
+
+function renderReminderList() {
+    const list = document.getElementById('reminderList');
+    if (!list) return;
+    const rows = reminderFilteredItems();
+    list.innerHTML = rows.length ? rows.map(renderReminderItem).join('') : `<div class="reminder-empty">✅ Is filter me koi pending reminder nahi hai.</div>`;
+}
+
+function renderReminderCenter(data) {
+    reminderCenterData = data;
+    const s = data?.summary || {};
+    reminderSetText('reminderCenterMeta', `Business date: ${data?.businessDate || '-'} • ${data?.timezone || 'Asia/Kolkata'} • Contacted status audit-log based`);
+    reminderSetText('reminderActionNow', Number(s.uncontactedToday || 0));
+    reminderSetText('reminderActionAmount', reminderMoney((data?.items || []).filter(x => !x.contacted_today).reduce((a,x)=>a+Number(x.remaining||0),0)));
+    reminderSetText('reminderOverdueCount', Number(s.overdueCount || 0));
+    reminderSetText('reminderOverdueAmount', reminderMoney(s.overdueAmount));
+    reminderSetText('reminderTodayCount', Number(s.todayCount || 0));
+    reminderSetText('reminderTodayAmount', reminderMoney(s.todayAmount));
+    reminderSetText('reminderTomorrowCount', Number(s.tomorrowCount || 0));
+    reminderSetText('reminderTomorrowAmount', reminderMoney(s.tomorrowAmount));
+    reminderSetText('reminderNext7Count', Number(s.next7Count || 0));
+    reminderSetText('reminderNext7Amount', reminderMoney(s.next7Amount));
+    reminderSetText('reminderContactedCount', Number(s.contactedToday || 0));
+
+    const legacy = document.getElementById('reminderLegacyNote');
+    const legacyText = document.getElementById('reminderLegacyText');
+    if (legacy) legacy.style.display = Number(s.yearNotSetCount || 0) > 0 ? 'flex' : 'none';
+    if (legacyText) legacyText.textContent = `${Number(s.yearNotSetCount || 0)} EMI • ${reminderMoney(s.yearNotSetAmount)} remaining. Unknown year/date ko reminder engine intentionally guess nahi karta.`;
+    updateReminderHomeState(data);
+    updateReminderAlertButton();
+    renderReminderList();
+}
+
+async function refreshReminderCenter() {
+    const loading = document.getElementById('reminderLoading');
+    if (loading) { loading.style.display = 'block'; loading.textContent = 'Reminder queue load ho rahi hai...'; }
+    try {
+        const response = await adminFetch('/api/dashboard?mode=reminders');
+        const data = await response.json();
+        renderReminderCenter(data);
+        await maybeShowReminderBrowserAlert(data, false);
+        if (loading) loading.style.display = 'none';
+    } catch (err) {
+        console.error('Reminder Center failed:', err);
+        if (loading) { loading.style.display = 'block'; loading.textContent = `Reminder Center load nahi hua: ${err.message}`; }
+    }
+}
+
+async function refreshReminderBadge(silent = true) {
+    try {
+        const response = await adminFetch('/api/dashboard?mode=reminders');
+        const data = await response.json();
+        reminderCenterData = data;
+        updateReminderHomeState(data);
+        updateReminderAlertButton();
+        await maybeShowReminderBrowserAlert(data, false);
+        return data;
+    } catch (err) {
+        if (!silent) throw err;
+        return null;
+    }
+}
+
+function reminderOpenProfile(borrowerId) {
+    if (!borrowerId) return;
+    closeReminderCenter();
+    openBorrowerProfile(borrowerId);
+}
+
+function reminderOpenPayment(emiId) {
+    closeReminderCenter();
+    openPaymentModal(emiId);
+}
+
+function reminderOpenWhatsApp(emiId, bucket) {
+    const item = (reminderCenterData?.items || []).find(x => x.emi_id === emiId);
+    if (!item) return;
+    closeReminderCenter();
+    openWhatsAppCenter({ borrowerId:item.borrower_id, loanId:item.loan_id, emiId:item.emi_id, template:bucket === 'overdue' ? 'overdue' : 'due' });
+}
+
+function reminderCall(phone) {
+    const safe = String(phone || '').replace(/[^0-9+]/g, '');
+    if (!safe) return alert('Phone number available nahi hai.');
+    window.location.href = `tel:${safe}`;
+}
+
+async function markReminderContacted(emiId) {
+    if (!confirm('Is EMI reminder ko aaj Contacted mark karein? Ye Activity History me audit entry banayega.')) return;
+    try {
+        await adminFetch('/api/dashboard?mode=reminders', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body:JSON.stringify({ action:'contacted', emi_id:emiId, channel:'manual' })
+        });
+        await refreshReminderCenter();
+    } catch (err) {
+        alert(err.message || 'Contacted status save nahi hua.');
+    }
+}
+
+function openReminderLegacySearch() {
+    closeReminderCenter();
+    openAdvancedSearch({ type:'emi', due:'year-not-set' });
 }
 
 

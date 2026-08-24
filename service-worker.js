@@ -1,6 +1,6 @@
-// AbhiTools Phase 16 hardened service worker
+// AbhiTools Phase 17 hardened service worker
 // SECURITY RULE: /api/* responses and authenticated financial data are never cached.
-const CACHE_NAME = 'abhi-tools-shell-p16-v1';
+const CACHE_NAME = 'abhi-tools-shell-p17-v1';
 const SHELL = [
   '/',
   '/index.html',
@@ -66,5 +66,25 @@ self.addEventListener('fetch', event => {
     } catch {
       return (await caches.match(request)) || Response.error();
     }
+  })());
+});
+
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const targetUrl = event.notification?.data?.url || '/admin.html';
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const client of windows) {
+      try {
+        const url = new URL(client.url);
+        if (url.origin === self.location.origin) {
+          await client.focus();
+          if ('navigate' in client) await client.navigate(targetUrl);
+          return;
+        }
+      } catch {}
+    }
+    if (self.clients.openWindow) await self.clients.openWindow(targetUrl);
   })());
 });

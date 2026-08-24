@@ -3,6 +3,7 @@ import calendarHandler from '../server_routes/calendar.js';
 import searchHandler from '../server_routes/search.js';
 import activityHandler from '../server_routes/activity.js';
 import reportsHandler from '../server_routes/reports.js';
+import remindersHandler from '../server_routes/reminders.js';
 
 const TIME_ZONE = 'Asia/Kolkata';
 
@@ -42,6 +43,7 @@ export default async function handler(req, res) {
     if (mode === 'search') return searchHandler(req, res);
     if (mode === 'activity') return activityHandler(req, res);
     if (mode === 'reports') return reportsHandler(req, res);
+    if (mode === 'reminders') return remindersHandler(req, res);
     noStore(res);
     if (!requireAdmin(req, res)) return;
     if (req.method !== 'GET') {

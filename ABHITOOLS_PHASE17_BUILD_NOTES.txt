@@ -1,0 +1,57 @@
+AbhiTools Phase 17 — Notification & Reminder Center
+Build date: 2026-08-24
+Branch: development
+
+WHAT THIS UPDATE ADDS
+- Admin Notification & Reminder Center
+- Daily actionable queue for overdue, today, tomorrow and next 7 days
+- Partial-payment follow-up visibility
+- Priority sorting by overdue age and remaining amount
+- Borrower / Loan ID / EMI search inside reminder center
+- Hide/show reminders already contacted today
+- Quick Profile, Pay, WhatsApp and Call actions
+- Explicit "Mark Contacted" action (never assumes WhatsApp was sent)
+- Contacted actions are written to activity_log as CONTACT_REMINDER
+- Phase 13 Activity History includes a Reminders category
+- Browser alert opt-in for urgent overdue/today summary when app opens/refreshes
+- Service worker notification click opens the secure admin app
+- Legacy year/date missing EMIs are never guessed; they are shown as a data-quality warning with a direct Year-Not-Set Search shortcut
+
+SECURITY / PLATFORM
+- No new Vercel serverless function. Reminder backend is /api/dashboard?mode=reminders.
+- Vercel function count stays 12.
+- No Supabase migration required.
+- No new environment variable required.
+- Service worker still never caches /api/* responses or authenticated financial data.
+- Browser notification body contains aggregate counts/amount only, not borrower names.
+
+TESTS PASSED
+- Reminder API mock smoke: overdue/today/tomorrow/7-day classification
+- Partial remaining calculation
+- Closed-loan exclusion
+- >7-day exclusion
+- Legacy year-not-set safe skip
+- Contacted-today audit detection
+- POST mark contacted + activity log
+- Invalid contact channel = 400
+- Unauthorized = 401
+- All project JS node --check
+- HTML duplicate IDs = none
+- Phase 17 inline handlers = present
+- git diff --check
+- secret/legacy token scan clean
+- API function count = 12
+
+GITHUB UPDATE FILES
+admin.html
+admin_script.js
+style.css
+api/dashboard.js
+server_routes/activity.js
+server_routes/reminders.js (NEW)
+service-worker.js
+ABHITOOLS_PHASE17_BUILD_NOTES.txt
+
+IMPORTANT
+Do not re-add old deleted API files api/activity.js, api/calendar.js or api/search.js.
+Upload server_routes/reminders.js as a new file/folder entry.
