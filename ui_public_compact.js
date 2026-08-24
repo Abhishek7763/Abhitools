@@ -440,4 +440,107 @@
     injectStyles();
     document.body.classList.add('public-compact-ready');
     if (typeof currentOpenFolder !== 'undefined' && currentOpenFolder) window.renderLoanList(currentOpenFolder);
+
+    // Build 5.1 clarity: verified due figures must not make incomplete legacy schedules look like zero obligations.
+    function publicIncompleteScheduleSummary() {
+        let incompleteCount = 0;
+        let incompleteAmount = 0;
+        let currentMonthIncompleteCount = 0;
+        let currentMonthIncompleteAmount = 0;
+
+        const businessDate = String(window.publicDueData?.businessDate || '').slice(0, 10);
+        let currentMonth = '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) {
+            currentMonth = new Date(`${businessDate}T00:00:00Z`)
+                .toLocaleString('en-US', { month:'short', timeZone:'UTC' })
+                .toUpperCase();
+        }
+
+        for (const loan of (window.loans || [])) {
+            if (loan?.status && loan.status !== 'active') continue;
+            for (const emi of (loan?.emis || [])) {
+                const amount = Math.max(0, Number(emi?.amount) || 0);
+                const paid = typeof window.publicEmiPaid === 'function'
+                    ? window.publicEmiPaid(emi)
+                    : Math.min(Math.max(Number(emi?.paid_amount) || 0, 0), amount);
+                const remaining = Math.max(amount - paid, 0);
+                if (remaining <= 0) continue;
+
+                const due = String(emi?.due_date || '').slice(0, 10);
+                const incomplete = !emi?.due_year || !/^\d{4}-\d{2}-\d{2}$/.test(due);
+                if (!incomplete) continue;
+
+                incompleteCount += 1;
+                incompleteAmount += remaining;
+
+                if (currentMonth && String(emi?.due_month || '').toUpperCase() === currentMonth) {
+                    currentMonthIncompleteCount += 1;
+                    currentMonthIncompleteAmount += remaining;
+                }
+            }
+        }
+
+        return {
+            currentMonth,
+            incompleteCount,
+            incompleteAmount,
+            currentMonthIncompleteCount,
+            currentMonthIncompleteAmount
+        };
+    }
+
+    function renderPublicDueClarity() {
+        const dashboard = document.getElementById('dashboard');
+        if (!dashboard) return;
+
+        const summary = publicIncompleteScheduleSummary();
+        const dueLabel = document.getElementById('dueThisMonthLabel');
+        if (dueLabel) dueLabel.textContent = summary.currentMonth
+            ? `Verified Due in ${summary.currentMonth}`
+            : 'Verified Due This Month';
+
+        const overdueBox = document.getElementById('publicOverdueSum')?.closest('.dash-box');
+        const overdueHeading = overdueBox?.querySelector('h4');
+        if (overdueHeading) overdueHeading.textContent = 'Verified Overdue';
+
+        let banner = document.getElementById('publicDateIncompleteBanner');
+        if (!banner) {
+            banner = document.createElement('div');
+            banner.id = 'publicDateIncompleteBanner';
+            banner.className = 'no-print';
+            dashboard.insertAdjacentElement('afterend', banner);
+        }
+
+        if (!summary.incompleteCount) {
+            banner.style.display = 'none';
+            return;
+        }
+
+        banner.style.display = 'block';
+        banner.innerHTML = `
+            <div class="public-dq-main">
+                <strong>🧩 Date incomplete: ${summary.incompleteCount} EMI • ${money(summary.incompleteAmount)} remaining</strong>
+                <span>Missing year/date wali EMI verified Due/Overdue totals me count nahi hoti.</span>
+            </div>
+            ${summary.currentMonthIncompleteCount ? `
+                <div class="public-dq-month">
+                    <b>${esc(summary.currentMonth)} schedule without year</b>
+                    <span>${summary.currentMonthIncompleteCount} EMI • ${money(summary.currentMonthIncompleteAmount)}</span>
+                </div>
+            ` : ''}
+        `;
+    }
+
+    const legacyUpdateDashboard = window.updateDashboard;
+    if (typeof legacyUpdateDashboard === 'function') {
+        window.updateDashboard = function(...args) {
+            const result = legacyUpdateDashboard.apply(this, args);
+            try { renderPublicDueClarity(); } catch (error) { console.warn('Due clarity UI failed:', error); }
+            return result;
+        };
+    }
+    setTimeout(() => {
+        try { renderPublicDueClarity(); } catch {}
+    }, 0);
+
 })();
