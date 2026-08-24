@@ -6,6 +6,7 @@ import reportsHandler from '../server_routes/reports.js';
 import remindersHandler from '../server_routes/reminders.js';
 import dataQualityHandler from '../server_routes/data_quality.js';
 import homeHandler from '../server_routes/home.js';
+import riskHandler from '../server_routes/risk.js';
 
 const TIME_ZONE = 'Asia/Kolkata';
 
@@ -48,6 +49,7 @@ export default async function handler(req, res) {
     if (mode === 'reminders') return remindersHandler(req, res);
     if (mode === 'data-quality') return dataQualityHandler(req, res);
     if (mode === 'home') return homeHandler(req, res);
+    if (mode === 'risk') return riskHandler(req, res);
     noStore(res);
     if (!requireAdmin(req, res)) return;
     if (req.method !== 'GET') {

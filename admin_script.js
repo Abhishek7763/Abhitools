@@ -75,6 +75,7 @@ let reportsPeriod = '12m';
 let reminderCenterData = null;
 let reminderBucket = 'all';
 let homeCommandData = null;
+let collectionInsightsData = null;
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -2978,7 +2979,7 @@ async function enableReminderBrowserAlerts() {
     }
 }
 
-function openReminderCenter(initialBucket = 'all') {
+async function openReminderCenter(initialBucket = 'all') {
     const modal = document.getElementById('reminderCenterModal');
     if (!modal) return;
     reminderBucket = initialBucket || 'all';
@@ -2990,7 +2991,7 @@ function openReminderCenter(initialBucket = 'all') {
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
     updateReminderAlertButton();
-    refreshReminderCenter();
+    return refreshReminderCenter();
 }
 
 function closeReminderCenter() {
@@ -4092,5 +4093,230 @@ async function applyDataQualityReview() {
         alert(`Cleanup apply nahi hua: ${err.message}`);
     } finally {
         if (applyBtn) { applyBtn.textContent = '✅ Apply Reviewed Cleanup'; updateDataQualityPreview(); }
+    }
+}
+
+
+// ==========================================
+// PHASE 20 - COLLECTION PRIORITY & ACCOUNT HEALTH INSIGHTS
+// Operational collection support only; not a credit score or lending eligibility tool.
+// ==========================================
+function ciMoney(value) {
+    return `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
+}
+
+function ciSetText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function ciTierMeta(tier) {
+    return ({
+        critical: { label:'Critical', icon:'🔴', className:'critical' },
+        high: { label:'High', icon:'🟠', className:'high' },
+        watch: { label:'Watch', icon:'🟡', className:'watch' },
+        current: { label:'Current', icon:'🟢', className:'current' },
+        data_incomplete: { label:'Data Incomplete', icon:'🧩', className:'incomplete' }
+    })[tier] || { label:'Current', icon:'🟢', className:'current' };
+}
+
+function ciConfidenceLabel(value) {
+    return ({ high:'High confidence', medium:'Medium confidence', low:'Low confidence' })[value] || 'Low confidence';
+}
+
+function ciContactTime(value) {
+    if (!value) return 'No contact logged in last 30 days';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return 'Contact logged';
+    return `Last contact ${d.toLocaleString('en-IN', { timeZone:'Asia/Kolkata', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true })}`;
+}
+
+function openCollectionInsights(initialTier = 'all') {
+    const modal = document.getElementById('collectionInsightsModal');
+    if (!modal) return;
+    const tier = document.getElementById('ciTier');
+    const search = document.getElementById('ciSearch');
+    const sort = document.getElementById('ciSort');
+    if (tier) tier.value = initialTier || 'all';
+    if (search) search.value = '';
+    if (sort) sort.value = 'priority';
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    refreshCollectionInsights();
+}
+
+function closeCollectionInsights() {
+    const modal = document.getElementById('collectionInsightsModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleCollectionInsightsOverlayClick(event) {
+    if (event?.target?.id === 'collectionInsightsModal') closeCollectionInsights();
+}
+
+function setCollectionInsightsTier(tier) {
+    const select = document.getElementById('ciTier');
+    if (select) select.value = tier || 'all';
+    renderCollectionInsightsList();
+}
+
+async function refreshCollectionInsights() {
+    const loading = document.getElementById('ciLoading');
+    const content = document.getElementById('ciContent');
+    if (loading) { loading.style.display = 'block'; loading.textContent = 'Collection insights calculate ho rahe hain...'; }
+    if (content) content.style.display = 'none';
+    try {
+        const response = await adminFetch('/api/dashboard?mode=risk');
+        const data = await response.json();
+        collectionInsightsData = data;
+        renderCollectionInsights(data);
+        if (content) content.style.display = 'block';
+        if (loading) loading.style.display = 'none';
+        return data;
+    } catch (err) {
+        if (loading) { loading.style.display = 'block'; loading.textContent = `❌ ${err.message || 'Collection insights load nahi hue.'}`; }
+        throw err;
+    }
+}
+
+function renderCollectionInsights(data) {
+    const s = data?.summary || {};
+    const c = data?.concentration || {};
+    ciSetText('ciMeta', `${data?.businessDate || '-'} • ${data?.timezone || 'Asia/Kolkata'} • Operational collection view • Not a credit score`);
+    ciSetText('ciCritical', Number(s.critical || 0));
+    ciSetText('ciHigh', Number(s.high || 0));
+    ciSetText('ciWatch', Number(s.watch || 0));
+    ciSetText('ciCurrent', Number(s.current || 0));
+    ciSetText('ciIncomplete', Number(s.dataIncomplete || 0));
+    ciSetText('ciOutstanding', ciMoney(s.totalOutstanding));
+    ciSetText('ciOverdueAmount', `${ciMoney(s.totalOverdue)} overdue`);
+    ciSetText('ciTopExposure', `${Number(c.topBorrowerShare || 0).toLocaleString('en-IN')}%`);
+    ciSetText('ciTopExposureName', c.topBorrowerName ? `${c.topBorrowerName} • ${ciMoney(c.topBorrowerOutstanding)}` : 'No outstanding');
+    ciSetText('ciTop3Share', `${Number(c.top3Share || 0).toLocaleString('en-IN')}%`);
+    ciSetText('ciDataCompleteness', `${Number(s.dataCompleteness || 0).toLocaleString('en-IN')}%`);
+    ciSetText('ciDataCoverageText', `${Number(s.datedEmis || 0)} / ${Number(s.totalEmis || 0)} EMI dated`);
+    ciSetText('ciLateRate', `${Number(s.latePaymentRate || 0).toLocaleString('en-IN')}%`);
+    ciSetText('ciLatePaidText', `${Number(s.latePaidEmis || 0)} late of ${Number(s.paidDatedEmis || 0)} dated paid EMI`);
+    ciSetText('ciMissingContact', Number(s.missingContactBorrowers || 0));
+
+    const warning = document.getElementById('ciDataWarning');
+    if (warning) {
+        const incomplete = Number(s.dataIncomplete || 0);
+        const missing = Number(s.missingDates || 0);
+        warning.style.display = (incomplete || missing) ? 'flex' : 'none';
+        warning.innerHTML = (incomplete || missing)
+            ? `<div><strong>🧩 Data-quality guard active</strong><span>${missing.toLocaleString('en-IN')} EMI due date(s) missing. ${incomplete.toLocaleString('en-IN')} borrower(s) ko false priority score dene ke bajay Data Incomplete dikhaya gaya hai.</span></div><button class="btn btn-view" onclick="ciOpenDataQuality()">Review Dates →</button>`
+            : '';
+    }
+    renderCollectionInsightsList();
+}
+
+function collectionInsightsFilteredRows() {
+    let rows = Array.isArray(collectionInsightsData?.borrowers) ? [...collectionInsightsData.borrowers] : [];
+    const q = String(document.getElementById('ciSearch')?.value || '').trim().toLowerCase();
+    const tier = String(document.getElementById('ciTier')?.value || 'all');
+    const sort = String(document.getElementById('ciSort')?.value || 'priority');
+    if (tier !== 'all') rows = rows.filter(x => x.tier === tier);
+    if (q) rows = rows.filter(x => [x.name, x.phone, x.whatsapp].map(v => String(v || '').toLowerCase()).join(' ').includes(q));
+
+    const priorityOrder = { critical:5, high:4, watch:3, data_incomplete:2, current:1 };
+    if (sort === 'outstanding') rows.sort((a,b) => Number(b.outstanding||0)-Number(a.outstanding||0));
+    else if (sort === 'overdue') rows.sort((a,b) => Number(b.overdue_amount||0)-Number(a.overdue_amount||0) || Number(b.max_days_overdue||0)-Number(a.max_days_overdue||0));
+    else if (sort === 'recovery') rows.sort((a,b) => Number(a.recovery_rate||0)-Number(b.recovery_rate||0));
+    else if (sort === 'completeness') rows.sort((a,b) => Number(a.data_completeness||0)-Number(b.data_completeness||0));
+    else rows.sort((a,b) => (priorityOrder[b.tier]||0)-(priorityOrder[a.tier]||0) || Number(b.priority_score??-1)-Number(a.priority_score??-1) || Number(b.outstanding||0)-Number(a.outstanding||0));
+    return rows;
+}
+
+function renderCollectionInsightsList() {
+    const list = document.getElementById('ciList');
+    if (!list) return;
+    const rows = collectionInsightsFilteredRows();
+    if (!rows.length) {
+        list.innerHTML = '<div class="ci-empty">Is filter me koi borrower nahi mila.</div>';
+        return;
+    }
+    list.innerHTML = rows.map(item => {
+        const tier = ciTierMeta(item.tier);
+        const score = item.priority_score === null || item.priority_score === undefined ? '—' : Number(item.priority_score);
+        const reasons = (item.reasons || []).slice(0, 4).map(r => `<span>${escapeHtml(r)}</span>`).join('');
+        const contactDigits = String(item.phone || item.whatsapp || '').replace(/\D/g, '');
+        const dataIncomplete = item.tier === 'data_incomplete';
+        return `<article class="ci-item ${tier.className}">
+            <div class="ci-item-head">
+                <div class="ci-person"><div><strong>${escapeHtml(item.name || 'Unknown Borrower')}</strong><span class="ci-tier ${tier.className}">${tier.icon} ${tier.label}</span></div><small>${Number(item.active_loan_count||0)} active / ${Number(item.loan_count||0)} total loans • ${item.has_contact ? 'Contact available' : '⚠️ Contact missing'}</small></div>
+                <div class="ci-score ${tier.className}"><small>Priority</small><strong>${score}</strong><span>${dataIncomplete ? 'Score suppressed' : ciConfidenceLabel(item.confidence)}</span></div>
+            </div>
+            <div class="ci-metrics">
+                <div><small>Outstanding</small><strong>${ciMoney(item.outstanding)}</strong></div>
+                <div><small>Overdue</small><strong>${ciMoney(item.overdue_amount)}</strong><span>${Number(item.overdue_count||0)} EMI</span></div>
+                <div><small>Max Overdue</small><strong>${Number(item.max_days_overdue||0)}d</strong></div>
+                <div><small>Partial</small><strong>${Number(item.partial_count||0)}</strong></div>
+                <div><small>Recovery</small><strong>${Number(item.recovery_rate||0).toLocaleString('en-IN')}%</strong></div>
+                <div><small>Data Coverage</small><strong>${Number(item.data_completeness||0)}%</strong><span>${Number(item.missing_date_count||0)} missing</span></div>
+            </div>
+            <div class="ci-reasons">${reasons || '<span>No observed collection exception</span>'}</div>
+            <div class="ci-followup"><span>🔔 ${Number(item.contact_attempts_30d||0)} contact attempt(s) in 30 days</span><small>${escapeHtml(ciContactTime(item.last_contact_at))}</small></div>
+            <div class="ci-actions">
+                <button class="btn btn-view" onclick="ciOpenBorrower('${escapeHtml(item.id)}')">👤 Profile</button>
+                <button class="btn btn-warning" onclick="ciOpenReminders('${escapeHtml(item.id)}')">🔔 Reminders</button>
+                <button class="btn btn-success" ${item.has_contact ? '' : 'disabled'} onclick="ciOpenWhatsApp('${escapeHtml(item.id)}')">💬 WhatsApp</button>
+                <button class="btn btn-secondary" ${contactDigits ? '' : 'disabled'} onclick="ciCall('${escapeHtml(contactDigits)}')">📞 Call</button>
+                ${dataIncomplete ? '<button class="btn btn-view" onclick="ciOpenDataQuality()">🧩 Fix Dates</button>' : ''}
+            </div>
+        </article>`;
+    }).join('');
+}
+
+async function ciOpenBorrower(id) {
+    closeCollectionInsights();
+    await openBorrowerProfile(id);
+}
+
+function ciBorrowerById(id) {
+    return (collectionInsightsData?.borrowers || []).find(x => x.id === id) || null;
+}
+
+async function ciOpenReminders(id) {
+    const item = ciBorrowerById(id);
+    closeCollectionInsights();
+    try {
+        await openReminderCenter('all');
+        const search = document.getElementById('reminderSearch');
+        if (search && item?.name) search.value = item.name;
+        renderReminderList();
+    } catch {}
+}
+
+function ciOpenWhatsApp(id) {
+    closeCollectionInsights();
+    openWhatsAppCenter({ borrowerId:id, template:'due' });
+}
+
+function ciCall(phone) {
+    const digits = String(phone || '').replace(/\D/g, '');
+    if (!digits) return;
+    window.location.href = `tel:${digits}`;
+}
+
+function ciOpenDataQuality() {
+    closeCollectionInsights();
+    openDataQualityCenter('dates');
+}
+
+async function exportCollectionInsightsCsv() {
+    try {
+        const response = await adminFetch('/api/dashboard?mode=risk&format=csv');
+        const blob = await response.blob();
+        const disposition = response.headers.get('content-disposition') || '';
+        const match = disposition.match(/filename="?([^";]+)"?/i);
+        const filename = match?.[1] || `AbhiTools_Collection_Insights.csv`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+        alert(err.message || 'Collection insights CSV export nahi hua.');
     }
 }

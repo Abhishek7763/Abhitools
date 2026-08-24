@@ -130,6 +130,7 @@
                 <button onclick="openCollectionCalendar()">🗓️<span>Calendar</span></button>
                 <button onclick="openWhatsAppCenter()">💬<span>WhatsApp</span></button>
                 <button onclick="openReportsCenter()">📈<span>Reports</span></button>
+                <button onclick="openCollectionInsights()">🎯<span>Insights</span></button>
                 <button onclick="downloadFullBackup()">💾<span>Backup</span></button>
             </div>
         </div>
@@ -152,6 +153,7 @@
         <button class="btn btn-secondary" onclick="openRecycleBin()">♻️ Recycle Bin</button>
         <button class="btn btn-view" onclick="openActivityHistory()">🕘 Activity History</button>
         <button class="btn btn-view" onclick="openReportsCenter()">📈 Reports & Analytics</button>
+        <button class="btn btn-warning" onclick="openCollectionInsights()">🎯 Collection Insights</button>
         <button class="btn btn-danger" onclick="logoutAdmin()">🚪 Logout</button>
     </div>
 
@@ -1009,6 +1011,69 @@
             <div id="dqLoading" class="dq-loading">Data quality audit load ho raha hai...</div>
             <div id="dqList" class="dq-list"></div>
             <div class="dq-footnote">Apply ke pehle automatic full database snapshot create hota hai. Successful cleanup Activity History me <b>LEGACY_DATE_CLEANUP</b> ke naam se record hota hai.</div>
+        </div>
+    </div>
+
+
+    <!-- Phase 20: Collection Priority & Account Health Insights -->
+    <div id="collectionInsightsModal" class="ci-overlay no-print" style="display:none;" onclick="handleCollectionInsightsOverlayClick(event)">
+        <div class="ci-card" role="dialog" aria-modal="true" aria-labelledby="collectionInsightsTitle">
+            <div class="ci-header">
+                <div>
+                    <h3 id="collectionInsightsTitle">🎯 Collection Priority & Account Health Insights</h3>
+                    <small id="ciMeta">Operational collection view • Not a credit score</small>
+                </div>
+                <div class="ci-head-actions">
+                    <button class="btn btn-view" onclick="exportCollectionInsightsCsv()">⬇️ CSV</button>
+                    <button class="btn btn-secondary" onclick="refreshCollectionInsights()">🔄 Refresh</button>
+                    <button class="btn btn-danger" onclick="closeCollectionInsights()" aria-label="Close">✕</button>
+                </div>
+            </div>
+
+            <div class="ci-safety"><strong>Important:</strong> Ye screen sirf existing repayment, due, partial-payment, reminder-contact aur data-completeness records ko collection workflow ke liye summarize karti hai. Isse automated loan approval, rejection, pricing ya eligibility decide nahi karni chahiye.</div>
+
+            <div class="ci-summary">
+                <button onclick="setCollectionInsightsTier('critical')"><small>Critical</small><strong id="ciCritical">0</strong><span>Highest follow-up</span></button>
+                <button onclick="setCollectionInsightsTier('high')"><small>High</small><strong id="ciHigh">0</strong><span>Collection attention</span></button>
+                <button onclick="setCollectionInsightsTier('watch')"><small>Watch</small><strong id="ciWatch">0</strong><span>Monitor</span></button>
+                <button onclick="setCollectionInsightsTier('current')"><small>Current</small><strong id="ciCurrent">0</strong><span>No observed exception</span></button>
+                <button onclick="setCollectionInsightsTier('data_incomplete')"><small>Data Incomplete</small><strong id="ciIncomplete">0</strong><span>Fix dates first</span></button>
+                <button onclick="setCollectionInsightsTier('all')"><small>Outstanding</small><strong id="ciOutstanding">₹0</strong><span id="ciOverdueAmount">₹0 overdue</span></button>
+            </div>
+
+            <div class="ci-insight-grid">
+                <div><small>Top Borrower Exposure</small><strong id="ciTopExposure">0%</strong><span id="ciTopExposureName">—</span></div>
+                <div><small>Top 3 Exposure</small><strong id="ciTop3Share">0%</strong><span>of current outstanding</span></div>
+                <div><small>Dated EMI Coverage</small><strong id="ciDataCompleteness">0%</strong><span id="ciDataCoverageText">0 / 0 EMI</span></div>
+                <div><small>Observed Late-Paid Rate</small><strong id="ciLateRate">0%</strong><span id="ciLatePaidText">0 dated paid EMI</span></div>
+                <div><small>Missing Contact</small><strong id="ciMissingContact">0</strong><span>borrowers with outstanding</span></div>
+            </div>
+
+            <div class="ci-toolbar">
+                <input id="ciSearch" type="search" placeholder="Borrower or phone search..." oninput="renderCollectionInsightsList()">
+                <select id="ciTier" onchange="renderCollectionInsightsList()">
+                    <option value="all">All account health</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="watch">Watch</option>
+                    <option value="current">Current</option>
+                    <option value="data_incomplete">Data incomplete</option>
+                </select>
+                <select id="ciSort" onchange="renderCollectionInsightsList()">
+                    <option value="priority">Sort: Collection priority</option>
+                    <option value="outstanding">Sort: Highest outstanding</option>
+                    <option value="overdue">Sort: Highest overdue</option>
+                    <option value="recovery">Sort: Lowest recovery</option>
+                    <option value="completeness">Sort: Lowest data coverage</option>
+                </select>
+            </div>
+
+            <div id="ciLoading" class="ci-loading">Collection insights calculate ho rahe hain...</div>
+            <div id="ciContent" style="display:none;">
+                <div id="ciDataWarning" class="ci-data-warning" style="display:none;"></div>
+                <div id="ciList" class="ci-list"></div>
+                <div class="ci-method"><b>Priority score methodology:</b> verified dated records me overdue share, days overdue, partial payments, observed late-paid history, reminder-contact gap aur contact availability use hote hain. Agar borrower ke EMI records me 50% se kam verified due dates hain, score suppress karke <b>Data Incomplete</b> dikhaya jata hai.</div>
+            </div>
         </div>
     </div>
 
