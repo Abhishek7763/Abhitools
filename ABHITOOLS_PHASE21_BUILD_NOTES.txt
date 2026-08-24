@@ -1,0 +1,20 @@
+ABHITOOLS PHASE 21 — V2 STABLE RELEASE & RECOVERY KIT
+
+Release: V2.0 Stable / 2.0.0
+
+Added:
+- visible stable version badge in Admin
+- Release & Recovery Center
+- release manifest (version.json)
+- V2 changelog
+- recovery guide
+- release checklist
+- package version 2.0.0
+
+Release Center uses existing secure endpoints only:
+- /api/backup?action=list
+- /api/backup?action=create
+- /api/backup?action=export
+- /api/dashboard?mode=home
+
+No new Vercel function. No Supabase migration. No new environment variable.

@@ -22,6 +22,7 @@
             <button id="installAdminAppBtn" data-pwa-install class="btn btn-success" style="display:none;font-size:11px;padding:5px 10px;align-items:center;">⬇️ App</button>
         </div>
         <h2 class="no-print" style="margin:0;flex-grow:1;text-align:center;color:#ea4335;">Admin Panel 🔐</h2>
+        <button id="releaseVersionBadge" class="release-version-badge" onclick="openReleaseCenter()" title="Open Release & Recovery Center">V2.0 Stable</button>
         <div id="lastUpdatedBadge" class="clickable-badge" onclick="manualSync()" title="Click to Sync"
             style="font-size:10px;background:#fce8e6;color:#ea4335;padding:5px 8px;border-radius:4px;border:1px solid #ea4335;font-weight:600;text-align:center;line-height:1.2;">
             Updated:<br>N/A
@@ -154,6 +155,7 @@
         <button class="btn btn-view" onclick="openActivityHistory()">🕘 Activity History</button>
         <button class="btn btn-view" onclick="openReportsCenter()">📈 Reports & Analytics</button>
         <button class="btn btn-warning" onclick="openCollectionInsights()">🎯 Collection Insights</button>
+        <button class="btn btn-view" onclick="openReleaseCenter()">🧰 Release & Recovery</button>
         <button class="btn btn-danger" onclick="logoutAdmin()">🚪 Logout</button>
     </div>
 
@@ -1086,6 +1088,70 @@
         <button type="button" onclick="openCollectionCalendar()"><span>🗓️</span><small>Calendar</small></button>
         <button type="button" onclick="openReportsCenter()"><span>📈</span><small>Reports</small></button>
     </nav>
+
+
+    <!-- Phase 21: V2 Stable Release & Recovery Center -->
+    <div id="releaseCenterModal" class="release-overlay no-print" style="display:none;" onclick="handleReleaseOverlayClick(event)">
+        <div class="release-card" role="dialog" aria-modal="true" aria-labelledby="releaseCenterTitle">
+            <div class="release-header">
+                <div>
+                    <h3 id="releaseCenterTitle">🧰 Release & Recovery Center</h3>
+                    <small id="releaseCenterMeta">V2.0 Stable • production recovery toolkit</small>
+                </div>
+                <div class="release-head-actions">
+                    <button class="btn btn-secondary" onclick="refreshReleaseCenter()">🔄 Refresh</button>
+                    <button class="btn btn-danger" onclick="closeReleaseCenter()" aria-label="Close">✕</button>
+                </div>
+            </div>
+
+            <div class="release-stable-banner">
+                <div><span>✅</span><div><strong id="releaseStableLabel">V2.0 Stable</strong><small>Stable baseline for future upgrades</small></div></div>
+                <code id="releaseVersionCode">2.0.0</code>
+            </div>
+
+            <div id="releaseHealthGrid" class="release-health-grid">
+                <div><small>Release</small><strong id="releaseHealthVersion">2.0.0</strong><span>Stable channel</span></div>
+                <div><small>Function Budget</small><strong>12 max</strong><span>No new API function</span></div>
+                <div><small>Latest Snapshot</small><strong id="releaseHealthBackup">Checking…</strong><span id="releaseHealthBackupTime">Server backup</span></div>
+                <div><small>Recycle Bin</small><strong id="releaseHealthRecycle">—</strong><span>Recoverable items</span></div>
+                <div><small>Data Quality</small><strong id="releaseHealthQuality">—</strong><span>Legacy dates pending</span></div>
+                <div><small>Backup Format</small><strong id="releaseBackupFormat">v5</strong><span>Full JSON + snapshots</span></div>
+            </div>
+
+            <div class="release-grid">
+                <section class="release-panel">
+                    <h4>💾 Backup Before Change</h4>
+                    <p>Major GitHub upload, cleanup ya data edit se pehle server snapshot aur external Full JSON Backup dono rakhna safest workflow hai.</p>
+                    <div class="release-actions">
+                        <button class="btn btn-success" onclick="releaseCreateSnapshot()">📸 Create Server Snapshot</button>
+                        <button class="btn btn-warning" onclick="downloadFullBackup()">⬇️ Download Full JSON</button>
+                    </div>
+                    <div id="releaseBackupHint" class="release-hint">Latest snapshot check ho raha hai…</div>
+                </section>
+
+                <section class="release-panel">
+                    <h4>♻️ Recovery Actions</h4>
+                    <p>Code issue aur database issue ko alag handle karo. Database restore sirf verified snapshot se aur typed confirmation ke baad karo.</p>
+                    <div class="release-actions">
+                        <button class="btn btn-view" onclick="releaseOpenRestore()">🛡️ Backup / Restore</button>
+                        <button class="btn btn-secondary" onclick="releaseOpenActivity()">🕘 Activity History</button>
+                        <button class="btn btn-view" onclick="releaseOpenDataQuality()">🧩 Data Quality</button>
+                    </div>
+                </section>
+            </div>
+
+            <div class="release-checklist">
+                <h4>✅ Stable Release Checklist</h4>
+                <div><span>✓</span> Admin/session secrets source code me store nahi hote.</div>
+                <div><span>✓</span> PWA service worker `/api/*` financial responses cache nahi karta.</div>
+                <div><span>✓</span> Legacy dates automatic guess nahi hote.</div>
+                <div><span>✓</span> Backup/restore workflow audit-aware aur guarded hai.</div>
+                <div><span>✓</span> Future build se pehle fresh backup recommended hai.</div>
+            </div>
+
+            <div class="release-files">Repository reference files: <code>version.json</code> • <code>CHANGELOG_V2.md</code> • <code>RECOVERY_GUIDE.md</code> • <code>RELEASE_CHECKLIST.md</code></div>
+        </div>
+    </div>
 
     <script src="pwa.js"></script>
     <script src="admin_script.js"></script>

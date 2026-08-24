@@ -76,6 +76,7 @@ let reminderCenterData = null;
 let reminderBucket = 'all';
 let homeCommandData = null;
 let collectionInsightsData = null;
+let releaseManifestData = null;
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -100,6 +101,7 @@ async function initApp() {
         if (lb) lb.innerText = '📜 List View';
     }
 
+    loadReleaseVersionBadge().catch(err => console.warn('Release manifest load failed:', err));
     await loadAllData();
 }
 
@@ -4096,6 +4098,105 @@ async function applyDataQualityReview() {
     }
 }
 
+
+
+
+// ==========================================
+// PHASE 21 - V2 STABLE RELEASE & RECOVERY
+// ==========================================
+function releaseDateTime(value) {
+    if (!value) return 'No snapshot';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return 'Unknown time';
+    return d.toLocaleString('en-IN', { timeZone:'Asia/Kolkata', day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true });
+}
+
+async function loadReleaseVersionBadge() {
+    try {
+        const response = await fetch('/version.json', { cache:'no-store' });
+        if (!response.ok) throw new Error(`Version manifest ${response.status}`);
+        releaseManifestData = await response.json();
+        const badge = document.getElementById('releaseVersionBadge');
+        if (badge) badge.textContent = releaseManifestData?.label || `V${releaseManifestData?.release || '2.0.0'} Stable`;
+        return releaseManifestData;
+    } catch (err) {
+        const badge = document.getElementById('releaseVersionBadge');
+        if (badge) badge.textContent = 'V2.0 Stable';
+        throw err;
+    }
+}
+
+async function openReleaseCenter() {
+    const modal = document.getElementById('releaseCenterModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    await refreshReleaseCenter();
+}
+
+function closeReleaseCenter() {
+    const modal = document.getElementById('releaseCenterModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleReleaseOverlayClick(event) {
+    if (event?.target?.id === 'releaseCenterModal') closeReleaseCenter();
+}
+
+async function refreshReleaseCenter() {
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = value; };
+    try {
+        const [manifestRes, backupsRes, homeRes] = await Promise.all([
+            fetch('/version.json', { cache:'no-store' }),
+            adminFetch('/api/backup?action=list', { cache:'no-store' }),
+            adminFetch('/api/dashboard?mode=home', { cache:'no-store' })
+        ]);
+        const manifest = manifestRes.ok ? await manifestRes.json() : (releaseManifestData || {});
+        const backups = await backupsRes.json();
+        const home = await homeRes.json();
+        releaseManifestData = manifest;
+
+        const latest = Array.isArray(backups) ? backups[0] : null;
+        const version = manifest?.release || '2.0.0';
+        const label = manifest?.label || `V${version} Stable`;
+        set('releaseCenterMeta', `${label} • released ${manifest?.release_date || '2026-08-24'} • production recovery toolkit`);
+        set('releaseStableLabel', label);
+        set('releaseVersionCode', version);
+        set('releaseHealthVersion', version);
+        set('releaseBackupFormat', `v${Number(manifest?.backup_format_version || 5)}`);
+        set('releaseHealthBackup', latest ? 'Available' : 'None');
+        set('releaseHealthBackupTime', latest ? releaseDateTime(latest.created_at) : 'Create one before next change');
+        set('releaseHealthRecycle', String(Number(home?.summary?.recycleItems || 0)));
+        set('releaseHealthQuality', String(Number(home?.summary?.legacyMissingDates || 0)));
+        set('releaseBackupHint', latest ? `Latest server snapshot: ${releaseDateTime(latest.created_at)} • ${latest.label || latest.reason || 'Backup'}` : '⚠️ Server snapshot nahi mila. Next change se pehle create karein.');
+
+        const badge = document.getElementById('releaseVersionBadge');
+        if (badge) badge.textContent = label;
+    } catch (err) {
+        set('releaseBackupHint', `Release status refresh nahi hua: ${err.message}`);
+    }
+}
+
+async function releaseCreateSnapshot() {
+    const data = await createManualBackup();
+    if (data) await refreshReleaseCenter();
+}
+
+function releaseOpenRestore() {
+    closeReleaseCenter();
+    openDataSafetyCenter('restore');
+}
+
+function releaseOpenActivity() {
+    closeReleaseCenter();
+    openActivityHistory();
+}
+
+function releaseOpenDataQuality() {
+    closeReleaseCenter();
+    openDataQualityCenter('all');
+}
 
 // ==========================================
 // PHASE 20 - COLLECTION PRIORITY & ACCOUNT HEALTH INSIGHTS
