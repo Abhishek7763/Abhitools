@@ -1,0 +1,66 @@
+ABHITOOLS PHASE 14 — REPORTS & ANALYTICS
+=========================================
+
+Build type: Incremental update on Phase 13 live baseline
+Vercel Hobby safety: API function count remains exactly 12.
+No new Vercel environment variables.
+No Supabase schema migration required.
+
+NEW FEATURES
+------------
+1. Reports & Analytics Center (admin-only)
+2. Quick ranges: 90 Days, 12 Months, This Year, All Dated
+3. Custom From / To date filtering
+4. Borrower filter and Loan Status filter
+5. Period disbursement amount + loan count
+6. Period collection amount + payment count
+7. Current outstanding and overdue portfolio
+8. Settlement payment and waived amount reporting
+9. Scheduled recovery rate
+10. Monthly Disbursed vs Collected trend
+11. Monthly financial movement table
+12. Outstanding aging buckets:
+    - Not Due / Current
+    - 1–30 days overdue
+    - 31–60 days overdue
+    - 61–90 days overdue
+    - 90+ days overdue
+    - Year / Due Date Not Set
+13. Loan + EMI status distribution
+14. Payment-method breakdown
+15. Borrower performance ranking
+16. CSV export
+17. Browser Print / Save as PDF
+18. Legacy year-not-set data remains safe; no guessed dates.
+19. Mobile + Dark Mode support
+
+BACKEND
+-------
+Reports are routed through existing api/dashboard.js using mode=reports.
+Implementation lives in server_routes/reports.js, so no extra Vercel serverless function is created.
+Admin session is required.
+
+FILES CHANGED / ADDED
+---------------------
+- admin.html
+- admin_script.js
+- style.css
+- api/dashboard.js
+- server_routes/reports.js (new)
+- ABHITOOLS_PHASE14_BUILD_NOTES.txt
+
+VALIDATION
+----------
+- All JS syntax checks passed.
+- Reports JSON calculation smoke test passed.
+- Reports CSV smoke test passed.
+- Unauthorized reports request returns 401.
+- UI handler validation passed.
+- Duplicate HTML ID check passed.
+- Secret scan passed.
+- api/*.js count = 12.
+
+IMPORTANT
+---------
+Do NOT restore old api/activity.js, api/calendar.js or api/search.js files.
+They were intentionally merged in Phase 13 to stay within the Vercel Hobby 12-function limit.

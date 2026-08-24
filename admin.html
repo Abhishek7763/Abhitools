@@ -73,6 +73,7 @@
         <button class="btn btn-view" onclick="openDataSafetyCenter('import')">📥 Import / Restore</button>
         <button class="btn btn-secondary" onclick="openRecycleBin()">♻️ Recycle Bin</button>
         <button class="btn btn-view" onclick="openActivityHistory()">🕘 Activity History</button>
+        <button class="btn btn-view" onclick="openReportsCenter()">📈 Reports & Analytics</button>
         <button class="btn btn-danger" onclick="logoutAdmin()">🚪 Logout</button>
     </div>
 
@@ -761,6 +762,77 @@
                 <button id="auditPrevBtn" class="btn btn-secondary" onclick="changeActivityPage(-1)">← Previous</button>
                 <span id="auditPageInfo">Page 1 / 1</span>
                 <button id="auditNextBtn" class="btn btn-secondary" onclick="changeActivityPage(1)">Next →</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Phase 14: Reports & Analytics -->
+    <div id="reportsCenterModal" class="reports-overlay no-print" style="display:none;" onclick="handleReportsOverlayClick(event)">
+        <div class="reports-card" role="dialog" aria-modal="true" aria-labelledby="reportsCenterTitle">
+            <div class="reports-header">
+                <div>
+                    <h3 id="reportsCenterTitle">📈 Reports & Analytics</h3>
+                    <small id="reportsMeta">Financial reporting • Asia/Kolkata</small>
+                </div>
+                <div class="reports-head-actions">
+                    <button class="btn btn-secondary" onclick="refreshReportsCenter()">🔄 Refresh</button>
+                    <button class="btn btn-success" onclick="exportReportsCsv()">⬇️ CSV</button>
+                    <button class="btn btn-warning" onclick="printReportsCenter()">🖨️ Print / PDF</button>
+                    <button class="btn btn-danger" onclick="closeReportsCenter()" aria-label="Close">✕</button>
+                </div>
+            </div>
+
+            <div class="reports-periods">
+                <button class="reports-period" data-period="90d" onclick="setReportsPeriod('90d',this)">90 Days</button>
+                <button class="reports-period active" data-period="12m" onclick="setReportsPeriod('12m',this)">12 Months</button>
+                <button class="reports-period" data-period="year" onclick="setReportsPeriod('year',this)">This Year</button>
+                <button class="reports-period" data-period="all" onclick="setReportsPeriod('all',this)">All Dated</button>
+            </div>
+
+            <div class="reports-filters">
+                <label><span>From</span><input id="reportsFrom" type="date" onchange="reportsManualDatesChanged()"></label>
+                <label><span>To</span><input id="reportsTo" type="date" onchange="reportsManualDatesChanged()"></label>
+                <label class="wide"><span>Borrower</span><select id="reportsBorrower"><option value="">All Borrowers</option></select></label>
+                <label><span>Loan Status</span><select id="reportsLoanStatus"><option value="all">All Status</option><option value="active">Active</option><option value="closed">Closed</option><option value="defaulted">Defaulted</option></select></label>
+                <div class="reports-filter-actions"><button class="btn btn-view" onclick="applyReportsFilters()">📊 Generate Report</button><button class="btn btn-secondary" onclick="resetReportsFilters()">↺ Reset</button></div>
+            </div>
+
+            <div id="reportsLoading" class="reports-loading">Report calculate ho raha hai...</div>
+            <div id="reportsContent" style="display:none;">
+                <div class="reports-summary">
+                    <div><small>Period Disbursed</small><strong id="reportsDisbursed">₹0</strong><span id="reportsDisbursedCount">0 loans</span></div>
+                    <div><small>Period Collected</small><strong id="reportsCollected">₹0</strong><span id="reportsPaymentCount">0 payments</span></div>
+                    <div><small>Current Outstanding</small><strong id="reportsOutstanding">₹0</strong><span id="reportsPortfolioLoans">0 portfolio loans</span></div>
+                    <div><small>Current Overdue</small><strong id="reportsOverdue">₹0</strong><span id="reportsLegacyCount">0 year-not-set</span></div>
+                    <div><small>Settlement / Waived</small><strong id="reportsSettlement">₹0</strong><span id="reportsWaived">₹0 waived</span></div>
+                    <div><small>Recovery Rate</small><strong id="reportsRecovery">0%</strong><span id="reportsScheduled">₹0 scheduled</span></div>
+                </div>
+
+                <section class="reports-panel">
+                    <div class="reports-panel-head"><div><h4>📊 Monthly Movement</h4><small>Disbursement vs collection for selected period</small></div></div>
+                    <div id="reportsTrend" class="reports-trend"></div>
+                    <div class="reports-table-wrap"><table class="reports-table"><thead><tr><th>Month</th><th>Loans</th><th>Disbursed</th><th>Payments</th><th>Collected</th><th>Settled</th><th>Waived</th></tr></thead><tbody id="reportsMonthlyBody"></tbody></table></div>
+                </section>
+
+                <div class="reports-grid-two">
+                    <section class="reports-panel">
+                        <div class="reports-panel-head"><div><h4>⏳ Outstanding Aging</h4><small>Current unpaid EMI balance</small></div></div>
+                        <div id="reportsAging" class="reports-aging"></div>
+                    </section>
+                    <section class="reports-panel">
+                        <div class="reports-panel-head"><div><h4>🏷️ Portfolio Status</h4><small>Loan and EMI distribution</small></div></div>
+                        <div id="reportsStatus" class="reports-status"></div>
+                        <div id="reportsMethods" class="reports-methods"></div>
+                    </section>
+                </div>
+
+                <section class="reports-panel">
+                    <div class="reports-panel-head"><div><h4>👥 Borrower Performance</h4><small>Current principal, collection, outstanding and overdue</small></div></div>
+                    <div class="reports-table-wrap"><table class="reports-table"><thead><tr><th>Borrower</th><th>Loans</th><th>Principal</th><th>Collected</th><th>Outstanding</th><th>Overdue</th><th></th></tr></thead><tbody id="reportsBorrowerBody"></tbody></table></div>
+                </section>
+
+                <div id="reportsLegacyNote" class="reports-note" style="display:none;"></div>
             </div>
         </div>
     </div>

@@ -74,6 +74,9 @@ let advancedDashboardData = null;
 let collectionCalendarData = null;
 let calendarMonthKey = null;
 let calendarSelectedDate = null;
+let reportsCenterData = null;
+let reportsAllDates = false;
+let reportsPeriod = '12m';
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -3110,4 +3113,282 @@ async function openActivityEmi(emiId) {
 function openActivityRecycle() {
     closeActivityHistory();
     openRecycleBin();
+}
+
+
+// ==========================================
+// PHASE 14 — REPORTS & ANALYTICS
+// ==========================================
+function reportsMoney(value) {
+    return `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
+}
+
+function reportsBusinessToday() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone:'Asia/Kolkata', year:'numeric', month:'2-digit', day:'2-digit'
+    }).formatToParts(new Date());
+    const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
+    return `${map.year}-${map.month}-${map.day}`;
+}
+
+function reportsDateShift(iso, days = 0, months = 0) {
+    const d = new Date(`${iso}T00:00:00Z`);
+    if (months) d.setUTCMonth(d.getUTCMonth() + months);
+    if (days) d.setUTCDate(d.getUTCDate() + days);
+    return d.toISOString().slice(0,10);
+}
+
+function populateReportsBorrowers(items = borrowers) {
+    const select = document.getElementById('reportsBorrower');
+    if (!select) return;
+    const current = select.value;
+    const rows = (items || []).map(b => ({ id:b.id, name:b.name || 'Unnamed' }))
+        .filter(b => b.id).sort((a,b) => a.name.localeCompare(b.name, 'en', { sensitivity:'base' }));
+    select.innerHTML = '<option value="">All Borrowers</option>' + rows.map(b =>
+        `<option value="${escapeHtml(b.id)}">${escapeHtml(b.name)}</option>`).join('');
+    if (rows.some(b => b.id === current)) select.value = current;
+}
+
+function openReportsCenter() {
+    const modal = document.getElementById('reportsCenterModal');
+    if (!modal) return;
+    populateReportsBorrowers();
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    if (!reportsCenterData) setReportsPeriod('12m');
+    else refreshReportsCenter();
+}
+
+function closeReportsCenter() {
+    const modal = document.getElementById('reportsCenterModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleReportsOverlayClick(event) {
+    if (event?.target?.id === 'reportsCenterModal') closeReportsCenter();
+}
+
+function reportsActivatePeriod(period) {
+    reportsPeriod = period;
+    document.querySelectorAll('.reports-period').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.period === period);
+    });
+}
+
+function setReportsPeriod(period, button = null) {
+    const today = reportsBusinessToday();
+    const from = document.getElementById('reportsFrom');
+    const to = document.getElementById('reportsTo');
+    reportsActivatePeriod(period);
+    reportsAllDates = period === 'all';
+    if (reportsAllDates) {
+        if (from) from.value = '';
+        if (to) to.value = '';
+    } else if (period === '90d') {
+        if (from) from.value = reportsDateShift(today, -89);
+        if (to) to.value = today;
+    } else if (period === 'year') {
+        if (from) from.value = `${today.slice(0,4)}-01-01`;
+        if (to) to.value = today;
+    } else {
+        const d = new Date(`${today}T00:00:00Z`);
+        d.setUTCMonth(d.getUTCMonth() - 11, 1);
+        if (from) from.value = d.toISOString().slice(0,10);
+        if (to) to.value = today;
+    }
+    refreshReportsCenter();
+}
+
+function reportsManualDatesChanged() {
+    reportsAllDates = false;
+    reportsPeriod = 'custom';
+    document.querySelectorAll('.reports-period').forEach(btn => btn.classList.remove('active'));
+}
+
+function resetReportsFilters() {
+    const borrower = document.getElementById('reportsBorrower');
+    const status = document.getElementById('reportsLoanStatus');
+    if (borrower) borrower.value = '';
+    if (status) status.value = 'all';
+    setReportsPeriod('12m');
+}
+
+function currentReportsParams(includeFormat = false) {
+    const params = new URLSearchParams();
+    params.set('mode', 'reports');
+    const from = document.getElementById('reportsFrom')?.value || '';
+    const to = document.getElementById('reportsTo')?.value || '';
+    const borrower = document.getElementById('reportsBorrower')?.value || '';
+    const status = document.getElementById('reportsLoanStatus')?.value || 'all';
+    if (reportsAllDates) params.set('all', '1');
+    else {
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+    }
+    if (borrower) params.set('borrower_id', borrower);
+    if (status && status !== 'all') params.set('loan_status', status);
+    if (includeFormat) params.set('format', 'csv');
+    return params;
+}
+
+function applyReportsFilters() {
+    refreshReportsCenter();
+}
+
+function reportsSetText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+async function refreshReportsCenter() {
+    const loading = document.getElementById('reportsLoading');
+    const content = document.getElementById('reportsContent');
+    if (loading) { loading.style.display = 'block'; loading.textContent = 'Report calculate ho raha hai...'; }
+    if (content) content.style.display = 'none';
+    try {
+        const params = currentReportsParams(false);
+        const response = await adminFetch(`/api/dashboard?${params.toString()}`);
+        const data = await response.json();
+        reportsCenterData = data;
+        if (Array.isArray(data.borrowersAvailable)) populateReportsBorrowers(data.borrowersAvailable);
+        renderReportsCenter(data);
+        if (content) content.style.display = 'block';
+    } catch (err) {
+        if (loading) loading.textContent = `❌ ${err.message || 'Report load nahi hua.'}`;
+        return;
+    }
+    if (loading) loading.style.display = 'none';
+}
+
+function renderReportsCenter(data) {
+    const s = data?.summary || {};
+    const f = data?.filters || {};
+    reportsSetText('reportsMeta', `${data?.businessDate || '-'} • ${data?.timezone || 'Asia/Kolkata'} • ${f.allDates ? 'All dated records' : `${f.from || '-'} → ${f.to || '-'}`}${f.borrowerName ? ` • ${f.borrowerName}` : ''}`);
+    reportsSetText('reportsDisbursed', reportsMoney(s.periodDisbursedAmount));
+    reportsSetText('reportsDisbursedCount', `${Number(s.periodDisbursedLoans || 0)} loans`);
+    reportsSetText('reportsCollected', reportsMoney(s.periodCollectionAmount));
+    reportsSetText('reportsPaymentCount', `${Number(s.periodPaymentCount || 0)} payments`);
+    reportsSetText('reportsOutstanding', reportsMoney(s.outstandingTotal));
+    reportsSetText('reportsPortfolioLoans', `${Number(s.portfolioLoans || 0)} portfolio loans`);
+    reportsSetText('reportsOverdue', reportsMoney(s.overdueAmount));
+    reportsSetText('reportsLegacyCount', `${Number(s.yearNotSetCount || 0)} year-not-set EMI`);
+    reportsSetText('reportsSettlement', reportsMoney(s.periodSettlementPayment));
+    reportsSetText('reportsWaived', `${reportsMoney(s.periodWaivedAmount)} waived`);
+    reportsSetText('reportsRecovery', `${Number(s.recoveryRate || 0).toLocaleString('en-IN')}%`);
+    reportsSetText('reportsScheduled', `${reportsMoney(s.scheduledTotal)} scheduled`);
+
+    renderReportsTrend(data.monthly || []);
+    renderReportsMonthly(data.monthly || []);
+    renderReportsAging(data.aging || []);
+    renderReportsStatus(data);
+    renderReportsBorrowers(data.borrowers || []);
+
+    const note = document.getElementById('reportsLegacyNote');
+    if (note) {
+        const count = Number(s.yearNotSetCount || 0);
+        note.style.display = count ? 'block' : 'none';
+        note.innerHTML = count ? `ℹ️ <strong>${count.toLocaleString('en-IN')} legacy EMI</strong> me due year/date set nahi hai (${reportsMoney(s.yearNotSetAmount)} remaining). In records ko aging ya historical due date me fake year assign nahi kiya gaya.` : '';
+    }
+}
+
+function renderReportsTrend(monthly) {
+    const box = document.getElementById('reportsTrend');
+    if (!box) return;
+    if (!monthly.length) { box.innerHTML = '<div class="reports-empty">Selected range me dated financial movement nahi mila.</div>'; return; }
+    const max = Math.max(...monthly.flatMap(m => [Number(m.disbursed)||0, Number(m.collected)||0]), 1);
+    box.innerHTML = monthly.map(m => {
+        const d = Number(m.disbursed)||0, c = Number(m.collected)||0;
+        const dh = d ? Math.max(5, Math.round((d/max)*100)) : 2;
+        const ch = c ? Math.max(5, Math.round((c/max)*100)) : 2;
+        return `<div class="reports-trend-col" title="${escapeHtml(m.label)} • Lent ${escapeHtml(reportsMoney(d))} • Collected ${escapeHtml(reportsMoney(c))}">
+            <div class="reports-trend-bars"><i class="lent" style="height:${dh}%"></i><i class="collected" style="height:${ch}%"></i></div>
+            <small>${escapeHtml(m.label || '')}</small>
+        </div>`;
+    }).join('');
+}
+
+function renderReportsMonthly(monthly) {
+    const body = document.getElementById('reportsMonthlyBody');
+    if (!body) return;
+    body.innerHTML = monthly.length ? monthly.map(m => `<tr>
+        <td><strong>${escapeHtml(m.label || '')}</strong></td><td>${Number(m.loanCount||0)}</td><td>${reportsMoney(m.disbursed)}</td>
+        <td>${Number(m.paymentCount||0)}</td><td>${reportsMoney(m.collected)}</td><td>${Number(m.settlementCount||0)}</td><td>${reportsMoney(m.waived)}</td>
+    </tr>`).join('') : '<tr><td colspan="7" class="reports-empty-cell">No dated monthly activity.</td></tr>';
+}
+
+function renderReportsAging(aging) {
+    const box = document.getElementById('reportsAging');
+    if (!box) return;
+    const max = Math.max(...aging.map(a => Number(a.amount)||0), 1);
+    box.innerHTML = aging.map(a => {
+        const amount = Number(a.amount)||0;
+        const width = amount ? Math.max(3, Math.round((amount/max)*100)) : 0;
+        return `<div class="reports-aging-row"><div><strong>${escapeHtml(a.label || '')}</strong><small>${Number(a.count||0)} EMI</small></div><div class="reports-aging-track"><i data-key="${escapeHtml(a.key || '')}" style="width:${width}%"></i></div><b>${reportsMoney(amount)}</b></div>`;
+    }).join('');
+}
+
+function renderReportsStatus(data) {
+    const loan = data?.loanStatus || {}, emi = data?.emiStatus || {};
+    const status = document.getElementById('reportsStatus');
+    if (status) status.innerHTML = `
+        <div class="reports-status-group"><small>Loans</small><span>🟢 Active <b>${Number(loan.active||0)}</b></span><span>✅ Closed <b>${Number(loan.closed||0)}</b></span><span>⚠️ Defaulted <b>${Number(loan.defaulted||0)}</b></span></div>
+        <div class="reports-status-group"><small>EMIs</small><span>⏳ Pending <b>${Number(emi.pending||0)}</b></span><span>🌓 Partial <b>${Number(emi.partial||0)}</b></span><span>✅ Paid <b>${Number(emi.paid||0)}</b></span><span>🔴 Overdue <b>${Number(emi.overdue||0)}</b></span></div>`;
+    const methods = document.getElementById('reportsMethods');
+    if (methods) {
+        const rows = data?.paymentMethods || [];
+        methods.innerHTML = `<h5>Period Payment Methods</h5>` + (rows.length ? rows.map(x => `<span>${escapeHtml(x.method || 'Not specified')} <b>${reportsMoney(x.amount)}</b> <small>${Number(x.count||0)}</small></span>`).join('') : '<div class="profile-muted">Is period me payment entries nahi hain.</div>');
+    }
+}
+
+function renderReportsBorrowers(rows) {
+    const body = document.getElementById('reportsBorrowerBody');
+    if (!body) return;
+    body.innerHTML = rows.length ? rows.map(b => `<tr>
+        <td><strong>${escapeHtml(b.name || 'Unknown')}</strong></td><td>${Number(b.loanCount||0)}</td><td>${reportsMoney(b.principal)}</td><td>${reportsMoney(b.collected)}</td><td>${reportsMoney(b.outstanding)}</td><td>${reportsMoney(b.overdue)}</td>
+        <td>${b.id ? `<button class="reports-row-btn" onclick="openReportsBorrower('${escapeHtml(b.id)}')">Profile</button>` : ''}</td>
+    </tr>`).join('') : '<tr><td colspan="7" class="reports-empty-cell">No borrower portfolio in this filter.</td></tr>';
+}
+
+async function openReportsBorrower(id) {
+    closeReportsCenter();
+    await openBorrowerProfile(id);
+}
+
+async function exportReportsCsv() {
+    try {
+        const params = currentReportsParams(true);
+        const response = await adminFetch(`/api/dashboard?${params.toString()}`);
+        const blob = await response.blob();
+        const disposition = response.headers.get('content-disposition') || '';
+        const match = disposition.match(/filename="?([^";]+)"?/i);
+        const filename = match?.[1] || `AbhiTools_Report_${reportsBusinessToday()}.csv`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+        alert(err.message || 'Report CSV export nahi hua.');
+    }
+}
+
+function reportsPrintRows(items, columns) {
+    if (!items?.length) return `<tr><td colspan="${columns.length}">No records.</td></tr>`;
+    return items.map(item => `<tr>${columns.map(col => `<td class="${col.money ? 'right' : ''}">${col.money ? reportsMoney(item[col.key]) : escapeHtml(item[col.key] ?? '')}</td>`).join('')}</tr>`).join('');
+}
+
+function printReportsCenter() {
+    const data = reportsCenterData;
+    if (!data) { alert('Pehle report generate karein.'); return; }
+    const s = data.summary || {}, f = data.filters || {};
+    const monthlyRows = (data.monthly || []).map(m => `<tr><td>${escapeHtml(m.label||'')}</td><td>${Number(m.loanCount||0)}</td><td class="right">${reportsMoney(m.disbursed)}</td><td>${Number(m.paymentCount||0)}</td><td class="right">${reportsMoney(m.collected)}</td><td class="right">${reportsMoney(m.waived)}</td></tr>`).join('') || '<tr><td colspan="6">No dated activity.</td></tr>';
+    const borrowerRows = (data.borrowers || []).slice(0,30).map(b => `<tr><td>${escapeHtml(b.name||'')}</td><td>${Number(b.loanCount||0)}</td><td class="right">${reportsMoney(b.principal)}</td><td class="right">${reportsMoney(b.collected)}</td><td class="right">${reportsMoney(b.outstanding)}</td><td class="right">${reportsMoney(b.overdue)}</td></tr>`).join('') || '<tr><td colspan="6">No borrower data.</td></tr>';
+    phase6PrintDocument('AbhiTools Reports & Analytics', `
+        <div class="brand"><div><h1>Abhishek Management</h1><p>Reports & Analytics</p></div><div class="doc-title"><strong>Financial Report</strong><small>${escapeHtml(f.allDates ? 'All dated records' : `${f.from || '-'} to ${f.to || '-'}`)}</small></div></div>
+        <div class="party"><div class="box"><small>Borrower Filter</small><strong>${escapeHtml(f.borrowerName || 'All Borrowers')}</strong></div><div class="box"><small>Loan Status</small><strong>${escapeHtml(f.loanStatus || 'all')}</strong></div></div>
+        <div class="summary"><div class="metric"><small>Period Disbursed</small><strong>${reportsMoney(s.periodDisbursedAmount)}</strong></div><div class="metric"><small>Period Collected</small><strong>${reportsMoney(s.periodCollectionAmount)}</strong></div><div class="metric"><small>Outstanding</small><strong>${reportsMoney(s.outstandingTotal)}</strong></div><div class="metric"><small>Overdue</small><strong>${reportsMoney(s.overdueAmount)}</strong></div></div>
+        <h2>Monthly Movement</h2><table><thead><tr><th>Month</th><th>Loans</th><th class="right">Disbursed</th><th>Payments</th><th class="right">Collected</th><th class="right">Waived</th></tr></thead><tbody>${monthlyRows}</tbody></table>
+        <h2>Borrower Performance</h2><table><thead><tr><th>Borrower</th><th>Loans</th><th class="right">Principal</th><th class="right">Collected</th><th class="right">Outstanding</th><th class="right">Overdue</th></tr></thead><tbody>${borrowerRows}</tbody></table>
+        <p class="note">Recovery rate: ${Number(s.recoveryRate||0)}%. Settlement payment: ${reportsMoney(s.periodSettlementPayment)}. Waived: ${reportsMoney(s.periodWaivedAmount)}. Legacy year-not-set EMI: ${Number(s.yearNotSetCount||0)} (${reportsMoney(s.yearNotSetAmount)} remaining). Unknown legacy dates are never guessed.</p>
+    `);
 }
