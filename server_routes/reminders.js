@@ -1,4 +1,5 @@
 import { noStore, requireAdmin, sendServerError, supabaseRequest } from '../server_shared.js';
+import { loadAppSettings } from './settings_config.js';
 
 const TIME_ZONE = 'Asia/Kolkata';
 const VALID_CHANNELS = new Set(['whatsapp', 'call', 'manual']);
@@ -48,21 +49,22 @@ function remainingFor(emi) {
     return { amount, paid, remaining: Math.max(amount - paid, 0) };
 }
 
-function classifyDue(dueDate, today, partial) {
+function classifyDue(dueDate, today, partial, windowDays = 7) {
+    const window = Math.max(1, Number(windowDays) || 7);
     if (dueDate < today) return { bucket: 'overdue', priority: 'critical', rank: 500 + Math.min(dayDiff(dueDate, today), 365) };
     if (dueDate === today) return { bucket: 'today', priority: 'high', rank: 400 };
-    if (dueDate === addDays(today, 1)) return { bucket: 'tomorrow', priority: 'medium', rank: 300 };
-    if (dueDate <= addDays(today, 6)) return { bucket: 'next7', priority: partial ? 'medium' : 'normal', rank: partial ? 250 : 200 };
+    if (window >= 2 && dueDate === addDays(today, 1)) return { bucket: 'tomorrow', priority: 'medium', rank: 300 };
+    if (window >= 2 && dueDate <= addDays(today, window - 1)) return { bucket: 'next7', priority: partial ? 'medium' : 'normal', rank: partial ? 250 : 200 };
     return null;
 }
 
-function buildReminderItem(emi, loan, today, contactedMap) {
+function buildReminderItem(emi, loan, today, contactedMap, windowDays) {
     if (!loan || loan.status === 'closed') return null;
     const dueDate = String(emi.due_date || '').slice(0, 10);
     const { amount, paid, remaining } = remainingFor(emi);
     if (!dueDate || !emi.due_year || remaining <= 0) return null;
     const partial = paid > 0 && remaining > 0;
-    const state = classifyDue(dueDate, today, partial);
+    const state = classifyDue(dueDate, today, partial, windowDays);
     if (!state) return null;
     const borrower = loan.borrowers || {};
     const contact = String(borrower.whatsapp || borrower.phone || '').trim();
@@ -146,15 +148,17 @@ async function loadContactedToday(today) {
 async function getReminders(req, res) {
     await supabaseRequest('rpc/abhi_refresh_due_statuses', 'POST', {});
     const today = businessDate();
-    const [loansRes, emisRes, contactedMap] = await Promise.all([
+    const [loansRes, emisRes, contactedMap, settingsState] = await Promise.all([
         supabaseRequest('loans?deleted_at=is.null&select=id,borrower_id,loan_code,status,borrowers(id,name,phone,whatsapp)'),
         supabaseRequest('emis?select=id,loan_id,installment_number,due_date,due_day,due_month,due_year,amount,status,paid_amount'),
-        loadContactedToday(today)
+        loadContactedToday(today),
+        loadAppSettings(supabaseRequest)
     ]);
 
     const loans = loansRes.data || [];
     const emis = emisRes.data || [];
     const loanById = new Map(loans.map(x => [x.id, x]));
+    const windowDays = settingsState.settings.reminder_window_days || 7;
     const items = [];
     let yearNotSetCount = 0;
     let yearNotSetAmount = 0;
@@ -169,7 +173,7 @@ async function getReminders(req, res) {
             yearNotSetAmount += remaining;
             continue;
         }
-        const item = buildReminderItem(emi, loan, today, contactedMap);
+        const item = buildReminderItem(emi, loan, today, contactedMap, windowDays);
         if (item) items.push(item);
     }
 
@@ -179,6 +183,7 @@ async function getReminders(req, res) {
         businessDate: today,
         timezone: TIME_ZONE,
         generatedAt: new Date().toISOString(),
+        windowDays,
         summary: summaryFrom(items, yearNotSetCount, yearNotSetAmount),
         items
     });

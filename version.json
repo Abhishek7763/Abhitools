@@ -1,10 +1,10 @@
 {
   "product": "AbhiTools / Abhishek Management Tool",
-  "release": "2.0.0",
+  "release": "2.1.0",
   "channel": "stable",
-  "label": "V2.0 Stable",
+  "label": "V2.1 Stable",
   "release_date": "2026-08-24",
-  "phase": 21,
+  "phase": 22,
   "architecture": {
     "hosting": "Vercel",
     "database": "Supabase PostgreSQL",
@@ -12,6 +12,6 @@
     "pwa": true,
     "vercel_hobby_function_budget": 12
   },
-  "backup_format_version": 5,
-  "notes": "Stable release manifest. Secrets are intentionally not included."
+  "backup_format_version": 6,
+  "notes": "Phase 22 stable release with server-synced settings and business rules. Secrets are intentionally not included."
 }

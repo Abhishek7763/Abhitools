@@ -33,6 +33,7 @@ function actionCategory(action = '', table = '') {
     const a = String(action).toUpperCase();
     const t = String(table).toLowerCase();
     if (a === 'LEGACY_DATE_CLEANUP' || a.includes('DATA_QUALITY')) return 'quality';
+    if (a.includes('APP_SETTINGS') || t === 'app_settings') return 'settings';
     if (a.includes('REMINDER')) return 'reminder';
     if (a.includes('PAYMENT') || t === 'emi_payments') return 'payment';
     if (a.includes('RECYCLE') || a.includes('PURGE') || t === 'recycle_bin') return 'recycle';

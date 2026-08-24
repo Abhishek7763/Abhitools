@@ -8,7 +8,8 @@ function cleanLabel(value, fallback = null) {
 }
 
 async function fullBackupPayload() {
-    const [borrowersRes, loansRes, emisRes, settlementsRes, paymentsRes, documentsRes, recycleRes] = await Promise.all([
+    const [settingsRes, borrowersRes, loansRes, emisRes, settlementsRes, paymentsRes, documentsRes, recycleRes] = await Promise.all([
+        supabaseRequest('app_settings?select=*&order=id.asc'),
         supabaseRequest('borrowers?select=*&order=created_at.asc'),
         supabaseRequest('loans?select=*&order=created_at.asc'),
         supabaseRequest('emis?select=*&order=loan_id.asc,installment_number.asc'),
@@ -20,10 +21,11 @@ async function fullBackupPayload() {
 
     return {
         format: 'abhitools-backup',
-        version: 5,
+        version: 6,
         created_at: new Date().toISOString(),
-        note: 'Full AbhiTools data backup including EMI payment and loan settlement history. Document records contain metadata/paths; storage file bytes are not embedded. Recycle Bin state is included.',
+        note: 'Full AbhiTools data backup including app settings, EMI payment and loan settlement history. Document records contain metadata/paths; storage file bytes are not embedded. Recycle Bin state is included.',
         data: {
+            app_settings: settingsRes.data || [],
             borrowers: borrowersRes.data || [],
             loans: loansRes.data || [],
             emis: emisRes.data || [],

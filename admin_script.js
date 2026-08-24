@@ -77,6 +77,10 @@ let reminderBucket = 'all';
 let homeCommandData = null;
 let collectionInsightsData = null;
 let releaseManifestData = null;
+let appSettingsData = null;
+let appSettingsDefaults = null;
+let appSettingsMeta = null;
+let appSettingsPlaceholders = [];
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -86,6 +90,8 @@ const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT',
 async function initApp() {
     if (!await ensureAdminSession()) return;
 
+    await loadAppSettingsCache().catch(err => console.warn('Settings load failed, defaults will be used:', err));
+
     // Dark mode restore
     if (localStorage.getItem('abhishek_dark_mode') === 'yes') {
         document.body.classList.add('dark-mode');
@@ -93,8 +99,10 @@ async function initApp() {
         if (btn) { btn.innerText = '☀️ Light'; btn.style.background = '#fbbc05'; btn.style.color = '#333'; }
     }
 
-    // Layout restore
-    if (localStorage.getItem('abhishek_layout_pref') === 'grid') {
+    // Layout restore: device preference wins; otherwise server default is used.
+    const savedLayout = localStorage.getItem('abhishek_layout_pref');
+    const initialLayout = savedLayout || appSettingsData?.default_layout || 'list';
+    if (initialLayout === 'grid') {
         isGridView = true;
         document.getElementById('folderView')?.classList.add('grid-view');
         const lb = document.getElementById('layoutToggleBtn');
@@ -219,7 +227,7 @@ function homeSetText(id, value) {
 }
 
 function homeActivityIcon(category) {
-    return ({payment:'💰',borrower:'👤',loan:'💳',document:'📎',recycle:'♻️',safety:'🛡️',reminder:'🔔',quality:'🧩',system:'⚙️'})[category] || '🕘';
+    return ({payment:'💰',borrower:'👤',loan:'💳',document:'📎',recycle:'♻️',safety:'🛡️',reminder:'🔔',quality:'🧩',settings:'⚙️',system:'🖥️'})[category] || '🕘';
 }
 
 function homeActivityLabel(action = '') {
@@ -229,7 +237,8 @@ function homeActivityLabel(action = '') {
         ADD_EMI_PAYMENT:'Payment added', UPDATE_EMI_PAYMENT:'Payment corrected', REVERSE_EMI_PAYMENT:'Payment reversed',
         SETTLE_LOAN:'Loan settled', REOPEN_LOAN:'Settlement reopened', CONTACT_REMINDER:'Reminder contacted',
         LEGACY_DATE_CLEANUP:'Legacy dates cleaned', CREATE_BACKUP:'Backup created', RESTORE_BACKUP:'Backup restored',
-        RECYCLE_BORROWER:'Borrower recycled', RECYCLE_LOAN:'Loan recycled', RESTORE_RECYCLE_ITEM:'Recycle item restored'
+        RECYCLE_BORROWER:'Borrower recycled', RECYCLE_LOAN:'Loan recycled', RESTORE_RECYCLE_ITEM:'Recycle item restored',
+        UPDATE_APP_SETTINGS:'Settings updated', RESET_APP_SETTINGS:'Settings reset'
     };
     return labels[key] || key.split('_').filter(Boolean).map(x => x.charAt(0) + x.slice(1).toLowerCase()).join(' ') || 'Activity';
 }
@@ -332,7 +341,7 @@ async function refreshHomeCommandCenter(silent = false) {
         const data = await response.json();
         renderHomeCommandCenter(data);
         if (loading) loading.style.display = 'none';
-        if (content) content.style.display = localStorage.getItem('abhi_home_pro_compact') === 'yes' ? 'none' : 'block';
+        if (content) content.style.display = homeCommandIsCompact() ? 'none' : 'block';
         updateHomeCommandToggle();
         return data;
     } catch (err) {
@@ -341,15 +350,21 @@ async function refreshHomeCommandCenter(silent = false) {
     }
 }
 
+function homeCommandIsCompact() {
+    const local = localStorage.getItem('abhi_home_pro_compact');
+    if (local === 'yes' || local === 'no') return local === 'yes';
+    return appSettingsData?.home_command_default === 'compact';
+}
+
 function updateHomeCommandToggle() {
-    const compact = localStorage.getItem('abhi_home_pro_compact') === 'yes';
+    const compact = homeCommandIsCompact();
     const btn = document.getElementById('homeProToggleBtn');
     if (btn) btn.textContent = compact ? '➕ Expand' : '➖ Compact';
 }
 
 function toggleHomeCommandCenter() {
     const content = document.getElementById('homeProContent');
-    const compact = localStorage.getItem('abhi_home_pro_compact') === 'yes';
+    const compact = homeCommandIsCompact();
     localStorage.setItem('abhi_home_pro_compact', compact ? 'no' : 'yes');
     if (content) content.style.display = compact ? 'block' : 'none';
     updateHomeCommandToggle();
@@ -733,7 +748,7 @@ function resetPaymentForm() {
     const notes = document.getElementById('paymentNotes');
     if (amount) { amount.value = remaining || ''; amount.max = remaining || ''; }
     if (date) date.value = new Date().toISOString().slice(0, 10);
-    if (method) method.value = 'Cash';
+    if (method) method.value = appSettingsData?.default_payment_method || 'Cash';
     if (notes) notes.value = '';
     const saveBtn = document.getElementById('savePaymentBtn');
     if (saveBtn) saveBtn.textContent = '💰 Add Payment';
@@ -1369,6 +1384,14 @@ function updateWhatsAppContextSummary() {
     box.innerHTML = parts.length ? parts.join('') : '<span>Borrower/loan select karke message context set karein.</span>';
 }
 
+function waApplyVariables(template, variables) {
+    let output = String(template || '');
+    for (const [key, value] of Object.entries(variables || {})) {
+        output = output.split(`{${key}}`).join(String(value ?? ''));
+    }
+    return output;
+}
+
 function buildWhatsAppTemplate(type, ctx) {
     const borrower = ctx.borrower || {};
     const loan = ctx.loan || {};
@@ -1382,20 +1405,40 @@ function buildWhatsAppTemplate(type, ctx) {
     const emiNo = Number(emi.installment_number || 0);
     const date = waDateLabel(emi);
     const loanTotals = phase6LoanTotals(loan);
+    const paymentAmount = Number(payment.amount) || paid;
+    const paymentDate = payment.paid_date || payment.payment_date || emi.paid_date || new Date().toISOString().slice(0,10);
+    const signature = appSettingsData?.message_signature || appSettingsData?.business_name || 'Abhishek Management';
+    const businessName = appSettingsData?.business_name || 'Abhishek Management';
+    const closingStatus = loan.status === 'closed' || loanTotals.remaining <= 0 ? 'complete/closed' : 'closing review ke liye ready';
 
     if (type === 'custom') return `Namaskar ${name},\n\n`;
-    if (type === 'overdue') {
-        return `Namaskar ${name},\n\naapki EMI${emiNo ? ` #${emiNo}` : ''} overdue hai.\nLoan ID: ${loanCode}\nDue date: ${date}\nPending amount: ${waMoney(remaining || scheduled)}\n\nKripya payment jaldi complete karein. Agar payment already ho chuka hai to is message ko ignore karein.\n\n- Abhishek Management`;
-    }
-    if (type === 'payment') {
-        const amount = Number(payment.amount) || paid;
-        const paymentDate = payment.paid_date || payment.payment_date || emi.paid_date || new Date().toISOString().slice(0,10);
-        return `Namaskar ${name},\n\naapka ${waMoney(amount)} payment receive ho gaya hai. ✅\nLoan ID: ${loanCode}${emiNo ? `\nEMI: #${emiNo}` : ''}\nPayment date: ${phase6Date(paymentDate)}\nEMI remaining: ${waMoney(remaining)}\n\nDhanyavaad.\n- Abhishek Management`;
-    }
-    if (type === 'closing') {
-        return `Namaskar ${name},\n\nLoan ID ${loanCode} ka account ${loan.status === 'closed' || loanTotals.remaining <= 0 ? 'complete/closed' : 'closing review ke liye ready'} hai.\nPrincipal: ${waMoney(loan.amount)}\nCollected: ${waMoney(loanTotals.paid)}\nRemaining EMI balance: ${waMoney(loanTotals.remaining)}\n\nAapke cooperation ke liye dhanyavaad.\n- Abhishek Management`;
-    }
-    return `Namaskar ${name},\n\naapki EMI${emiNo ? ` #${emiNo}` : ''} ${date} ko due hai.\nLoan ID: ${loanCode}\nDue amount: ${waMoney(remaining || scheduled)}\n\nKripya due date tak payment complete karein. Agar payment already ho chuka hai to is message ko ignore karein.\n\n- Abhishek Management`;
+
+    const fallback = {
+        due: 'Namaskar {name},\n\naapki EMI{emi_no_text} {due_date} ko due hai.\nLoan ID: {loan_id}\nDue amount: {amount}\n\nKripya due date tak payment complete karein. Agar payment already ho chuka hai to is message ko ignore karein.\n\n- {signature}',
+        overdue: 'Namaskar {name},\n\naapki EMI{emi_no_text} overdue hai.\nLoan ID: {loan_id}\nDue date: {due_date}\nPending amount: {amount}\n\nKripya payment jaldi complete karein. Agar payment already ho chuka hai to is message ko ignore karein.\n\n- {signature}',
+        payment: 'Namaskar {name},\n\naapka {payment_amount} payment receive ho gaya hai. ✅\nLoan ID: {loan_id}{emi_line}\nPayment date: {payment_date}\nEMI remaining: {emi_remaining}\n\nDhanyavaad.\n- {signature}',
+        closing: 'Namaskar {name},\n\nLoan ID {loan_id} ka account {closing_status} hai.\nPrincipal: {principal}\nCollected: {collected}\nRemaining EMI balance: {remaining}\n\nAapke cooperation ke liye dhanyavaad.\n- {signature}'
+    };
+    const chosenType = ['due','overdue','payment','closing'].includes(type) ? type : 'due';
+    const template = appSettingsData?.whatsapp_templates?.[chosenType] || fallback[chosenType];
+    return waApplyVariables(template, {
+        name,
+        loan_id: loanCode,
+        emi_no: emiNo || '',
+        emi_no_text: emiNo ? ` #${emiNo}` : '',
+        emi_line: emiNo ? `\nEMI: #${emiNo}` : '',
+        due_date: date,
+        amount: waMoney(remaining || scheduled),
+        payment_amount: waMoney(paymentAmount),
+        payment_date: phase6Date(paymentDate),
+        emi_remaining: waMoney(remaining),
+        principal: waMoney(loan.amount),
+        collected: waMoney(loanTotals.paid),
+        remaining: waMoney(loanTotals.remaining),
+        closing_status: closingStatus,
+        business_name: businessName,
+        signature
+    });
 }
 
 function generateWhatsAppMessage() {
@@ -2917,7 +2960,8 @@ function updateReminderAlertButton() {
     const btn = document.getElementById('reminderBrowserAlertBtn');
     if (!btn) return;
     const enabled = localStorage.getItem('abhi_reminder_browser_alerts') === 'yes' && typeof Notification !== 'undefined' && Notification.permission === 'granted';
-    btn.textContent = enabled ? '🔔 Browser Alerts On' : '🔕 Browser Alerts';
+    const recommended = !enabled && appSettingsData?.browser_alerts_default === true;
+    btn.textContent = enabled ? '🔔 Browser Alerts On' : (recommended ? '🔕 Browser Alerts • Recommended' : '🔕 Browser Alerts');
     btn.classList.toggle('btn-success', enabled);
     btn.classList.toggle('btn-secondary', !enabled);
 }
@@ -2981,10 +3025,10 @@ async function enableReminderBrowserAlerts() {
     }
 }
 
-async function openReminderCenter(initialBucket = 'all') {
+async function openReminderCenter(initialBucket = null) {
     const modal = document.getElementById('reminderCenterModal');
     if (!modal) return;
-    reminderBucket = initialBucket || 'all';
+    reminderBucket = initialBucket || appSettingsData?.reminder_default_bucket || 'all';
     const search = document.getElementById('reminderSearch');
     if (search) search.value = '';
     const hide = document.getElementById('reminderHideContacted');
@@ -3077,7 +3121,11 @@ function renderReminderList() {
 function renderReminderCenter(data) {
     reminderCenterData = data;
     const s = data?.summary || {};
-    reminderSetText('reminderCenterMeta', `Business date: ${data?.businessDate || '-'} • ${data?.timezone || 'Asia/Kolkata'} • Contacted status audit-log based`);
+    const windowDays = Math.max(1, Number(data?.windowDays || appSettingsData?.reminder_window_days || 7));
+    reminderSetText('reminderCenterMeta', `Business date: ${data?.businessDate || '-'} • ${data?.timezone || 'Asia/Kolkata'} • ${windowDays}-day reminder window • Contacted status audit-log based`);
+    reminderSetText('reminderWindowSummaryLabel', `Next ${windowDays} Days`);
+    const windowBtn = document.getElementById('reminderWindowBucketBtn');
+    if (windowBtn) windowBtn.textContent = `🟢 Next ${windowDays}`;
     reminderSetText('reminderActionNow', Number(s.uncontactedToday || 0));
     reminderSetText('reminderActionAmount', reminderMoney((data?.items || []).filter(x => !x.contacted_today).reduce((a,x)=>a+Number(x.remaining||0),0)));
     reminderSetText('reminderOverdueCount', Number(s.overdueCount || 0));
@@ -3154,12 +3202,16 @@ function reminderCall(phone) {
 }
 
 async function markReminderContacted(emiId) {
-    if (!confirm('Is EMI reminder ko aaj Contacted mark karein? Ye Activity History me audit entry banayega.')) return;
+    const preferred = appSettingsData?.default_contact_channel || 'manual';
+    const channel = String(prompt('Contact channel type karein: whatsapp, call, ya manual', preferred) || '').trim().toLowerCase();
+    if (!channel) return;
+    if (!['whatsapp','call','manual'].includes(channel)) return alert('Valid channel: whatsapp, call, ya manual.');
+    if (!confirm(`Is EMI reminder ko aaj Contacted (${channel}) mark karein? Ye Activity History me audit entry banayega.`)) return;
     try {
         await adminFetch('/api/dashboard?mode=reminders', {
             method:'POST',
             headers:{ 'Content-Type':'application/json' },
-            body:JSON.stringify({ action:'contacted', emi_id:emiId, channel:'manual' })
+            body:JSON.stringify({ action:'contacted', emi_id:emiId, channel })
         });
         await refreshReminderCenter();
         await refreshHomeCommandCenter(true).catch(() => null);
@@ -4117,11 +4169,11 @@ async function loadReleaseVersionBadge() {
         if (!response.ok) throw new Error(`Version manifest ${response.status}`);
         releaseManifestData = await response.json();
         const badge = document.getElementById('releaseVersionBadge');
-        if (badge) badge.textContent = releaseManifestData?.label || `V${releaseManifestData?.release || '2.0.0'} Stable`;
+        if (badge) badge.textContent = releaseManifestData?.label || `V${releaseManifestData?.release || '2.1.0'} Stable`;
         return releaseManifestData;
     } catch (err) {
         const badge = document.getElementById('releaseVersionBadge');
-        if (badge) badge.textContent = 'V2.0 Stable';
+        if (badge) badge.textContent = 'V2.1 Stable';
         throw err;
     }
 }
@@ -4158,13 +4210,13 @@ async function refreshReleaseCenter() {
         releaseManifestData = manifest;
 
         const latest = Array.isArray(backups) ? backups[0] : null;
-        const version = manifest?.release || '2.0.0';
+        const version = manifest?.release || '2.1.0';
         const label = manifest?.label || `V${version} Stable`;
         set('releaseCenterMeta', `${label} • released ${manifest?.release_date || '2026-08-24'} • production recovery toolkit`);
         set('releaseStableLabel', label);
         set('releaseVersionCode', version);
         set('releaseHealthVersion', version);
-        set('releaseBackupFormat', `v${Number(manifest?.backup_format_version || 5)}`);
+        set('releaseBackupFormat', `v${Number(manifest?.backup_format_version || 6)}`);
         set('releaseHealthBackup', latest ? 'Available' : 'None');
         set('releaseHealthBackupTime', latest ? releaseDateTime(latest.created_at) : 'Create one before next change');
         set('releaseHealthRecycle', String(Number(home?.summary?.recycleItems || 0)));
@@ -4196,6 +4248,11 @@ function releaseOpenActivity() {
 function releaseOpenDataQuality() {
     closeReleaseCenter();
     openDataQualityCenter('all');
+}
+
+function releaseOpenSettings() {
+    closeReleaseCenter();
+    openSettingsCenter();
 }
 
 // ==========================================
@@ -4420,4 +4477,251 @@ async function exportCollectionInsightsCsv() {
     } catch (err) {
         alert(err.message || 'Collection insights CSV export nahi hua.');
     }
+}
+
+// ==========================================
+// PHASE 22 - SETTINGS & BUSINESS RULES CENTER
+// ==========================================
+const CLIENT_SETTINGS_FALLBACK = {
+    business_name: 'Abhishek Management',
+    message_signature: 'Abhishek Management',
+    default_payment_method: 'Cash',
+    reminder_window_days: 7,
+    reminder_default_bucket: 'all',
+    default_contact_channel: 'whatsapp',
+    default_layout: 'list',
+    home_command_default: 'expanded',
+    browser_alerts_default: false,
+    whatsapp_templates: {
+        due: 'Namaskar {name},\n\naapki EMI{emi_no_text} {due_date} ko due hai.\nLoan ID: {loan_id}\nDue amount: {amount}\n\nKripya due date tak payment complete karein. Agar payment already ho chuka hai to is message ko ignore karein.\n\n- {signature}',
+        overdue: 'Namaskar {name},\n\naapki EMI{emi_no_text} overdue hai.\nLoan ID: {loan_id}\nDue date: {due_date}\nPending amount: {amount}\n\nKripya payment jaldi complete karein. Agar payment already ho chuka hai to is message ko ignore karein.\n\n- {signature}',
+        payment: 'Namaskar {name},\n\naapka {payment_amount} payment receive ho gaya hai. ✅\nLoan ID: {loan_id}{emi_line}\nPayment date: {payment_date}\nEMI remaining: {emi_remaining}\n\nDhanyavaad.\n- {signature}',
+        closing: 'Namaskar {name},\n\nLoan ID {loan_id} ka account {closing_status} hai.\nPrincipal: {principal}\nCollected: {collected}\nRemaining EMI balance: {remaining}\n\nAapke cooperation ke liye dhanyavaad.\n- {signature}'
+    }
+};
+
+async function loadAppSettingsCache(force = false) {
+    if (appSettingsData && !force) return appSettingsData;
+    const response = await adminFetch('/api/dashboard?mode=settings', { cache:'no-store' });
+    const data = await response.json();
+    appSettingsData = data?.settings || CLIENT_SETTINGS_FALLBACK;
+    appSettingsDefaults = data?.defaults || CLIENT_SETTINGS_FALLBACK;
+    appSettingsMeta = { updated_at:data?.updated_at || null };
+    appSettingsPlaceholders = Array.isArray(data?.placeholders) ? data.placeholders : [];
+    return appSettingsData;
+}
+
+function settingsDateTime(value) {
+    if (!value) return 'Default / not saved yet';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return 'Unknown';
+    return d.toLocaleString('en-IN', { timeZone:'Asia/Kolkata', day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true });
+}
+
+function settingsSetValue(id, value) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.type === 'checkbox') el.checked = Boolean(value);
+    else el.value = value ?? '';
+}
+
+function settingsGetValue(id) {
+    const el = document.getElementById(id);
+    if (!el) return '';
+    return el.type === 'checkbox' ? Boolean(el.checked) : el.value;
+}
+
+function populateSettingsCenter() {
+    const s = appSettingsData || CLIENT_SETTINGS_FALLBACK;
+    settingsSetValue('settingsBusinessName', s.business_name);
+    settingsSetValue('settingsSignature', s.message_signature);
+    settingsSetValue('settingsPaymentMethod', s.default_payment_method);
+    settingsSetValue('settingsReminderWindow', String(s.reminder_window_days || 7));
+    settingsSetValue('settingsReminderBucket', s.reminder_default_bucket || 'all');
+    settingsSetValue('settingsContactChannel', s.default_contact_channel || 'whatsapp');
+    settingsSetValue('settingsBrowserAlerts', Boolean(s.browser_alerts_default));
+    settingsSetValue('settingsDefaultLayout', s.default_layout || 'list');
+    settingsSetValue('settingsHomeDefault', s.home_command_default || 'expanded');
+    settingsSetValue('settingsTemplateDue', s.whatsapp_templates?.due || '');
+    settingsSetValue('settingsTemplateOverdue', s.whatsapp_templates?.overdue || '');
+    settingsSetValue('settingsTemplatePayment', s.whatsapp_templates?.payment || '');
+    settingsSetValue('settingsTemplateClosing', s.whatsapp_templates?.closing || '');
+
+    const placeholders = document.getElementById('settingsPlaceholderHelp');
+    if (placeholders) placeholders.innerHTML = (appSettingsPlaceholders || []).map(x => `<code>${escapeHtml(x)}</code>`).join('');
+    const updated = document.getElementById('settingsUpdatedAt');
+    if (updated) updated.textContent = settingsDateTime(appSettingsMeta?.updated_at);
+    const meta = document.getElementById('settingsCenterMeta');
+    if (meta) meta.textContent = `Server-synced • ${Number(s.reminder_window_days || 7)}-day reminder window • backup v6`;
+    const status = document.getElementById('settingsSaveStatus');
+    if (status) status.textContent = 'Server settings loaded. Changes save karne ke liye Save Settings dabayein.';
+    updateSettingsTemplateCounts();
+    updateSettingsTemplatePreview();
+}
+
+async function openSettingsCenter() {
+    const modal = document.getElementById('settingsCenterModal');
+    if (!modal) return;
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    await refreshSettingsCenter();
+}
+
+function closeSettingsCenter() {
+    const modal = document.getElementById('settingsCenterModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleSettingsOverlayClick(event) {
+    if (event?.target?.id === 'settingsCenterModal') closeSettingsCenter();
+}
+
+async function refreshSettingsCenter() {
+    const loading = document.getElementById('settingsLoading');
+    const content = document.getElementById('settingsContent');
+    if (loading) { loading.style.display = 'block'; loading.textContent = 'Settings load ho rahi hain...'; }
+    if (content) content.style.display = 'none';
+    try {
+        await loadAppSettingsCache(true);
+        populateSettingsCenter();
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+    } catch (err) {
+        if (loading) { loading.style.display = 'block'; loading.textContent = `Settings load nahi hui: ${err.message}`; }
+    }
+}
+
+function collectSettingsForm() {
+    return {
+        business_name: String(settingsGetValue('settingsBusinessName') || '').trim(),
+        message_signature: String(settingsGetValue('settingsSignature') || '').trim(),
+        default_payment_method: settingsGetValue('settingsPaymentMethod'),
+        reminder_window_days: Number(settingsGetValue('settingsReminderWindow') || 7),
+        reminder_default_bucket: settingsGetValue('settingsReminderBucket'),
+        default_contact_channel: settingsGetValue('settingsContactChannel'),
+        default_layout: settingsGetValue('settingsDefaultLayout'),
+        home_command_default: settingsGetValue('settingsHomeDefault'),
+        browser_alerts_default: Boolean(settingsGetValue('settingsBrowserAlerts')),
+        whatsapp_templates: {
+            due: settingsGetValue('settingsTemplateDue'),
+            overdue: settingsGetValue('settingsTemplateOverdue'),
+            payment: settingsGetValue('settingsTemplatePayment'),
+            closing: settingsGetValue('settingsTemplateClosing')
+        }
+    };
+}
+
+async function saveAppSettings() {
+    const btn = document.getElementById('settingsSaveBtn');
+    const status = document.getElementById('settingsSaveStatus');
+    const settings = collectSettingsForm();
+    if (!settings.business_name || !settings.message_signature) return alert('Business name aur message signature required hain.');
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = 'Saving settings...';
+    try {
+        const response = await adminFetch('/api/dashboard?mode=settings', {
+            method:'PUT',
+            headers:{ 'Content-Type':'application/json' },
+            body:JSON.stringify({ settings })
+        });
+        const data = await response.json();
+        appSettingsData = data.settings || settings;
+        appSettingsMeta = { updated_at:data.updated_at || new Date().toISOString() };
+        populateSettingsCenter();
+        if (status) status.textContent = `✅ Saved${Array.isArray(data.changed) && data.changed.length ? ` • ${data.changed.length} setting(s) changed` : ' • no effective change'}`;
+        await refreshReminderBadge(true).catch(() => null);
+        if (document.getElementById('reminderCenterModal')?.style.display !== 'none') await refreshReminderCenter().catch(() => null);
+        await refreshHomeCommandCenter(true).catch(() => null);
+    } catch (err) {
+        if (status) status.textContent = `❌ Save failed: ${err.message}`;
+        alert(err.message || 'Settings save nahi hui.');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function resetAllAppSettings() {
+    const typed = prompt('Sab app settings defaults par reset karne ke liye RESET SETTINGS type karein. Reset se pehle automatic server snapshot banega.');
+    if (typed !== 'RESET SETTINGS') return;
+    try {
+        const response = await adminFetch('/api/dashboard?mode=settings', {
+            method:'POST',
+            headers:{ 'Content-Type':'application/json' },
+            body:JSON.stringify({ action:'reset', confirm:typed })
+        });
+        const data = await response.json();
+        appSettingsData = data.settings || CLIENT_SETTINGS_FALLBACK;
+        appSettingsMeta = { updated_at:data.updated_at || new Date().toISOString() };
+        populateSettingsCenter();
+        alert('✅ Settings defaults par reset ho gayi. Safety snapshot bhi create hua.');
+    } catch (err) {
+        alert(err.message || 'Settings reset nahi hui.');
+    }
+}
+
+function resetTemplateEditorsToDefaults() {
+    const d = appSettingsDefaults || CLIENT_SETTINGS_FALLBACK;
+    settingsSetValue('settingsTemplateDue', d.whatsapp_templates?.due || '');
+    settingsSetValue('settingsTemplateOverdue', d.whatsapp_templates?.overdue || '');
+    settingsSetValue('settingsTemplatePayment', d.whatsapp_templates?.payment || '');
+    settingsSetValue('settingsTemplateClosing', d.whatsapp_templates?.closing || '');
+    updateSettingsTemplateCounts();
+    updateSettingsTemplatePreview();
+}
+
+function updateSettingsTemplateCounts() {
+    for (const [type, id] of [['Due','settingsTemplateDue'],['Overdue','settingsTemplateOverdue'],['Payment','settingsTemplatePayment'],['Closing','settingsTemplateClosing']]) {
+        const box = document.getElementById(id);
+        const count = document.getElementById(`settingsTemplate${type}Count`);
+        if (count) count.textContent = `${box?.value?.length || 0} / 2000`;
+    }
+}
+
+function settingsPreviewVariables() {
+    return {
+        name:'SAMPLE BORROWER',
+        loan_id:'ID123456',
+        emi_no:'3',
+        emi_no_text:' #3',
+        emi_line:'\nEMI: #3',
+        due_date:'28 Aug 2026',
+        amount:'₹1,250',
+        payment_amount:'₹1,000',
+        payment_date:'24 Aug 2026',
+        emi_remaining:'₹250',
+        principal:'₹5,000',
+        collected:'₹4,750',
+        remaining:'₹250',
+        closing_status:'complete/closed',
+        business_name:String(settingsGetValue('settingsBusinessName') || 'Abhishek Management'),
+        signature:String(settingsGetValue('settingsSignature') || 'Abhishek Management')
+    };
+}
+
+function updateSettingsTemplatePreview(type = null) {
+    updateSettingsTemplateCounts();
+    const selected = type || document.getElementById('settingsPreviewType')?.value || 'due';
+    const select = document.getElementById('settingsPreviewType');
+    if (type && select) select.value = type;
+    const id = ({ due:'settingsTemplateDue', overdue:'settingsTemplateOverdue', payment:'settingsTemplatePayment', closing:'settingsTemplateClosing' })[selected] || 'settingsTemplateDue';
+    const template = document.getElementById(id)?.value || '';
+    const preview = document.getElementById('settingsTemplatePreview');
+    if (preview) preview.textContent = waApplyVariables(template, settingsPreviewVariables());
+}
+
+function applySettingsToThisDevice() {
+    const settings = collectSettingsForm();
+    localStorage.setItem('abhishek_layout_pref', settings.default_layout);
+    localStorage.setItem('abhi_home_pro_compact', settings.home_command_default === 'compact' ? 'yes' : 'no');
+    isGridView = settings.default_layout === 'grid';
+    const folder = document.getElementById('folderView');
+    folder?.classList.toggle('grid-view', isGridView);
+    const layoutBtn = document.getElementById('layoutToggleBtn');
+    if (layoutBtn) layoutBtn.innerText = isGridView ? '📜 List View' : '🔲 Grid View';
+    renderFolders();
+    const content = document.getElementById('homeProContent');
+    if (content) content.style.display = settings.home_command_default === 'compact' ? 'none' : 'block';
+    updateHomeCommandToggle();
+    alert('✅ Current device par layout aur Command Center defaults apply ho gaye. Browser notification permission ko app automatically change nahi karti.');
 }

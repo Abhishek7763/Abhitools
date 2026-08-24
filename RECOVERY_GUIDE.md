@@ -1,6 +1,6 @@
-# AbhiTools V2.0 Stable — Recovery Guide
+# AbhiTools V2.1 Stable — Recovery Guide
 
-Use this guide if a future deployment, data edit or device issue causes trouble.
+Use this guide if a future deployment, data edit, settings change or device issue causes trouble.
 
 ## 1. Before every major change
 
@@ -25,24 +25,32 @@ Use this guide if a future deployment, data edit or device issue causes trouble.
 - Review the timestamp and counts.
 - Restore only after the typed confirmation. The restore workflow creates a safety snapshot of the current state first.
 
-## 4. Full JSON Backup
+## 4. Settings recovery
 
-The Full JSON Backup contains borrower, loan, EMI, settlement, payment, document metadata and recycle-bin records. Document file bytes in storage are not embedded in the JSON. Keep important uploaded files backed up separately when applicable.
+- Phase 22 settings are stored in the Supabase `app_settings` table and are admin-only through the server API.
+- Backup format v6 snapshots and Full JSON Backups include app settings.
+- Restoring a v6 server snapshot restores the settings captured in that snapshot.
+- Restoring an older v5 snapshot intentionally preserves the current settings.
+- **Reset All Settings** creates a server snapshot before returning settings to defaults.
 
-## 5. Legacy date safety
+## 5. Full JSON Backup
+
+The Full JSON Backup contains app settings, borrower, loan, EMI, settlement, payment, document metadata and recycle-bin records. Document file bytes in storage are not embedded in the JSON. Keep important uploaded files backed up separately when applicable.
+
+## 6. Legacy date safety
 
 Do not mass-fill missing years by guessing. Use the Data Quality Center, review each loan, verify the source year/date, preview every generated EMI date, then apply.
 
-## 6. Security recovery
+## 7. Security recovery
 
 - Never paste deployment secrets into source files.
 - Admin credentials and Supabase service credentials belong in Vercel environment variables.
 - If a secret is ever exposed publicly, replace it in the provider and redeploy.
 
-## 7. Stable release identity
+## 8. Stable release identity
 
 - Product: AbhiTools / Abhishek Management Tool
-- Stable release: V2.0 / 2.0.0
-- Backup format: version 5
+- Stable release: V2.1 / 2.1.0
+- Backup format: version 6
 - Release manifest: `version.json`
 - Changelog: `CHANGELOG_V2.md`

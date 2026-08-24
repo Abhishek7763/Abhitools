@@ -22,7 +22,7 @@
             <button id="installAdminAppBtn" data-pwa-install class="btn btn-success" style="display:none;font-size:11px;padding:5px 10px;align-items:center;">⬇️ App</button>
         </div>
         <h2 class="no-print" style="margin:0;flex-grow:1;text-align:center;color:#ea4335;">Admin Panel 🔐</h2>
-        <button id="releaseVersionBadge" class="release-version-badge" onclick="openReleaseCenter()" title="Open Release & Recovery Center">V2.0 Stable</button>
+        <button id="releaseVersionBadge" class="release-version-badge" onclick="openReleaseCenter()" title="Open Release & Recovery Center">V2.1 Stable</button>
         <div id="lastUpdatedBadge" class="clickable-badge" onclick="manualSync()" title="Click to Sync"
             style="font-size:10px;background:#fce8e6;color:#ea4335;padding:5px 8px;border-radius:4px;border:1px solid #ea4335;font-weight:600;text-align:center;line-height:1.2;">
             Updated:<br>N/A
@@ -133,6 +133,7 @@
                 <button onclick="openReportsCenter()">📈<span>Reports</span></button>
                 <button onclick="openCollectionInsights()">🎯<span>Insights</span></button>
                 <button onclick="downloadFullBackup()">💾<span>Backup</span></button>
+                <button onclick="openSettingsCenter()">⚙️<span>Settings</span></button>
             </div>
         </div>
     </section>
@@ -155,6 +156,7 @@
         <button class="btn btn-view" onclick="openActivityHistory()">🕘 Activity History</button>
         <button class="btn btn-view" onclick="openReportsCenter()">📈 Reports & Analytics</button>
         <button class="btn btn-warning" onclick="openCollectionInsights()">🎯 Collection Insights</button>
+        <button class="btn btn-view" onclick="openSettingsCenter()">⚙️ Settings & Rules</button>
         <button class="btn btn-view" onclick="openReleaseCenter()">🧰 Release & Recovery</button>
         <button class="btn btn-danger" onclick="logoutAdmin()">🚪 Logout</button>
     </div>
@@ -829,7 +831,7 @@
 
             <div class="audit-filters">
                 <label class="wide"><span>Search</span><input id="auditSearch" type="search" maxlength="120" placeholder="Borrower, Loan ID, action, description..." onkeydown="handleActivitySearchKey(event)"></label>
-                <label><span>Category</span><select id="auditCategory" onchange="applyActivityFilters()"><option value="all">All Categories</option><option value="payment">💰 Payments</option><option value="borrower">👤 Borrowers</option><option value="loan">💳 Loans / Settlements</option><option value="document">📎 Documents</option><option value="recycle">♻️ Recycle</option><option value="safety">🛡️ Backup / Import</option><option value="reminder">🔔 Reminders</option><option value="quality">🧩 Data Quality</option><option value="system">⚙️ System</option></select></label>
+                <label><span>Category</span><select id="auditCategory" onchange="applyActivityFilters()"><option value="all">All Categories</option><option value="payment">💰 Payments</option><option value="borrower">👤 Borrowers</option><option value="loan">💳 Loans / Settlements</option><option value="document">📎 Documents</option><option value="recycle">♻️ Recycle</option><option value="safety">🛡️ Backup / Import</option><option value="reminder">🔔 Reminders</option><option value="quality">🧩 Data Quality</option><option value="settings">⚙️ Settings</option><option value="system">🖥️ System</option></select></label>
                 <label><span>Action</span><select id="auditAction" onchange="applyActivityFilters()"><option value="all">All Actions</option></select></label>
                 <label><span>Entity</span><select id="auditEntity" onchange="applyActivityFilters()"><option value="all">All Entities</option></select></label>
                 <label><span>From</span><input id="auditFrom" type="date" onchange="applyActivityFilters()"></label>
@@ -940,7 +942,7 @@
                 <button data-bucket="overdue" onclick="setReminderBucket('overdue',this)"><small>Overdue</small><strong id="reminderOverdueCount">0</strong><span id="reminderOverdueAmount">₹0</span></button>
                 <button data-bucket="today" onclick="setReminderBucket('today',this)"><small>Today</small><strong id="reminderTodayCount">0</strong><span id="reminderTodayAmount">₹0</span></button>
                 <button data-bucket="tomorrow" onclick="setReminderBucket('tomorrow',this)"><small>Tomorrow</small><strong id="reminderTomorrowCount">0</strong><span id="reminderTomorrowAmount">₹0</span></button>
-                <button data-bucket="next7" onclick="setReminderBucket('next7',this)"><small>Next 7 Days</small><strong id="reminderNext7Count">0</strong><span id="reminderNext7Amount">₹0</span></button>
+                <button data-bucket="next7" onclick="setReminderBucket('next7',this)"><small id="reminderWindowSummaryLabel">Next 7 Days</small><strong id="reminderNext7Count">0</strong><span id="reminderNext7Amount">₹0</span></button>
                 <button data-bucket="contacted" onclick="setReminderBucket('contacted',this)"><small>Contacted Today</small><strong id="reminderContactedCount">0</strong><span>Audit logged</span></button>
             </div>
 
@@ -950,7 +952,7 @@
                     <button class="reminder-bucket" data-bucket="overdue" onclick="setReminderBucket('overdue',this)">🔴 Overdue</button>
                     <button class="reminder-bucket" data-bucket="today" onclick="setReminderBucket('today',this)">🟠 Today</button>
                     <button class="reminder-bucket" data-bucket="tomorrow" onclick="setReminderBucket('tomorrow',this)">🟡 Tomorrow</button>
-                    <button class="reminder-bucket" data-bucket="next7" onclick="setReminderBucket('next7',this)">🟢 Next 7</button>
+                    <button id="reminderWindowBucketBtn" class="reminder-bucket" data-bucket="next7" onclick="setReminderBucket('next7',this)">🟢 Next 7</button>
                     <button class="reminder-bucket" data-bucket="partial" onclick="setReminderBucket('partial',this)">🌓 Partial</button>
                     <button class="reminder-bucket" data-bucket="uncontacted" onclick="setReminderBucket('uncontacted',this)">📌 Uncontacted</button>
                     <button class="reminder-bucket" data-bucket="contacted" onclick="setReminderBucket('contacted',this)">✅ Contacted</button>
@@ -1080,6 +1082,86 @@
     </div>
 
 
+    <!-- Phase 22: Settings & Business Rules Center -->
+    <div id="settingsCenterModal" class="settings-overlay no-print" style="display:none;" onclick="handleSettingsOverlayClick(event)">
+        <div class="settings-card" role="dialog" aria-modal="true" aria-labelledby="settingsCenterTitle">
+            <div class="settings-header">
+                <div>
+                    <h3 id="settingsCenterTitle">⚙️ Settings & Business Rules</h3>
+                    <small id="settingsCenterMeta">Server-synced preferences • secure admin-only configuration</small>
+                </div>
+                <div class="settings-head-actions">
+                    <button class="btn btn-secondary" onclick="refreshSettingsCenter()">🔄 Refresh</button>
+                    <button class="btn btn-danger" onclick="closeSettingsCenter()" aria-label="Close">✕</button>
+                </div>
+            </div>
+
+            <div class="settings-safety-note"><strong>Safe scope:</strong> Ye settings reminders, message templates aur admin defaults control karti hain. Existing borrower/loan/EMI amounts ya legacy dates ko automatically change nahi karti.</div>
+
+            <div id="settingsLoading" class="settings-loading">Settings load ho rahi hain...</div>
+            <div id="settingsContent" style="display:none;">
+                <div class="settings-grid">
+                    <section class="settings-panel">
+                        <h4>🏢 Business & Payment Defaults</h4>
+                        <label><span>Business Display Name</span><input id="settingsBusinessName" type="text" maxlength="80" placeholder="Abhishek Management"></label>
+                        <label><span>Message Signature</span><input id="settingsSignature" type="text" maxlength="80" placeholder="Abhishek Management"></label>
+                        <label><span>Default Payment Method</span>
+                            <select id="settingsPaymentMethod"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Other</option></select>
+                        </label>
+                    </section>
+
+                    <section class="settings-panel">
+                        <h4>🔔 Reminder Business Rules</h4>
+                        <label><span>Reminder Window</span><select id="settingsReminderWindow"><option value="3">3 days</option><option value="5">5 days</option><option value="7">7 days</option><option value="10">10 days</option><option value="14">14 days</option></select></label>
+                        <label><span>Default Reminder View</span><select id="settingsReminderBucket"><option value="all">Action Now / All</option><option value="overdue">Overdue</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option><option value="next7">Upcoming Window</option><option value="partial">Partial Payments</option></select></label>
+                        <label><span>Preferred Contact Channel</span><select id="settingsContactChannel"><option value="whatsapp">WhatsApp</option><option value="call">Call</option><option value="manual">Manual</option></select></label>
+                        <label class="settings-toggle"><input id="settingsBrowserAlerts" type="checkbox"><span><b>Recommend Browser Alerts</b><small>Permission kabhi automatically request nahi hogi.</small></span></label>
+                    </section>
+
+                    <section class="settings-panel">
+                        <h4>🖥️ Admin UI Defaults</h4>
+                        <label><span>Default Loan Layout</span><select id="settingsDefaultLayout"><option value="list">List</option><option value="grid">Grid</option></select></label>
+                        <label><span>Command Center Default</span><select id="settingsHomeDefault"><option value="expanded">Expanded</option><option value="compact">Compact</option></select></label>
+                        <div class="settings-hint">Device par manually chosen layout/compact preference server default ko override kar sakti hai. “Apply to this device” se current device ko turant sync kar sakte ho.</div>
+                        <button class="btn btn-secondary" onclick="applySettingsToThisDevice()">📱 Apply to This Device</button>
+                    </section>
+
+                    <section class="settings-panel settings-status-panel">
+                        <h4>☁️ Sync & Backup</h4>
+                        <div><small>Storage</small><strong>Supabase server-side</strong></div>
+                        <div><small>Backup Format</small><strong>v6 • settings included</strong></div>
+                        <div><small>Last Saved</small><strong id="settingsUpdatedAt">—</strong></div>
+                        <div><small>Activity Audit</small><strong>Enabled</strong></div>
+                    </section>
+                </div>
+
+                <section class="settings-template-panel">
+                    <div class="settings-template-head"><div><h4>💬 WhatsApp Message Templates</h4><small>Allowed variables ko `{name}` format me use karein.</small></div><button class="btn btn-secondary" onclick="resetTemplateEditorsToDefaults()">↺ Template Defaults</button></div>
+                    <div id="settingsPlaceholderHelp" class="settings-placeholders"></div>
+                    <div class="settings-template-grid">
+                        <label><span>Due Reminder</span><textarea id="settingsTemplateDue" rows="9" maxlength="2000" oninput="updateSettingsTemplatePreview('due')"></textarea><small id="settingsTemplateDueCount">0 / 2000</small></label>
+                        <label><span>Overdue Reminder</span><textarea id="settingsTemplateOverdue" rows="9" maxlength="2000" oninput="updateSettingsTemplatePreview('overdue')"></textarea><small id="settingsTemplateOverdueCount">0 / 2000</small></label>
+                        <label><span>Payment Received</span><textarea id="settingsTemplatePayment" rows="9" maxlength="2000" oninput="updateSettingsTemplatePreview('payment')"></textarea><small id="settingsTemplatePaymentCount">0 / 2000</small></label>
+                        <label><span>Loan Closing</span><textarea id="settingsTemplateClosing" rows="9" maxlength="2000" oninput="updateSettingsTemplatePreview('closing')"></textarea><small id="settingsTemplateClosingCount">0 / 2000</small></label>
+                    </div>
+                    <div class="settings-preview-row">
+                        <label><span>Preview Template</span><select id="settingsPreviewType" onchange="updateSettingsTemplatePreview()"><option value="due">Due</option><option value="overdue">Overdue</option><option value="payment">Payment</option><option value="closing">Closing</option></select></label>
+                        <pre id="settingsTemplatePreview">Preview...</pre>
+                    </div>
+                </section>
+
+                <div class="settings-footer">
+                    <div id="settingsSaveStatus" class="settings-save-status">No unsaved server change.</div>
+                    <div class="settings-footer-actions">
+                        <button class="btn btn-danger" onclick="resetAllAppSettings()">↺ Reset All Defaults</button>
+                        <button id="settingsSaveBtn" class="btn btn-success" onclick="saveAppSettings()">💾 Save Settings</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- Phase 15: Admin mobile quick navigation -->
     <nav class="phase15-mobile-nav phase15-admin-nav no-print" aria-label="Admin mobile quick navigation">
         <button type="button" onclick="window.scrollTo({top:0,behavior:'smooth'})"><span>🏠</span><small>Home</small></button>
@@ -1096,7 +1178,7 @@
             <div class="release-header">
                 <div>
                     <h3 id="releaseCenterTitle">🧰 Release & Recovery Center</h3>
-                    <small id="releaseCenterMeta">V2.0 Stable • production recovery toolkit</small>
+                    <small id="releaseCenterMeta">V2.1 Stable • production recovery toolkit</small>
                 </div>
                 <div class="release-head-actions">
                     <button class="btn btn-secondary" onclick="refreshReleaseCenter()">🔄 Refresh</button>
@@ -1105,17 +1187,17 @@
             </div>
 
             <div class="release-stable-banner">
-                <div><span>✅</span><div><strong id="releaseStableLabel">V2.0 Stable</strong><small>Stable baseline for future upgrades</small></div></div>
-                <code id="releaseVersionCode">2.0.0</code>
+                <div><span>✅</span><div><strong id="releaseStableLabel">V2.1 Stable</strong><small>Stable baseline for future upgrades</small></div></div>
+                <code id="releaseVersionCode">2.1.0</code>
             </div>
 
             <div id="releaseHealthGrid" class="release-health-grid">
-                <div><small>Release</small><strong id="releaseHealthVersion">2.0.0</strong><span>Stable channel</span></div>
+                <div><small>Release</small><strong id="releaseHealthVersion">2.1.0</strong><span>Stable channel</span></div>
                 <div><small>Function Budget</small><strong>12 max</strong><span>No new API function</span></div>
                 <div><small>Latest Snapshot</small><strong id="releaseHealthBackup">Checking…</strong><span id="releaseHealthBackupTime">Server backup</span></div>
                 <div><small>Recycle Bin</small><strong id="releaseHealthRecycle">—</strong><span>Recoverable items</span></div>
                 <div><small>Data Quality</small><strong id="releaseHealthQuality">—</strong><span>Legacy dates pending</span></div>
-                <div><small>Backup Format</small><strong id="releaseBackupFormat">v5</strong><span>Full JSON + snapshots</span></div>
+                <div><small>Backup Format</small><strong id="releaseBackupFormat">v6</strong><span>Full JSON + snapshots</span></div>
             </div>
 
             <div class="release-grid">
@@ -1136,6 +1218,7 @@
                         <button class="btn btn-view" onclick="releaseOpenRestore()">🛡️ Backup / Restore</button>
                         <button class="btn btn-secondary" onclick="releaseOpenActivity()">🕘 Activity History</button>
                         <button class="btn btn-view" onclick="releaseOpenDataQuality()">🧩 Data Quality</button>
+                        <button class="btn btn-view" onclick="releaseOpenSettings()">⚙️ Settings</button>
                     </div>
                 </section>
             </div>
@@ -1146,6 +1229,7 @@
                 <div><span>✓</span> PWA service worker `/api/*` financial responses cache nahi karta.</div>
                 <div><span>✓</span> Legacy dates automatic guess nahi hote.</div>
                 <div><span>✓</span> Backup/restore workflow audit-aware aur guarded hai.</div>
+                <div><span>✓</span> App settings backup format v6 me snapshots ke saath included hain.</div>
                 <div><span>✓</span> Future build se pehle fresh backup recommended hai.</div>
             </div>
 
