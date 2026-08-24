@@ -51,7 +51,8 @@
     <div class="controls no-print">
         <button class="btn btn-success" onclick="showBorrowerForm()">👤 Add Borrower</button>
         <button class="btn btn-success" onclick="showForm()">➕ Add Loan</button>
-        <button class="btn btn-warning" onclick="exportData()">💾 Export</button>
+        <button class="btn btn-warning" onclick="downloadFullBackup()">💾 Full Backup</button>
+        <button class="btn btn-view" onclick="openDataSafetyCenter('import')">📥 Import / Restore</button>
         <button class="btn btn-danger" onclick="logoutAdmin()">🚪 Logout</button>
     </div>
 
@@ -192,6 +193,54 @@
             </div>
             <div class="month-header" id="currentMonthName" style="background:#fce8e6;color:#ea4335;"></div>
             <div id="monthDateList"></div>
+        </div>
+    </div>
+
+
+    <!-- Phase 1: Smart Import + Backup / Restore -->
+    <div id="dataSafetyModal" class="data-safety-overlay no-print" style="display:none;" onclick="handleSafetyOverlayClick(event)">
+        <div class="data-safety-card" role="dialog" aria-modal="true" aria-labelledby="dataSafetyTitle">
+            <div class="data-safety-header">
+                <div>
+                    <h3 id="dataSafetyTitle">🛡️ Data Safety Center</h3>
+                    <small>Smart Import, full JSON backup aur server-side restore.</small>
+                </div>
+                <button class="btn btn-danger data-safety-close" onclick="closeDataSafetyCenter()" aria-label="Close">✕</button>
+            </div>
+
+            <div class="data-safety-actions">
+                <button class="btn btn-view" onclick="showSafetySection('import')">📥 Smart Import</button>
+                <button class="btn btn-warning" onclick="downloadFullBackup()">⬇️ Download Backup</button>
+                <button class="btn btn-success" onclick="createManualBackup()">🛡️ Create Snapshot</button>
+                <button class="btn btn-secondary" onclick="showSafetySection('restore')">♻️ Restore</button>
+            </div>
+
+            <section id="smartImportSection" class="safety-section">
+                <h4>📥 Smart Import</h4>
+                <p class="safety-help">Legacy AbhiTools JSON aur current full-backup JSON dono supported hain. File select karne par pehle preview aur duplicate check hoga; tab tak database me koi change nahi hoga.</p>
+                <input id="smartImportFile" type="file" accept="application/json,.json" onchange="handleImportFile(event)">
+                <div id="importFileInfo" class="safety-status">Koi JSON file select nahi hui.</div>
+                <div id="importPreview" class="import-preview" style="display:none;"></div>
+                <div id="importApplyControls" style="display:none;">
+                    <label for="importMode"><strong>Import mode</strong></label>
+                    <select id="importMode" class="safety-select">
+                        <option value="merge">Merge — current data rakho, duplicate Loan IDs skip karo</option>
+                        <option value="replace">Replace — current data ko imported data se replace karo</option>
+                    </select>
+                    <button id="applyImportBtn" class="btn btn-success safety-primary" onclick="applySmartImport()">✅ Apply Import</button>
+                </div>
+                <div id="importResult" class="safety-status" style="display:none;"></div>
+            </section>
+
+            <section id="backupRestoreSection" class="safety-section" style="display:none;">
+                <h4>♻️ Backup History & Restore</h4>
+                <p class="safety-help">Har import aur restore se pehle automatic server snapshot banta hai. Restore ke waqt current state ka ek aur safety snapshot pehle banega.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-success" style="flex:1;min-width:170px;" onclick="createManualBackup()">🛡️ Create Snapshot Now</button>
+                    <button class="btn btn-warning" style="flex:1;min-width:170px;" onclick="downloadFullBackup()">⬇️ Download Full JSON</button>
+                </div>
+                <div id="backupHistoryList" class="backup-history-list"></div>
+            </section>
         </div>
     </div>
 

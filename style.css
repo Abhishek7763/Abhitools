@@ -436,3 +436,143 @@ body.dark-mode { background-color: #121212; color: #e0e0e0; }
     .emi-row input { width: 45% !important; }
     #borrowerFormContainer .form-group { grid-column: 1/-1 !important; }
 }
+
+/* ==========================================
+   PHASE 1 - DATA SAFETY CENTER
+   ========================================== */
+.data-safety-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.68);
+    padding: 18px;
+    overflow-y: auto;
+}
+.data-safety-card {
+    width: min(760px, 100%);
+    margin: 24px auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    padding: 20px;
+}
+.data-safety-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 14px;
+}
+.data-safety-header h3 { margin: 0 0 4px; color: #1a73e8; }
+.data-safety-header small { color: #6b7280; }
+.data-safety-close { width: auto; min-width: 42px; margin: 0; }
+.data-safety-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin: 16px 0;
+}
+.data-safety-actions .btn { margin: 0; padding: 10px 8px; }
+.safety-section {
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+    border-radius: 12px;
+    padding: 16px;
+}
+.safety-section h4 { margin: 0 0 8px; color: #111827; }
+.safety-help { color: #64748b; font-size: 13px; line-height: 1.55; margin: 0 0 12px; }
+#smartImportFile {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    background: #fff;
+    border: 1px dashed #94a3b8;
+    border-radius: 10px;
+    padding: 12px;
+}
+.safety-status {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-size: 13px;
+    white-space: pre-wrap;
+}
+.import-preview {
+    margin: 12px 0;
+    padding: 12px;
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #dbe4f0;
+}
+.import-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.import-stat {
+    padding: 10px 6px;
+    text-align: center;
+    border-radius: 9px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+}
+.import-stat strong { display: block; font-size: 18px; color: #1d4ed8; }
+.import-warning {
+    margin-top: 8px;
+    padding: 9px;
+    border-radius: 8px;
+    background: #fff7ed;
+    color: #9a3412;
+    font-size: 12px;
+    line-height: 1.45;
+}
+.safety-select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    margin: 7px 0 10px;
+    background: #fff;
+}
+.safety-primary { width: 100%; margin: 0; }
+.backup-history-list { display: grid; gap: 9px; margin-top: 12px; }
+.backup-history-item {
+    background: #fff;
+    border: 1px solid #dbe4f0;
+    border-radius: 10px;
+    padding: 12px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+}
+.backup-history-item .meta { min-width: 0; }
+.backup-history-item .meta strong { display: block; color: #111827; word-break: break-word; }
+.backup-history-item .meta small { display: block; margin-top: 4px; color: #64748b; line-height: 1.4; }
+.backup-history-item .btn { width: auto; min-width: 88px; margin: 0; }
+
+body.dark-mode .data-safety-card { background: #111827; color: #e5e7eb; }
+body.dark-mode .data-safety-header { border-bottom-color: #374151; }
+body.dark-mode .data-safety-header h3 { color: #60a5fa; }
+body.dark-mode .safety-section { background: #0f172a; border-color: #334155; }
+body.dark-mode .safety-section h4 { color: #f8fafc; }
+body.dark-mode #smartImportFile,
+body.dark-mode .import-preview,
+body.dark-mode .backup-history-item,
+body.dark-mode .safety-select { background: #1f2937; color: #e5e7eb; border-color: #475569; }
+body.dark-mode .backup-history-item .meta strong { color: #f8fafc; }
+body.dark-mode .import-stat { background: #172554; border-color: #1e40af; }
+body.dark-mode .import-stat strong { color: #93c5fd; }
+
+@media (max-width: 650px) {
+    .data-safety-overlay { padding: 8px; }
+    .data-safety-card { margin: 8px auto; padding: 14px; border-radius: 13px; }
+    .data-safety-actions { grid-template-columns: 1fr 1fr; }
+    .import-stat-grid { grid-template-columns: 1fr 1fr; }
+    .backup-history-item { align-items: stretch; flex-direction: column; }
+    .backup-history-item .btn { width: 100%; }
+}

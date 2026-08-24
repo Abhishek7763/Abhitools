@@ -1,0 +1,32 @@
+ABHITOOLS PHASE 1 - SMART IMPORT + BACKUP / RESTORE
+Date: 2026-08-24
+
+WHAT IS INCLUDED
+- Admin Data Safety Center
+- Full JSON export from Supabase (borrowers, loans, EMIs, document metadata)
+- Server-side manual backup snapshots
+- Backup history (latest 30)
+- One-click restore with typed RESTORE confirmation
+- Automatic backup before every import
+- Automatic backup before every restore
+- Smart Import preview before database changes
+- Legacy AbhiTools/Gist JSON support
+- AbhiTools full-backup JSON support
+- Compatible {borrowers, loans} JSON support
+- Merge mode: keeps current data and skips duplicate loan IDs
+- Replace mode: requires typed REPLACE confirmation
+- Invalid/skipped record report
+- Existing borrower/loan duplicate preview
+- Import activity logging
+
+DATABASE
+- Supabase migration phase1_backup_import has already been applied to the abhishek-management project.
+- New table: backup_snapshots (RLS enabled; service_role only)
+- Security Advisor checked after migration: 0 security lints.
+- Existing migrated data was preserved during testing.
+
+IMPORTANT
+- Upload the CONTENTS of this ZIP to the Abhitools GitHub repo root and replace matching files.
+- Do not upload this ZIP to the other project.
+- No new Vercel environment variables are required for Phase 1.
+- Document backup stores metadata/path records; actual Supabase Storage file bytes are not embedded in JSON.

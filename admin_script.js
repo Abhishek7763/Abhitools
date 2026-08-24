@@ -724,19 +724,270 @@ function printStatement() {
 }
 
 // ==========================================
-// EXPORT / IMPORT
+// PHASE 1 - SMART IMPORT / BACKUP / RESTORE
 // ==========================================
+let selectedImportPayload = null;
+let selectedImportFileName = '';
+let currentImportPreview = null;
+
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+function openDataSafetyCenter(section = 'import') {
+    const modal = document.getElementById('dataSafetyModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    showSafetySection(section);
+}
+
+function closeDataSafetyCenter() {
+    const modal = document.getElementById('dataSafetyModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleSafetyOverlayClick(event) {
+    if (event?.target?.id === 'dataSafetyModal') closeDataSafetyCenter();
+}
+
+function showSafetySection(section) {
+    const importSection = document.getElementById('smartImportSection');
+    const restoreSection = document.getElementById('backupRestoreSection');
+    const isRestore = section === 'restore';
+    if (importSection) importSection.style.display = isRestore ? 'none' : 'block';
+    if (restoreSection) restoreSection.style.display = isRestore ? 'block' : 'none';
+    if (isRestore) loadBackupHistory();
+}
+
+async function downloadFullBackup() {
+    try {
+        const response = await adminFetch('/api/backup?action=export', { cache: 'no-store' });
+        const blob = await response.blob();
+        const disposition = response.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="?([^";]+)"?/i);
+        const fileName = match?.[1] || `AbhiTools_Full_Backup_${new Date().toISOString().slice(0,10)}.json`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+        console.error('Backup export failed:', err);
+        alert('Backup export nahi hua: ' + err.message);
+    }
+}
+
+// Old inline references remain compatible.
 function exportData() {
-    const dataStr = JSON.stringify({ borrowers, loans }, null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const today = new Date();
-    a.download = `Loan_Backup_${today.getDate()}-${today.getMonth()+1}-${today.getFullYear()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    return downloadFullBackup();
+}
+
+async function createManualBackup() {
+    const defaultLabel = `Manual ${new Date().toLocaleString('en-IN')}`;
+    const label = prompt('Backup ka naam likhein:', defaultLabel);
+    if (label === null) return;
+    try {
+        const response = await adminFetch('/api/backup?action=create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label: label.trim() || defaultLabel })
+        });
+        const data = await response.json();
+        alert('✅ Backup snapshot create ho gaya.');
+        await loadBackupHistory();
+        return data;
+    } catch (err) {
+        console.error('Manual backup failed:', err);
+        alert('Backup create nahi hua: ' + err.message);
+    }
+}
+
+async function loadBackupHistory() {
+    const list = document.getElementById('backupHistoryList');
+    if (!list) return;
+    list.innerHTML = 'Loading...';
+    try {
+        const response = await adminFetch('/api/backup?action=list', { cache: 'no-store' });
+        const items = await response.json();
+        if (!Array.isArray(items) || !items.length) {
+            list.innerHTML = '<div class="safety-status">Abhi koi server snapshot nahi hai.</div>';
+            return;
+        }
+        list.innerHTML = items.map(item => {
+            const s = item.summary || {};
+            const when = item.created_at ? new Date(item.created_at).toLocaleString('en-IN') : 'Unknown time';
+            const label = item.label || item.reason || 'Backup';
+            return `
+                <div class="backup-history-item">
+                    <div class="meta">
+                        <strong>${escapeHtml(label)}</strong>
+                        <small>${escapeHtml(when)} • ${Number(s.borrowers || 0)} borrowers • ${Number(s.loans || 0)} loans • ${Number(s.emis || 0)} EMIs<br>${escapeHtml(item.reason || '')}</small>
+                    </div>
+                    <button class="btn btn-warning" onclick="restoreSnapshot('${String(item.id || '').replace(/[^0-9a-f-]/gi, '')}')">♻️ Restore</button>
+                </div>`;
+        }).join('');
+    } catch (err) {
+        console.error('Backup history failed:', err);
+        list.innerHTML = `<div class="safety-status">History load nahi hui: ${escapeHtml(err.message)}</div>`;
+    }
+}
+
+async function restoreSnapshot(snapshotId) {
+    if (!confirm('Selected backup restore karein? Current database pehle automatically backup hoga, phir selected snapshot restore hoga.')) return;
+    const typed = prompt('Safety confirmation ke liye RESTORE type karein:');
+    if (typed !== 'RESTORE') {
+        alert('Restore cancel ho gaya.');
+        return;
+    }
+    try {
+        const response = await adminFetch('/api/backup?action=restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ snapshot_id: snapshotId, confirm: true })
+        });
+        const data = await response.json();
+        alert(`✅ Restore complete. Loans: ${data?.summary?.loans ?? 'OK'}, EMIs: ${data?.summary?.emis ?? 'OK'}`);
+        currentOpenFolder = null;
+        await loadAllData();
+        await loadBackupHistory();
+    } catch (err) {
+        console.error('Restore failed:', err);
+        alert('Restore nahi hua: ' + err.message);
+    }
+}
+
+async function handleImportFile(event) {
+    const file = event.target.files?.[0];
+    const info = document.getElementById('importFileInfo');
+    const previewBox = document.getElementById('importPreview');
+    const controls = document.getElementById('importApplyControls');
+    const resultBox = document.getElementById('importResult');
+
+    selectedImportPayload = null;
+    selectedImportFileName = '';
+    currentImportPreview = null;
+    if (previewBox) previewBox.style.display = 'none';
+    if (controls) controls.style.display = 'none';
+    if (resultBox) resultBox.style.display = 'none';
+
+    if (!file) {
+        if (info) info.textContent = 'Koi JSON file select nahi hui.';
+        return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+        if (info) info.textContent = '❌ File 2 MB se badi hai. Is build me maximum 2 MB JSON supported hai.';
+        event.target.value = '';
+        return;
+    }
+
+    try {
+        if (info) info.textContent = `Reading ${file.name}...`;
+        const payload = JSON.parse(await file.text());
+        selectedImportPayload = payload;
+        selectedImportFileName = file.name;
+        if (info) info.textContent = `✅ ${file.name} read ho gayi. Server validation chal rahi hai...`;
+
+        const response = await adminFetch('/api/import?action=preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payload })
+        });
+        currentImportPreview = await response.json();
+        renderImportPreview(currentImportPreview);
+    } catch (err) {
+        console.error('Import preview failed:', err);
+        selectedImportPayload = null;
+        currentImportPreview = null;
+        if (info) info.textContent = `❌ JSON preview failed: ${err.message}`;
+    }
+}
+
+function renderImportPreview(preview) {
+    const box = document.getElementById('importPreview');
+    const controls = document.getElementById('importApplyControls');
+    if (!box) return;
+    const c = preview.counts || {};
+    const d = preview.duplicates || {};
+    const skipped = preview.skipped || {};
+    const issues = Array.isArray(preview.issues) ? preview.issues : [];
+    const skippedTotal = Object.values(skipped).reduce((a, b) => a + Number(b || 0), 0);
+
+    box.innerHTML = `
+        <div><strong>Format:</strong> ${escapeHtml(preview.format || 'Unknown')}</div>
+        <div class="import-stat-grid">
+            <div class="import-stat"><strong>${Number(c.borrowers || 0)}</strong>Borrowers</div>
+            <div class="import-stat"><strong>${Number(c.loans || 0)}</strong>Loans</div>
+            <div class="import-stat"><strong>${Number(c.emis || 0)}</strong>EMIs</div>
+            <div class="import-stat"><strong>${Number(c.documents || 0)}</strong>Documents</div>
+        </div>
+        <div class="import-warning">
+            Existing matches: ${Number(d.existing_borrowers || 0)} borrower names, ${Number(d.existing_loans || 0)} loan IDs.<br>
+            Invalid/skipped in file: ${skippedTotal}. Merge mode me existing duplicate loan IDs safely skip honge.
+        </div>
+        ${issues.length ? `<div class="import-warning"><strong>Validation notes:</strong><br>${issues.slice(0,8).map(escapeHtml).join('<br>')}</div>` : ''}
+    `;
+    box.style.display = 'block';
+    if (controls) controls.style.display = preview.can_import ? 'block' : 'none';
+}
+
+async function applySmartImport() {
+    if (!selectedImportPayload || !currentImportPreview?.can_import) {
+        alert('Pehle valid JSON file select aur preview karein.');
+        return;
+    }
+    const mode = document.getElementById('importMode')?.value || 'merge';
+    if (mode === 'replace') {
+        const typed = prompt('⚠️ Replace current Borrowers/Loans/EMIs ko imported data se replace karega. Automatic backup banega. Continue ke liye REPLACE type karein:');
+        if (typed !== 'REPLACE') {
+            alert('Replace import cancel ho gaya.');
+            return;
+        }
+    } else if (!confirm('Merge import apply karein? Existing duplicate Loan IDs skip honge aur current data safe rahega.')) {
+        return;
+    }
+
+    const button = document.getElementById('applyImportBtn');
+    const resultBox = document.getElementById('importResult');
+    if (button) button.disabled = true;
+    if (resultBox) {
+        resultBox.style.display = 'block';
+        resultBox.textContent = 'Import chal raha hai... page close mat karein.';
+    }
+
+    try {
+        const response = await adminFetch('/api/import?action=apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                payload: selectedImportPayload,
+                mode,
+                confirmReplace: mode === 'replace',
+                label: `Before import: ${selectedImportFileName || 'JSON'}`
+            })
+        });
+        const data = await response.json();
+        const r = data.result || {};
+        if (resultBox) {
+            resultBox.textContent = `✅ Import complete\nBorrowers added: ${r.inserted_borrowers ?? 0}\nBorrowers reused: ${r.reused_borrowers ?? 0}\nLoans added: ${r.inserted_loans ?? 0}\nDuplicate loans skipped: ${r.duplicate_loans ?? 0}\nEMIs added: ${r.inserted_emis ?? 0}\nEMIs skipped: ${r.skipped_emis ?? 0}\nSafety snapshot: ${r.backup_snapshot_id || 'created'}`;
+        }
+        currentOpenFolder = null;
+        await loadAllData();
+    } catch (err) {
+        console.error('Import apply failed:', err);
+        if (resultBox) resultBox.textContent = '❌ Import failed safely: ' + err.message;
+    } finally {
+        if (button) button.disabled = false;
+    }
 }
 
 window.onload = initApp;
