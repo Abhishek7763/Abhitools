@@ -182,12 +182,13 @@ export default async function handler(req, res) {
         await supabaseRequest('rpc/abhi_refresh_due_statuses', 'POST', {});
         const today = businessDate();
         const cutoff30 = addDays(today, -30);
-        const [borrowersRes, loansRes, emisRes, paymentsRes, contactsRes] = await Promise.all([
+        const [borrowersRes, loansRes, emisRes, paymentsRes, contactsRes, followupsRes] = await Promise.all([
             supabaseRequest('borrowers?deleted_at=is.null&select=id,name,phone,whatsapp&order=name.asc&limit=5000'),
             supabaseRequest('loans?deleted_at=is.null&select=id,borrower_id,loan_code,amount,status&limit=5000'),
             supabaseRequest('emis?select=id,loan_id,installment_number,amount,paid_amount,paid_date,status,due_date,due_year&limit=10000'),
             supabaseRequest('emi_payments?reversed_at=is.null&select=id,emi_id,amount,payment_date&limit=20000'),
-            supabaseRequest('activity_log?action=eq.CONTACT_REMINDER&select=record_id,created_at&order=created_at.desc&limit=5000')
+            supabaseRequest('activity_log?action=eq.CONTACT_REMINDER&select=record_id,created_at&order=created_at.desc&limit=5000'),
+            supabaseRequest(`collection_followups?followup_date=gte.${cutoff30}&followup_date=lte.${today}&select=borrower_id,created_at&order=created_at.desc&limit=5000`)
         ]);
 
         const borrowers = borrowersRes.data || [];
@@ -268,6 +269,13 @@ export default async function handler(req, res) {
             const emi = emiById.get(row.record_id);
             const loan = emi ? loanById.get(emi.loan_id) : null;
             const stat = loan ? borrowerStats.get(loan.borrower_id) : null;
+            if (!stat) continue;
+            stat.contact_attempts_30d += 1;
+            if (!stat.last_contact_at || String(row.created_at) > String(stat.last_contact_at)) stat.last_contact_at = row.created_at;
+        }
+
+        for (const row of followupsRes.data || []) {
+            const stat = borrowerStats.get(row.borrower_id);
             if (!stat) continue;
             stat.contact_attempts_30d += 1;
             if (!stat.last_contact_at || String(row.created_at) > String(stat.last_contact_at)) stat.last_contact_at = row.created_at;

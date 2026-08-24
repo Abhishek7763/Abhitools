@@ -2,7 +2,7 @@ import { noStore, requireAdmin, sendServerError, supabaseRequest } from '../serv
 
 const TIME_ZONE = 'Asia/Kolkata';
 const VALID_PERIODS = new Set(['all', 'today', '7d', '30d', '90d']);
-const VALID_CATEGORIES = new Set(['all', 'payment', 'borrower', 'loan', 'document', 'recycle', 'safety', 'reminder', 'quality', 'settings', 'system']);
+const VALID_CATEGORIES = new Set(['all', 'payment', 'borrower', 'loan', 'document', 'recycle', 'safety', 'reminder', 'followup', 'quality', 'settings', 'system']);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function businessDate() {
@@ -29,6 +29,7 @@ function categoryFor(action = '', table = '') {
     const t = String(table).toLowerCase();
     if (a === 'LEGACY_DATE_CLEANUP' || a.includes('DATA_QUALITY')) return 'quality';
     if (a.includes('APP_SETTINGS') || t === 'app_settings') return 'settings';
+    if (a.includes('FOLLOWUP') || a.includes('PTP') || t === 'collection_followups') return 'followup';
     if (a.includes('REMINDER')) return 'reminder';
     if (a.includes('PAYMENT') || t === 'emi_payments') return 'payment';
     if (a.includes('RECYCLE') || a.includes('PURGE') || t === 'recycle_bin') return 'recycle';
@@ -40,7 +41,7 @@ function categoryFor(action = '', table = '') {
 }
 
 function iconFor(category) {
-    return ({ payment:'💰', borrower:'👤', loan:'💳', document:'📎', recycle:'♻️', safety:'🛡️', reminder:'🔔', quality:'🧩', settings:'⚙️', system:'🖥️' })[category] || '🕘';
+    return ({ payment:'💰', borrower:'👤', loan:'💳', document:'📎', recycle:'♻️', safety:'🛡️', reminder:'🔔', followup:'📋', quality:'🧩', settings:'⚙️', system:'🖥️' })[category] || '🕘';
 }
 
 function labelFor(action = '') {
@@ -52,7 +53,8 @@ function labelFor(action = '') {
         RESTORE_RECYCLE_ITEM:'Recycle Item Restored', PURGE_RECYCLE_ITEM:'Recycle Item Permanently Deleted',
         CREATE_BACKUP:'Backup Created', RESTORE_BACKUP:'Backup Restored', SMART_IMPORT:'Smart Import', LEGACY_IMPORT:'Legacy Import',
         CONTACT_REMINDER:'Reminder Contacted', LEGACY_DATE_CLEANUP:'Legacy Data Quality Cleanup',
-        UPDATE_APP_SETTINGS:'Settings Updated', RESET_APP_SETTINGS:'Settings Reset'
+        UPDATE_APP_SETTINGS:'Settings Updated', RESET_APP_SETTINGS:'Settings Reset',
+        ADD_FOLLOWUP:'Follow-up Logged', COMPLETE_FOLLOWUP:'Follow-up Completed', CANCEL_FOLLOWUP:'Follow-up Cancelled', UPDATE_PTP_STATUS:'Promise-to-Pay Updated'
     };
     const key = String(action || '').toUpperCase();
     return labels[key] || key.split('_').filter(Boolean).map(w => w[0] + w.slice(1).toLowerCase()).join(' ') || 'Activity';
@@ -67,14 +69,15 @@ function csvCell(value) {
 }
 
 async function loadContext() {
-    const [borrowersRes, loansRes, emisRes, paymentsRes, settlementsRes, documentsRes, recycleRes] = await Promise.all([
+    const [borrowersRes, loansRes, emisRes, paymentsRes, settlementsRes, documentsRes, recycleRes, followupsRes] = await Promise.all([
         supabaseRequest('borrowers?select=id,name,phone,deleted_at&limit=5000'),
         supabaseRequest('loans?select=id,loan_code,borrower_id,status,deleted_at&limit=5000'),
         supabaseRequest('emis?select=id,loan_id,installment_number&limit=10000'),
         supabaseRequest('emi_payments?select=id,emi_id,amount,payment_date,source,reversed_at&limit=10000'),
         supabaseRequest('loan_settlements?select=id,loan_id,settlement_date,reopened_at&limit=5000'),
         supabaseRequest('documents?select=id,borrower_id,loan_id,file_name,doc_type,deleted_at&limit=5000'),
-        supabaseRequest('recycle_bin?select=id,entity_type,record_id,label,deleted_at,restored_at,purged_at&limit=5000')
+        supabaseRequest('recycle_bin?select=id,entity_type,record_id,label,deleted_at,restored_at,purged_at&limit=5000'),
+        supabaseRequest('collection_followups?select=id,borrower_id,loan_id,emi_id,outcome,promise_status&limit=5000')
     ]);
     const borrowers = borrowersRes.data || [];
     const loans = loansRes.data || [];
@@ -83,6 +86,7 @@ async function loadContext() {
     const settlements = settlementsRes.data || [];
     const documents = documentsRes.data || [];
     const recycle = recycleRes.data || [];
+    const followups = followupsRes.data || [];
     return {
         borrowerById: new Map(borrowers.map(x => [x.id, x])),
         loanById: new Map(loans.map(x => [x.id, x])),
@@ -90,7 +94,8 @@ async function loadContext() {
         paymentById: new Map(payments.map(x => [x.id, x])),
         settlementById: new Map(settlements.map(x => [x.id, x])),
         documentById: new Map(documents.map(x => [x.id, x])),
-        recycleById: new Map(recycle.map(x => [x.id, x]))
+        recycleById: new Map(recycle.map(x => [x.id, x])),
+        followupById: new Map(followups.map(x => [x.id, x]))
     };
 }
 
@@ -104,6 +109,7 @@ function contextFor(log, maps) {
     let settlement = null;
     let document = null;
     let recycle = null;
+    let followup = null;
 
     if (table === 'borrowers') borrower = maps.borrowerById.get(recordId) || null;
     if (table === 'loans') loan = maps.loanById.get(recordId) || null;
@@ -112,10 +118,17 @@ function contextFor(log, maps) {
     if (table === 'loan_settlements') settlement = maps.settlementById.get(recordId) || null;
     if (table === 'documents') document = maps.documentById.get(recordId) || null;
     if (table === 'recycle_bin') recycle = maps.recycleById.get(recordId) || null;
+    if (table === 'collection_followups') followup = maps.followupById.get(recordId) || null;
 
     if (payment) emi = maps.emiById.get(payment.emi_id) || null;
     if (emi) loan = maps.loanById.get(emi.loan_id) || null;
     if (settlement) loan = maps.loanById.get(settlement.loan_id) || null;
+    if (followup) {
+        borrower = maps.borrowerById.get(followup.borrower_id) || null;
+        if (followup.loan_id) loan = maps.loanById.get(followup.loan_id) || null;
+        if (followup.emi_id) emi = maps.emiById.get(followup.emi_id) || null;
+        if (emi && !loan) loan = maps.loanById.get(emi.loan_id) || null;
+    }
     if (document) {
         if (document.loan_id) loan = maps.loanById.get(document.loan_id) || null;
         if (document.borrower_id) borrower = maps.borrowerById.get(document.borrower_id) || null;

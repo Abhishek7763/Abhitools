@@ -81,6 +81,9 @@ let appSettingsData = null;
 let appSettingsDefaults = null;
 let appSettingsMeta = null;
 let appSettingsPlaceholders = [];
+let followupCenterData = null;
+let followupBucket = 'all';
+let followupPrefill = null;
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -3106,6 +3109,7 @@ function renderReminderItem(item) {
             <button class="btn btn-success" onclick="reminderOpenPayment('${item.emi_id}')">💰 Pay</button>
             <button class="btn btn-success" ${item.has_contact ? '' : 'disabled'} onclick="reminderOpenWhatsApp('${item.emi_id}','${item.bucket}')">💬 WhatsApp</button>
             <button class="btn btn-secondary" ${phone ? '' : 'disabled'} onclick="reminderCall('${escapeHtml(phone)}')">📞 Call</button>
+            <button class="btn btn-view" onclick="openFollowupCenter({borrowerId:'${item.borrower_id || ''}',loanId:'${item.loan_id || ''}',emiId:'${item.emi_id || ''}',showForm:true})">📋 Follow-up</button>
             <button class="btn btn-warning" ${item.contacted_today ? 'disabled' : ''} onclick="markReminderContacted('${item.emi_id}')">${item.contacted_today ? '✅ Done Today' : '✓ Mark Contacted'}</button>
         </div>
     </article>`;
@@ -4169,11 +4173,11 @@ async function loadReleaseVersionBadge() {
         if (!response.ok) throw new Error(`Version manifest ${response.status}`);
         releaseManifestData = await response.json();
         const badge = document.getElementById('releaseVersionBadge');
-        if (badge) badge.textContent = releaseManifestData?.label || `V${releaseManifestData?.release || '2.1.0'} Stable`;
+        if (badge) badge.textContent = releaseManifestData?.label || `V${releaseManifestData?.release || '2.2.0'} Stable`;
         return releaseManifestData;
     } catch (err) {
         const badge = document.getElementById('releaseVersionBadge');
-        if (badge) badge.textContent = 'V2.1 Stable';
+        if (badge) badge.textContent = 'V2.2 Stable';
         throw err;
     }
 }
@@ -4210,13 +4214,13 @@ async function refreshReleaseCenter() {
         releaseManifestData = manifest;
 
         const latest = Array.isArray(backups) ? backups[0] : null;
-        const version = manifest?.release || '2.1.0';
+        const version = manifest?.release || '2.2.0';
         const label = manifest?.label || `V${version} Stable`;
         set('releaseCenterMeta', `${label} • released ${manifest?.release_date || '2026-08-24'} • production recovery toolkit`);
         set('releaseStableLabel', label);
         set('releaseVersionCode', version);
         set('releaseHealthVersion', version);
-        set('releaseBackupFormat', `v${Number(manifest?.backup_format_version || 6)}`);
+        set('releaseBackupFormat', `v${Number(manifest?.backup_format_version || 7)}`);
         set('releaseHealthBackup', latest ? 'Available' : 'None');
         set('releaseHealthBackupTime', latest ? releaseDateTime(latest.created_at) : 'Create one before next change');
         set('releaseHealthRecycle', String(Number(home?.summary?.recycleItems || 0)));
@@ -4419,6 +4423,7 @@ function renderCollectionInsightsList() {
             <div class="ci-actions">
                 <button class="btn btn-view" onclick="ciOpenBorrower('${escapeHtml(item.id)}')">👤 Profile</button>
                 <button class="btn btn-warning" onclick="ciOpenReminders('${escapeHtml(item.id)}')">🔔 Reminders</button>
+                <button class="btn btn-view" onclick="ciOpenFollowups('${escapeHtml(item.id)}')">📋 Follow-up</button>
                 <button class="btn btn-success" ${item.has_contact ? '' : 'disabled'} onclick="ciOpenWhatsApp('${escapeHtml(item.id)}')">💬 WhatsApp</button>
                 <button class="btn btn-secondary" ${contactDigits ? '' : 'disabled'} onclick="ciCall('${escapeHtml(contactDigits)}')">📞 Call</button>
                 ${dataIncomplete ? '<button class="btn btn-view" onclick="ciOpenDataQuality()">🧩 Fix Dates</button>' : ''}
@@ -4445,6 +4450,11 @@ async function ciOpenReminders(id) {
         if (search && item?.name) search.value = item.name;
         renderReminderList();
     } catch {}
+}
+
+function ciOpenFollowups(id) {
+    closeCollectionInsights();
+    openFollowupCenter({ borrowerId:id, showForm:true });
 }
 
 function ciOpenWhatsApp(id) {
@@ -4477,6 +4487,293 @@ async function exportCollectionInsightsCsv() {
     } catch (err) {
         alert(err.message || 'Collection insights CSV export nahi hua.');
     }
+}
+
+// ==========================================
+// PHASE 23 - FOLLOW-UP NOTES & PROMISE-TO-PAY
+// ==========================================
+function followupMoney(value) {
+    return `₹${Math.max(0, Number(value || 0)).toLocaleString('en-IN')}`;
+}
+
+function followupDateLabel(value) {
+    const v = String(value || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return '—';
+    const d = new Date(`${v}T00:00:00Z`);
+    if (Number.isNaN(d.getTime())) return v;
+    return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' });
+}
+
+function followupDateTime(value) {
+    if (!value) return '—';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-IN', { timeZone:'Asia/Kolkata', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true });
+}
+
+function followupSetText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function followupOutcomeLabel(value) {
+    return ({
+        contacted:'Contacted / Discussed', no_answer:'No Answer', callback:'Callback Requested',
+        promised_to_pay:'Promise to Pay', payment_received:'Payment Reported', dispute:'Dispute / Clarification',
+        wrong_number:'Wrong / Invalid Number', other:'Other'
+    })[value] || String(value || 'Other').replaceAll('_',' ');
+}
+
+function followupChannelLabel(value) {
+    return ({ whatsapp:'WhatsApp', call:'Call', manual:'Manual', visit:'Visit', other:'Other' })[value] || value || 'Manual';
+}
+
+async function openFollowupCenter(options = {}) {
+    const modal = document.getElementById('followupCenterModal');
+    if (!modal) return;
+    followupPrefill = options && typeof options === 'object' ? { ...options } : {};
+    followupBucket = followupPrefill.bucket || 'all';
+    const search = document.getElementById('followupSearch');
+    if (search) search.value = followupPrefill.search || '';
+    document.querySelectorAll('#followupBuckets .followup-bucket').forEach(btn => btn.classList.toggle('active', btn.dataset.bucket === followupBucket));
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    await refreshFollowupCenter();
+    if (followupPrefill.showForm || followupPrefill.borrowerId || followupPrefill.loanId || followupPrefill.emiId) {
+        await openFollowupForm(followupPrefill);
+    }
+}
+
+function closeFollowupCenter() {
+    const modal = document.getElementById('followupCenterModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+    followupPrefill = null;
+}
+
+function handleFollowupOverlayClick(event) {
+    if (event?.target?.id === 'followupCenterModal') closeFollowupCenter();
+}
+
+function setFollowupBucket(bucket, button = null) {
+    followupBucket = bucket || 'all';
+    document.querySelectorAll('#followupBuckets .followup-bucket').forEach(btn => btn.classList.toggle('active', btn.dataset.bucket === followupBucket));
+    if (button?.classList?.contains('followup-bucket')) button.classList.add('active');
+    renderFollowupList();
+}
+
+function followupFilteredItems() {
+    let rows = Array.isArray(followupCenterData?.items) ? [...followupCenterData.items] : [];
+    const q = String(document.getElementById('followupSearch')?.value || '').trim().toLowerCase();
+    if (followupBucket === 'action') rows = rows.filter(x => ['promise_overdue','promise_today','promise_broken','followup_overdue','followup_today'].includes(x.action_state));
+    else if (followupBucket === 'promises') rows = rows.filter(x => x.promise_status && x.promise_status !== 'none');
+    else if (followupBucket === 'upcoming') rows = rows.filter(x => ['upcoming','promise_pending'].includes(x.action_state));
+    else if (followupBucket === 'open') rows = rows.filter(x => x.status === 'open');
+    else if (followupBucket === 'history') rows = rows.filter(x => x.status !== 'open');
+    if (q) rows = rows.filter(x => [x.borrower_name,x.loan_code,x.notes,x.outcome,x.channel,x.promise_status,x.installment_number].map(v => String(v ?? '').toLowerCase()).join(' ').includes(q));
+    return rows;
+}
+
+function renderFollowupItem(item) {
+    const hasContact = Boolean(String(item.borrower_whatsapp || item.borrower_phone || '').trim());
+    const promiseClass = item.promise_status === 'broken' ? 'broken' : 'promise';
+    const promise = item.promise_status && item.promise_status !== 'none'
+        ? `<span class="${promiseClass}">🤝 ${escapeHtml(String(item.promise_status).toUpperCase())} • ${followupMoney(item.promise_amount)} • ${escapeHtml(followupDateLabel(item.promise_date))}</span>` : '';
+    const next = item.next_followup_date ? `<span>🗓️ Next ${escapeHtml(followupDateLabel(item.next_followup_date))}</span>` : '';
+    const note = item.notes ? `<div class="followup-note">${escapeHtml(item.notes)}</div>` : '';
+    const loanMeta = [item.loan_code, item.installment_number ? `EMI #${Number(item.installment_number)}` : null].filter(Boolean).join(' • ');
+    const pendingPromiseActions = item.promise_status === 'pending' ? `
+        <button class="btn btn-success" onclick="updateFollowupPromiseStatus('${item.id}','kept')">✓ PTP Kept</button>
+        <button class="btn btn-danger" onclick="updateFollowupPromiseStatus('${item.id}','broken')">✕ PTP Broken</button>
+        <button class="btn btn-secondary" onclick="updateFollowupPromiseStatus('${item.id}','cancelled')">PTP Cancel</button>` : '';
+    const openActions = item.status === 'open' ? `<button class="btn btn-view" onclick="completeFollowupItem('${item.id}')">✅ Complete</button><button class="btn btn-secondary" onclick="cancelFollowupItem('${item.id}')">Cancel</button>` : '';
+    return `<article class="followup-item ${escapeHtml(item.action_state || 'history')}">
+        <div class="followup-state"><span>${escapeHtml(item.action_label || 'History')}</span><small>${escapeHtml(followupDateLabel(item.followup_date))}<br>${escapeHtml(followupDateTime(item.created_at))}</small></div>
+        <div class="followup-main">
+            <div class="followup-title"><strong>${escapeHtml(item.borrower_name || 'Unknown')}</strong><span>${escapeHtml(followupChannelLabel(item.channel))}</span><span>${escapeHtml(followupOutcomeLabel(item.outcome))}</span></div>
+            <div class="followup-meta">${escapeHtml(loanMeta || 'Borrower-level follow-up')}${item.emi_due_date ? ` • EMI due ${escapeHtml(followupDateLabel(item.emi_due_date))}` : ''}${item.outcome === 'payment_received' ? ' • ⚠️ Ledger unchanged' : ''}</div>
+            ${note}
+            <div class="followup-schedule">${next}${promise}</div>
+        </div>
+        <div class="followup-actions">
+            <button class="btn btn-view" onclick="followupOpenProfile('${item.borrower_id || ''}')">👤 Profile</button>
+            ${item.emi_id && Number(item.emi_remaining || 0) > 0 ? `<button class="btn btn-success" onclick="followupOpenPayment('${item.emi_id}')">💰 Pay</button>` : ''}
+            <button class="btn btn-success" ${hasContact ? '' : 'disabled'} onclick="followupOpenWhatsApp('${item.borrower_id || ''}','${item.loan_id || ''}','${item.emi_id || ''}')">💬 WhatsApp</button>
+            ${pendingPromiseActions}${openActions}
+        </div>
+    </article>`;
+}
+
+function renderFollowupList() {
+    const list = document.getElementById('followupList');
+    if (!list) return;
+    const rows = followupFilteredItems();
+    list.innerHTML = rows.length ? rows.map(renderFollowupItem).join('') : '<div class="followup-empty">Is filter me koi follow-up entry nahi hai.</div>';
+}
+
+function renderFollowupCenter(data) {
+    followupCenterData = data;
+    const s = data?.summary || {};
+    followupSetText('followupCenterMeta', `Business date: ${data?.businessDate || '-'} • ${data?.timezone || 'Asia/Kolkata'} • server-synced audit history`);
+    followupSetText('followupActionNow', Number(s.actionNow || 0));
+    followupSetText('followupPromiseOverdue', Number(s.promiseOverdue || 0) + Number(s.promiseBroken || 0));
+    followupSetText('followupPromisePendingAmount', `${Number(s.promiseBroken || 0)} broken • ${followupMoney(s.promiseAmountPending)} pending`);
+    followupSetText('followupPromiseToday', Number(s.promiseToday || 0));
+    followupSetText('followupUpcoming', Number(s.upcoming7 || 0));
+    followupSetText('followupOpen', Number(s.open || 0));
+    followupSetText('followupTotal', Number(s.total || 0));
+    renderFollowupList();
+}
+
+async function refreshFollowupCenter() {
+    const loading = document.getElementById('followupLoading');
+    if (loading) { loading.style.display = 'block'; loading.textContent = 'Follow-up history load ho rahi hai...'; }
+    try {
+        const response = await adminFetch('/api/dashboard?mode=followups', { cache:'no-store' });
+        const data = await response.json();
+        renderFollowupCenter(data);
+        if (loading) loading.style.display = 'none';
+        return data;
+    } catch (err) {
+        console.error('Follow-up Center failed:', err);
+        if (loading) { loading.style.display = 'block'; loading.textContent = `Follow-up Center load nahi hua: ${err.message}`; }
+        throw err;
+    }
+}
+
+function followupOption(value, label, selected = false) {
+    return `<option value="${escapeHtml(value || '')}" ${selected ? 'selected' : ''}>${escapeHtml(label || '')}</option>`;
+}
+
+async function openFollowupForm(options = {}) {
+    if (!followupCenterData) await refreshFollowupCenter();
+    const panel = document.getElementById('followupFormPanel');
+    if (!panel) return;
+    const selectedBorrower = options.borrowerId || '';
+    const borrowerSelect = document.getElementById('followupBorrowerSelect');
+    const borrowerRows = followupCenterData?.options?.borrowers || [];
+    if (borrowerSelect) borrowerSelect.innerHTML = '<option value="">Select borrower...</option>' + borrowerRows.map(b => followupOption(b.id, `${b.name}${b.phone ? ` • ${b.phone}` : ''}`, b.id === selectedBorrower)).join('');
+    const date = document.getElementById('followupDate');
+    if (date) { date.value = followupCenterData?.businessDate || ''; date.max = followupCenterData?.businessDate || ''; }
+    const channel = document.getElementById('followupChannel');
+    if (channel) channel.value = followupCenterData?.defaults?.contact_channel || appSettingsData?.default_contact_channel || 'whatsapp';
+    const outcome = document.getElementById('followupOutcome'); if (outcome) outcome.value = 'contacted';
+    const notes = document.getElementById('followupNotes'); if (notes) notes.value = '';
+    const next = document.getElementById('followupNextDate'); if (next) { next.value = ''; next.min = followupCenterData?.businessDate || ''; }
+    const promiseDate = document.getElementById('followupPromiseDate'); if (promiseDate) { promiseDate.value = ''; promiseDate.min = followupCenterData?.businessDate || ''; }
+    const promiseAmount = document.getElementById('followupPromiseAmount'); if (promiseAmount) promiseAmount.value = '';
+    const status = document.getElementById('followupFormStatus'); if (status) status.textContent = 'Ready.';
+    panel.style.display = 'block';
+    onFollowupBorrowerChange(options.loanId || '', options.emiId || '');
+    onFollowupOutcomeChange();
+    panel.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function closeFollowupForm() {
+    const panel = document.getElementById('followupFormPanel');
+    if (panel) panel.style.display = 'none';
+}
+
+function onFollowupBorrowerChange(selectedLoan = '', selectedEmi = '') {
+    const borrowerId = document.getElementById('followupBorrowerSelect')?.value || '';
+    const loanSelect = document.getElementById('followupLoanSelect');
+    const loans = (followupCenterData?.options?.loans || []).filter(l => l.borrower_id === borrowerId);
+    if (loanSelect) loanSelect.innerHTML = '<option value="">Borrower-level / no specific loan</option>' + loans.map(l => followupOption(l.id, `${l.loan_code || 'Loan'}${l.status === 'closed' ? ' • CLOSED' : ''}`, l.id === selectedLoan)).join('');
+    onFollowupLoanChange(selectedEmi);
+}
+
+function onFollowupLoanChange(selectedEmi = '') {
+    const loanId = document.getElementById('followupLoanSelect')?.value || '';
+    const emiSelect = document.getElementById('followupEmiSelect');
+    const emis = (followupCenterData?.options?.emis || []).filter(e => e.loan_id === loanId);
+    if (emiSelect) emiSelect.innerHTML = '<option value="">No specific EMI</option>' + emis.map(e => followupOption(e.id, `EMI #${Number(e.installment_number || 0)} • ${followupMoney(e.remaining)} remaining${e.due_date ? ` • ${followupDateLabel(e.due_date)}` : ' • date not set'}`, e.id === selectedEmi)).join('');
+}
+
+function onFollowupOutcomeChange() {
+    const outcome = document.getElementById('followupOutcome')?.value || 'contacted';
+    const showPromise = outcome === 'promised_to_pay';
+    const d = document.getElementById('followupPromiseDateWrap'); if (d) d.style.display = showPromise ? 'flex' : 'none';
+    const a = document.getElementById('followupPromiseAmountWrap'); if (a) a.style.display = showPromise ? 'flex' : 'none';
+    const status = document.getElementById('followupFormStatus');
+    if (status) status.textContent = ['no_answer','callback'].includes(outcome) ? 'Next Follow-up date required.' : showPromise ? 'Promise date + amount required. PTP does not record an EMI payment.' : 'Ready.';
+}
+
+async function saveFollowupEntry() {
+    const btn = document.getElementById('followupSaveBtn');
+    const status = document.getElementById('followupFormStatus');
+    const borrowerId = document.getElementById('followupBorrowerSelect')?.value || '';
+    if (!borrowerId) { if (status) status.textContent = '⚠️ Borrower select karein.'; return; }
+    const body = {
+        action:'create', borrower_id:borrowerId,
+        loan_id:document.getElementById('followupLoanSelect')?.value || null,
+        emi_id:document.getElementById('followupEmiSelect')?.value || null,
+        followup_date:document.getElementById('followupDate')?.value || null,
+        channel:document.getElementById('followupChannel')?.value || 'manual',
+        outcome:document.getElementById('followupOutcome')?.value || 'contacted',
+        next_followup_date:document.getElementById('followupNextDate')?.value || null,
+        promise_date:document.getElementById('followupPromiseDate')?.value || null,
+        promise_amount:document.getElementById('followupPromiseAmount')?.value || null,
+        notes:document.getElementById('followupNotes')?.value || null
+    };
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = 'Saving...';
+    try {
+        await adminFetch('/api/dashboard?mode=followups', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+        if (status) status.textContent = '✅ Follow-up saved.';
+        closeFollowupForm();
+        followupBucket = 'all';
+        await refreshFollowupCenter();
+        refreshReminderBadge(true).catch(()=>{});
+        refreshHomeCommandCenter(true).catch(()=>{});
+    } catch (err) {
+        if (status) status.textContent = `❌ ${err.message}`;
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function updateFollowupPromiseStatus(id, promiseStatus) {
+    const label = promiseStatus === 'kept' ? 'KEPT' : promiseStatus === 'broken' ? 'BROKEN' : 'CANCELLED';
+    const extra = promiseStatus === 'kept' ? '\n\nImportant: Isse EMI payment ledger update nahi hoga. Actual payment ho to Pay action alag se record karein.' : '';
+    if (!confirm(`Promise ko ${label} mark karein?${extra}`)) return;
+    try {
+        await adminFetch('/api/dashboard?mode=followups', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'promise-status', id, promise_status:promiseStatus }) });
+        await refreshFollowupCenter();
+        if (promiseStatus === 'kept') alert('✅ PTP kept mark ho gaya. EMI/payment ledger intentionally unchanged hai.');
+    } catch (err) { alert(err.message || 'Promise status update nahi hua.'); }
+}
+
+async function completeFollowupItem(id) {
+    if (!confirm('Is open follow-up ko complete mark karein?')) return;
+    try {
+        await adminFetch('/api/dashboard?mode=followups', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'complete', id }) });
+        await refreshFollowupCenter();
+    } catch (err) { alert(err.message || 'Follow-up complete nahi hua.'); }
+}
+
+async function cancelFollowupItem(id) {
+    if (!confirm('Is open follow-up ko cancel karein? Pending PTP bhi cancelled ho jayega.')) return;
+    try {
+        await adminFetch('/api/dashboard?mode=followups', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ action:'cancel', id }) });
+        await refreshFollowupCenter();
+    } catch (err) { alert(err.message || 'Follow-up cancel nahi hua.'); }
+}
+
+async function followupOpenProfile(borrowerId) {
+    closeFollowupCenter();
+    await openBorrowerProfile(borrowerId);
+}
+
+function followupOpenPayment(emiId) {
+    closeFollowupCenter();
+    openPaymentModal(emiId);
+}
+
+function followupOpenWhatsApp(borrowerId, loanId, emiId) {
+    closeFollowupCenter();
+    const item = (followupCenterData?.items || []).find(x => x.borrower_id === borrowerId && (!emiId || x.emi_id === emiId));
+    const template = item?.emi_due_date && followupCenterData?.businessDate && item.emi_due_date < followupCenterData.businessDate ? 'overdue' : 'due';
+    openWhatsAppCenter({ borrowerId, loanId, emiId, template });
 }
 
 // ==========================================
@@ -4552,7 +4849,7 @@ function populateSettingsCenter() {
     const updated = document.getElementById('settingsUpdatedAt');
     if (updated) updated.textContent = settingsDateTime(appSettingsMeta?.updated_at);
     const meta = document.getElementById('settingsCenterMeta');
-    if (meta) meta.textContent = `Server-synced • ${Number(s.reminder_window_days || 7)}-day reminder window • backup v6`;
+    if (meta) meta.textContent = `Server-synced • ${Number(s.reminder_window_days || 7)}-day reminder window • backup v7`;
     const status = document.getElementById('settingsSaveStatus');
     if (status) status.textContent = 'Server settings loaded. Changes save karne ke liye Save Settings dabayein.';
     updateSettingsTemplateCounts();

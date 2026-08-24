@@ -1,8 +1,22 @@
-# AbhiTools V2.1 Stable — Changelog
+# AbhiTools V2.2 Stable — Changelog
 
 Release date: 2026-08-24
 
-V2.1 extends the Phase 1–21 stable production baseline with Phase 22 server-synced settings and business rules.
+V2.2 extends the Phase 1–22 stable production baseline with Phase 23 Follow-up Notes & Promise-to-Pay tracking.
+
+## V2.2 / Phase 23
+
+- Added **Follow-up Notes & Promise-to-Pay Center** in Admin.
+- Added borrower/loan/EMI-linked contact history with channel, outcome and notes.
+- Added Next Follow-up scheduling with Action Now, Today/Overdue and Upcoming queues.
+- Added Promise-to-Pay amount/date with explicit Pending, Kept, Broken and Cancelled states.
+- PTP status is operational tracking only and never creates or edits EMI payment ledger entries.
+- Reminder Center treats an EMI-linked same-day follow-up as contacted to reduce duplicate work.
+- Collection Priority Insights now includes follow-up contacts in 30-day contact activity.
+- Activity History gains a dedicated **Follow-ups / PTP** category.
+- Full JSON backup and server snapshots upgraded to **backup format v7**, which includes `collection_followups`.
+- Mobile admin quick navigation includes Follow-up access.
+- Vercel Hobby architecture remains at 12 serverless functions by routing Phase 23 through `api/dashboard.js`.
 
 ## V2.1 / Phase 22
 
@@ -39,6 +53,7 @@ V2.1 extends the Phase 1–21 stable production baseline with Phase 22 server-sy
 
 - Vercel Hobby architecture remains within the 12 Serverless Function limit.
 - Legacy EMI years/dates are not invented automatically.
-- Settings do not automatically rewrite borrower, loan or EMI financial records.
+- Settings and follow-up/PTP tracking do not automatically rewrite borrower, loan or EMI financial records.
+- Promise-to-Pay status changes never record money; actual payments must use the EMI Payment workflow.
 - Collection Priority Insights are operational collection aids, not credit scores or automated lending decisions.
 - Secrets are expected only in deployment environment variables and are not stored in this repository.

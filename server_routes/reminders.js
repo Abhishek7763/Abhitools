@@ -132,7 +132,10 @@ function summaryFrom(items, yearNotSetCount, yearNotSetAmount) {
 }
 
 async function loadContactedToday(today) {
-    const logsRes = await supabaseRequest('activity_log?action=eq.CONTACT_REMINDER&select=id,record_id,description,created_at&order=created_at.desc&limit=2000');
+    const [logsRes, followupsRes] = await Promise.all([
+        supabaseRequest('activity_log?action=eq.CONTACT_REMINDER&select=id,record_id,description,created_at&order=created_at.desc&limit=2000'),
+        supabaseRequest(`collection_followups?followup_date=eq.${today}&emi_id=not.is.null&select=id,emi_id,channel,created_at&order=created_at.desc&limit=2000`)
+    ]);
     const map = new Map();
     for (const row of logsRes.data || []) {
         if (!row.record_id || dateInZone(row.created_at) !== today || map.has(row.record_id)) continue;
@@ -141,6 +144,10 @@ async function loadContactedToday(today) {
             created_at: row.created_at,
             channel: match?.[1]?.toLowerCase() || 'manual'
         });
+    }
+    for (const row of followupsRes.data || []) {
+        if (!row.emi_id || map.has(row.emi_id)) continue;
+        map.set(row.emi_id, { created_at: row.created_at, channel: row.channel || 'manual' });
     }
     return map;
 }

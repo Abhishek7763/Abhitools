@@ -1,15 +1,16 @@
-ABHITOOLS V2.1 STABLE — FULL RELEASE
+ABHITOOLS V2.2 STABLE — FULL RELEASE
 Release date: 2026-08-24
 
-This package is a full source snapshot of the stable Phase 1–22 application.
+This package is a full source snapshot of the stable Phase 1–23 application.
 
 DEPLOYMENT NOTES
 1. Use the repository root structure exactly as packaged.
 2. Keep existing Vercel environment variables configured in the project; secrets are not included here.
 3. Vercel Hobby serverless function budget is 12. The api/ folder in this release contains exactly 12 functions.
 4. Do NOT re-add retired api/activity.js, api/calendar.js, or api/search.js. Those routes are consolidated through api/dashboard.js + server_routes/.
-5. Phase 22 adds server-side app_settings and backup format v6; production Supabase migrations are recorded under supabase/migrations/.
-6. Before any future major update, create a server snapshot and download a Full JSON Backup from Admin → Release & Recovery.
+5. Phase 23 adds collection_followups and backup format v7; production Supabase migrations are recorded under supabase/migrations/.
+6. Promise-to-Pay status is operational tracking only and never records EMI money.
+7. Before any future major update, create a server snapshot and download a Full JSON Backup from Admin → Release & Recovery.
 
 REFERENCE
 - version.json: machine-readable release identity
