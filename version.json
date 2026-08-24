@@ -1,8 +1,8 @@
 {
   "product": "AbhiTools / Abhishek Management Tool",
-  "release": "2.2.0",
+  "release": "2.3.0",
   "channel": "stable",
-  "label": "V2.2 Stable",
+  "label": "V2.3 Stable",
   "release_date": "2026-08-24",
   "phase": 23,
   "architecture": {
@@ -13,5 +13,5 @@
     "vercel_hobby_function_budget": 12
   },
   "backup_format_version": 7,
-  "notes": "Phase 23 stable release with server-synced follow-up notes and Promise-to-Pay tracking. Secrets are intentionally not included."
+  "notes": "Final mobile-first UI/UX stable release after Phase 23. Includes compact loan/EMI presentation, Home/Collections shell, responsive forms, print/PDF polish, due-date clarity and admin UI hardening. Financial rules are unchanged and legacy dates are never guessed."
 }

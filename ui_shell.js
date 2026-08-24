@@ -299,6 +299,46 @@
         syncReminderBadge();
     }
 
+    async function syncStableReleaseMeta() {
+        const fallback = { release:'2.3.0', label:'V2.3 Stable', backup_format_version:7, release_date:'2026-08-24' };
+        let manifest = fallback;
+        try {
+            const response = await fetch('/version.json', { cache:'no-store', credentials:'same-origin' });
+            if (response.ok) manifest = { ...fallback, ...(await response.json()) };
+        } catch {}
+
+        const version = String(manifest.release || fallback.release);
+        const label = String(manifest.label || `V${version} Stable`);
+        const backupVersion = Math.max(1, Number(manifest.backup_format_version || fallback.backup_format_version));
+        const set = (id, value) => { const node = document.getElementById(id); if (node) node.textContent = value; };
+        set('releaseVersionBadge', label);
+        set('releaseStableLabel', label);
+        set('releaseVersionCode', version);
+        set('releaseHealthVersion', version);
+        set('releaseBackupFormat', `v${backupVersion}`);
+
+        const releaseMeta = document.getElementById('releaseCenterMeta');
+        if (releaseMeta && /V2\.2|2\.2\.0/i.test(releaseMeta.textContent || '')) {
+            releaseMeta.textContent = `${label} • released ${manifest.release_date || fallback.release_date} • production recovery toolkit`;
+        }
+
+        document.querySelectorAll('.settings-status-panel > div').forEach(tile => {
+            const title = tile.querySelector('small');
+            const value = tile.querySelector('strong');
+            if (title && value && title.textContent.trim().toLowerCase() === 'backup format') {
+                value.textContent = `v${backupVersion} • settings included`;
+            }
+        });
+
+        document.querySelectorAll('.release-checklist > div').forEach(row => {
+            if (/App settings backup format v\d+/i.test(row.textContent || '')) {
+                row.innerHTML = `<span>✓</span> App settings backup format v${backupVersion} me snapshots ke saath included hain.`;
+            }
+        });
+    }
+
+    syncStableReleaseMeta();
+
     // Hide the old giant top-level controls only after the replacement shell is fully available.
     body.classList.add('ui-shell-ready');
 })();
