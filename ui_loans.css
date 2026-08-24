@@ -84,7 +84,7 @@ body.ui-shell-ready .ui-loan-card {
 .ui-loan-card-money small,
 .ui-loan-kpis small,
 .ui-loan-info-grid small { display:block; color:var(--ui-muted,#6b7280); font-size:10px; margin-bottom:2px; }
-.ui-loan-card-money strong { font-size:16px; color:var(--ui-text,#1f2937); }
+.ui-loan-card-money strong { font-size:17px; color:var(--ui-text,#1f2937); white-space:nowrap; letter-spacing:-.02em; font-variant-numeric:tabular-nums; }
 
 .ui-loan-card-due {
     min-height: 40px;
