@@ -943,9 +943,144 @@ function renderBorrowerProfile(data) {
 
     const count = document.getElementById('profileDocumentCount');
     if (count) count.textContent = `${Number(s.documentCount || 0)} files`;
+
+    const loanSelect = document.getElementById('profileDocLoan');
+    if (loanSelect) {
+        const previous = loanSelect.value;
+        loanSelect.innerHTML = '<option value="">Borrower level / no loan</option>' + profileLoans.map(loan =>
+            `<option value="${escapeHtml(loan.id)}">${escapeHtml(loan.loan_code || 'Loan')} • ${profileMoney(loan.amount)}</option>`
+        ).join('');
+        if ([...loanSelect.options].some(o => o.value === previous)) loanSelect.value = previous;
+    }
+
     const docs = document.getElementById('profileDocumentsPreview');
     const documents = data?.documents || [];
-    if (docs) docs.innerHTML = documents.length ? documents.slice(0,5).map(d => `<div class="profile-doc-row"><span>📄 ${escapeHtml(d.doc_type || 'Document')}</span><small>${escapeHtml(d.file_name || '')}</small></div>`).join('') : '<div class="profile-empty compact">Koi document upload nahi hai.</div>';
+    if (docs) {
+        docs.innerHTML = documents.length ? documents.map(d => {
+            const typeLabel = profileDocumentTypeLabel(d.doc_type);
+            const loan = profileLoans.find(l => l.id === d.loan_id);
+            return `<div class="profile-doc-row">
+                <span class="profile-doc-main"><strong>📄 ${escapeHtml(typeLabel)}</strong><small>${escapeHtml(d.file_name || '')}${loan ? ` • ${escapeHtml(loan.loan_code || 'Loan')}` : ''}</small></span>
+                <span class="profile-doc-actions"><button class="btn btn-view" onclick="openProfileDocument('${d.id}')">👁️ View</button><button class="btn btn-danger" onclick="deleteProfileDocument('${d.id}')">🗑️</button></span>
+            </div>`;
+        }).join('') : '<div class="profile-empty compact">Koi document upload nahi hai.</div>';
+    }
+}
+
+function profileDocumentTypeLabel(value) {
+    return ({ aadhaar:'Aadhaar', pan:'PAN', agreement:'Loan Agreement', receipt:'Receipt', photo:'Photo', other:'Other Document' })[String(value || '').toLowerCase()] || 'Document';
+}
+
+function setProfileUploadStatus(message, kind = 'info') {
+    const box = document.getElementById('profileUploadStatus');
+    if (!box) return;
+    box.style.display = message ? 'block' : 'none';
+    box.className = `profile-upload-status ${kind}`;
+    box.textContent = message || '';
+}
+
+function triggerBorrowerPhotoUpload() {
+    if (!currentProfileBorrowerId) return;
+    document.getElementById('profilePhotoInput')?.click();
+}
+
+async function uploadBorrowerPhoto(event) {
+    const file = event?.target?.files?.[0];
+    if (!file || !currentProfileBorrowerId) return;
+    if (!['image/jpeg','image/png','image/webp'].includes(file.type)) {
+        alert('Photo JPG, PNG ya WEBP format me hona chahiye.');
+        event.target.value = '';
+        return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+        alert('Photo 8 MB se chhota hona chahiye.');
+        event.target.value = '';
+        return;
+    }
+
+    const btn = document.getElementById('profilePhotoBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳'; }
+    setProfileUploadStatus('Borrower photo upload ho rahi hai...', 'info');
+    try {
+        const url = `/api/upload?bucket=photos&borrower_id=${encodeURIComponent(currentProfileBorrowerId)}&filename=${encodeURIComponent(file.name)}`;
+        const response = await adminFetch(url, { method:'POST', headers:{ 'Content-Type': file.type }, body:file });
+        await response.json();
+        setProfileUploadStatus('✅ Borrower photo update ho gayi.', 'success');
+        await openBorrowerProfile(currentProfileBorrowerId);
+        await loadAllData();
+    } catch (err) {
+        setProfileUploadStatus(`❌ ${err.message || 'Photo upload failed'}`, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '📷'; }
+        event.target.value = '';
+    }
+}
+
+async function uploadBorrowerDocument() {
+    const borrowerId = currentProfileBorrowerId;
+    const fileInput = document.getElementById('profileDocFile');
+    const file = fileInput?.files?.[0];
+    if (!borrowerId || !file) {
+        setProfileUploadStatus('Pehle document file select karein.', 'error');
+        return;
+    }
+    if (!['application/pdf','image/jpeg','image/png','image/webp'].includes(file.type)) {
+        setProfileUploadStatus('PDF, JPG, PNG ya WEBP file hi allowed hai.', 'error');
+        return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+        setProfileUploadStatus('File 8 MB se chhoti honi chahiye.', 'error');
+        return;
+    }
+
+    const docType = document.getElementById('profileDocType')?.value || 'other';
+    const loanId = document.getElementById('profileDocLoan')?.value || '';
+    const btn = document.getElementById('profileDocUploadBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Uploading...'; }
+    setProfileUploadStatus('Document private storage me upload ho raha hai...', 'info');
+
+    try {
+        const params = new URLSearchParams({ bucket:'documents', borrower_id:borrowerId, doc_type:docType, filename:file.name });
+        if (loanId) params.set('loan_id', loanId);
+        const response = await adminFetch(`/api/upload?${params.toString()}`, { method:'POST', headers:{ 'Content-Type': file.type }, body:file });
+        await response.json();
+        setProfileUploadStatus('✅ Document securely upload ho gaya.', 'success');
+        fileInput.value = '';
+        await openBorrowerProfile(borrowerId);
+    } catch (err) {
+        setProfileUploadStatus(`❌ ${err.message || 'Document upload failed'}`, 'error');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '⬆️ Upload'; }
+    }
+}
+
+async function openProfileDocument(documentId) {
+    const tab = window.open('about:blank', '_blank');
+    try {
+        const response = await adminFetch(`/api/documents?action=signed&id=${encodeURIComponent(documentId)}`);
+        const data = await response.json();
+        if (!data?.url) throw new Error('Document link nahi mila');
+        if (tab) tab.location.href = data.url;
+        else window.location.href = data.url;
+    } catch (err) {
+        if (tab) tab.close();
+        alert(err.message || 'Document open nahi hua.');
+    }
+}
+
+async function deleteProfileDocument(documentId) {
+    if (!confirm('Is document ko permanently delete karna hai?')) return;
+    const borrowerId = currentProfileBorrowerId;
+    setProfileUploadStatus('Document delete ho raha hai...', 'info');
+    try {
+        await adminFetch('/api/documents?action=delete', {
+            method:'DELETE', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ id: documentId })
+        });
+        setProfileUploadStatus('✅ Document delete ho gaya.', 'success');
+        if (borrowerId) await openBorrowerProfile(borrowerId);
+    } catch (err) {
+        setProfileUploadStatus(`❌ ${err.message || 'Document delete failed'}`, 'error');
+    }
 }
 
 function editCurrentBorrowerProfile() {

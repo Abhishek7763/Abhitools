@@ -1,0 +1,26 @@
+ABHITOOLS PHASE 5 - DOCUMENTS & BORROWER PHOTO
+
+Added:
+- Borrower photo upload from Advanced Borrower Profile.
+- Photos stored in Supabase public photos bucket and borrower photo_url updated server-side.
+- Private document upload for Aadhaar, PAN, Loan Agreement, Receipt and Other.
+- Optional document-to-loan linking.
+- Private document viewing through short-lived signed URLs (15 minutes).
+- Secure document deletion removes both storage object and metadata.
+- 8 MB server-side upload limit.
+- JPG, PNG, WEBP photos; PDF/JPG/PNG/WEBP documents.
+- Borrower and loan ownership validation before upload.
+- Upload/photo/delete activity logging.
+- Mobile and dark-mode document/photo UI.
+
+Security:
+- All upload/document APIs require the signed admin session.
+- Private documents are never exposed through public permanent URLs.
+- SUPABASE_SERVICE_KEY stays server-side only.
+- Supabase Security Advisor checked after Phase 5 migration: 0 issues.
+
+Database migration:
+- 20260824062016_phase5_document_receipts.sql
+- Adds receipt to the allowed documents.doc_type values.
+
+Existing records are not modified by this build.

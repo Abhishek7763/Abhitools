@@ -360,7 +360,11 @@
         <div class="profile-card" role="dialog" aria-modal="true" aria-labelledby="borrowerProfileTitle">
             <div class="profile-header">
                 <div class="profile-identity">
-                    <div id="profileAvatar" class="profile-avatar">👤</div>
+                    <div class="profile-avatar-wrap">
+                        <div id="profileAvatar" class="profile-avatar">👤</div>
+                        <button id="profilePhotoBtn" class="profile-photo-btn" type="button" onclick="triggerBorrowerPhotoUpload()" title="Change borrower photo">📷</button>
+                        <input id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp" style="display:none;" onchange="uploadBorrowerPhoto(event)">
+                    </div>
                     <div>
                         <h3 id="borrowerProfileTitle">Borrower Profile</h3>
                         <small id="profileSubtitle">Loading...</small>
@@ -392,11 +396,26 @@
 
                 <div class="profile-section">
                     <div class="profile-section-head">
-                        <h4>📎 Documents</h4>
+                        <h4>📎 Documents & Photo</h4>
                         <span id="profileDocumentCount" class="profile-chip">0 files</span>
                     </div>
+                    <div class="profile-doc-upload-grid">
+                        <select id="profileDocType" aria-label="Document type">
+                            <option value="aadhaar">Aadhaar</option>
+                            <option value="pan">PAN</option>
+                            <option value="agreement">Loan Agreement</option>
+                            <option value="receipt">Receipt</option>
+                            <option value="other">Other Document</option>
+                        </select>
+                        <select id="profileDocLoan" aria-label="Related loan">
+                            <option value="">Borrower level / no loan</option>
+                        </select>
+                        <input id="profileDocFile" type="file" accept="application/pdf,image/jpeg,image/png,image/webp">
+                        <button id="profileDocUploadBtn" class="btn btn-success" type="button" onclick="uploadBorrowerDocument()">⬆️ Upload</button>
+                    </div>
+                    <div id="profileUploadStatus" class="profile-upload-status" style="display:none;"></div>
                     <div id="profileDocumentsPreview" class="profile-docs-preview"></div>
-                    <small class="profile-muted">Full document upload/management Phase 5 me add hoga. Existing document metadata yahan visible rahega.</small>
+                    <small class="profile-muted">Documents private bucket me rahenge. View link temporary signed access se khulega. Max file size 8 MB.</small>
                 </div>
             </div>
         </div>

@@ -826,3 +826,39 @@ body.dark-mode .profile-directory-search { background:#1f2937; color:#e5e7eb; bo
     .profile-emi-row span:last-child { justify-content:space-between; }
     .profile-directory-side { font-size:12px; }
 }
+
+/* ==========================================
+   PHASE 5 - DOCUMENTS & BORROWER PHOTO
+   ========================================== */
+.profile-avatar-wrap { position:relative; width:58px; height:58px; flex:0 0 auto; }
+.profile-avatar-wrap .profile-avatar { width:58px; height:58px; }
+.profile-photo-btn { position:absolute; right:-5px; bottom:-5px; width:27px; height:27px; border-radius:50%; border:2px solid #fff; background:#1d4ed8; color:#fff; cursor:pointer; display:grid; place-items:center; padding:0; box-shadow:0 2px 7px rgba(0,0,0,.24); font-size:13px; }
+.profile-photo-btn:disabled { opacity:.6; cursor:wait; }
+.profile-doc-upload-grid { display:grid; grid-template-columns:1fr 1.15fr 1.7fr auto; gap:8px; align-items:center; margin-bottom:10px; }
+.profile-doc-upload-grid select,.profile-doc-upload-grid input[type="file"] { width:100%; min-width:0; padding:9px; border:1px solid #cbd5e1; border-radius:8px; background:#fff; color:#111827; font:inherit; font-size:12px; }
+.profile-doc-upload-grid .btn { margin:0; white-space:nowrap; }
+.profile-upload-status { padding:9px 11px; margin-bottom:10px; border-radius:8px; border:1px solid #bfdbfe; background:#eff6ff; color:#1e40af; font-size:12px; }
+.profile-upload-status.success { background:#f0fdf4; border-color:#bbf7d0; color:#166534; }
+.profile-upload-status.error { background:#fef2f2; border-color:#fecaca; color:#991b1b; }
+.profile-doc-row { align-items:center; }
+.profile-doc-main { min-width:0; flex:1; }
+.profile-doc-main strong,.profile-doc-main small { display:block; }
+.profile-doc-main small { margin-top:3px; }
+.profile-doc-actions { display:flex; gap:6px; flex-shrink:0; }
+.profile-doc-actions .btn { margin:0; width:auto; padding:6px 8px; font-size:10px; }
+body.dark-mode .profile-photo-btn { border-color:#111827; }
+body.dark-mode .profile-doc-upload-grid select,body.dark-mode .profile-doc-upload-grid input[type="file"] { background:#1f2937; color:#e5e7eb; border-color:#475569; }
+body.dark-mode .profile-upload-status { background:#172554; border-color:#1d4ed8; color:#bfdbfe; }
+body.dark-mode .profile-upload-status.success { background:#052e16; border-color:#166534; color:#bbf7d0; }
+body.dark-mode .profile-upload-status.error { background:#450a0a; border-color:#991b1b; color:#fecaca; }
+@media (max-width:760px) {
+    .profile-doc-upload-grid { grid-template-columns:1fr 1fr; }
+    .profile-doc-upload-grid input[type="file"] { grid-column:1/-1; }
+    .profile-doc-upload-grid .btn { grid-column:1/-1; justify-content:center; }
+}
+@media (max-width:480px) {
+    .profile-doc-upload-grid { grid-template-columns:1fr; }
+    .profile-doc-upload-grid input[type="file"],.profile-doc-upload-grid .btn { grid-column:auto; }
+    .profile-doc-row { flex-direction:column; align-items:stretch; }
+    .profile-doc-actions .btn { flex:1; justify-content:center; }
+}
