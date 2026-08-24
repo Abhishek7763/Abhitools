@@ -1,0 +1,15 @@
+AbhiTools Phase 16 - Final Security, Stability & Production Cleanup
+
+Highlights
+- Production security headers hardened with CSP, anti-framing, MIME sniffing, permissions and cross-domain policy controls.
+- Admin/login HTML shells explicitly no-store.
+- Service worker explicitly no-store from CDN/browser HTTP cache and app shell cache bumped to Phase 16.
+- /api/* remains network-only and is never stored by the service worker.
+- Public/admin borrower and loan rendering hardened against HTML injection in remaining legacy folder/month views.
+- Admin login is now self-contained: removed runtime Google Fonts and third-party icon CDN dependencies, reducing supply-chain/network failure risk.
+- Due-date fallback comparison now uses the server-provided Asia/Kolkata business date instead of the viewer device timezone.
+- Vercel ignored memory setting removed.
+- Node runtime pinned to supported Node 24.x instead of an open-ended >=20 range.
+- No new API function added; Hobby-plan function count remains 12.
+- No Supabase schema/data migration required.
+- Existing Phase 1-15 features retained.

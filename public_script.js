@@ -18,6 +18,16 @@ let publicDueData = null;
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
+
+function publicEscapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // ==========================================
 // APP INIT
 // ==========================================
@@ -101,9 +111,10 @@ function publicEmiRemaining(emi) {
 
 function publicEmiPastDue(emi) {
     if (!emi?.due_date || publicEmiRemaining(emi) <= 0) return false;
-    const due = new Date(`${String(emi.due_date).slice(0,10)}T00:00:00`);
-    const today = new Date(); today.setHours(0,0,0,0);
-    return !Number.isNaN(due.getTime()) && due < today;
+    const dueDate = String(emi.due_date).slice(0, 10);
+    const businessDate = String(publicDueData?.businessDate || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) return false;
+    return dueDate < businessDate;
 }
 
 function updateDashboard() {
@@ -225,7 +236,7 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
         div.className = 'folder';
         div.onclick = () => openFolder(name);
         div.innerHTML = `
-            <div>📁 ${name}</div>
+            <div>📁 ${publicEscapeHtml(name)}</div>
             <div>
                 <span>${f.count} Loans | ₹${f.sum.toLocaleString('en-IN')}</span>
             </div>
@@ -254,7 +265,7 @@ function openFolder(name) {
 
     const badgeBg = document.body.classList.contains('dark-mode') ? '#333' : '#e8f0fe';
     document.getElementById('currentFolderName').innerHTML = `
-        📁 ${name}<br>
+        📁 ${publicEscapeHtml(name)}<br>
         <span style="font-size:14px;font-weight:normal;display:inline-block;margin-top:5px;background:${badgeBg};padding:5px 15px;border-radius:20px;">
             Loans: <b>${loanCount}</b> &nbsp;|&nbsp; Amount: <b>₹${totalAmount.toLocaleString('en-IN')}</b>
         </span>
@@ -301,9 +312,9 @@ function renderLoanList(nameFilter) {
 
         card.innerHTML = `
             <div>
-                <p style="color:#1a73e8;font-weight:600;font-size:14px;">ID: ${loan.loan_code}</p>
+                <p style="color:#1a73e8;font-weight:600;font-size:14px;">ID: ${publicEscapeHtml(loan.loan_code || '')}</p>
                 <p><strong>Total Amount:</strong> ₹${parseInt(loan.amount).toLocaleString('en-IN')}</p>
-                <p><strong>Loan Year:</strong> ${loan.loan_year || '-'}</p>
+                <p><strong>Loan Year:</strong> ${publicEscapeHtml(loan.loan_year || '-')}</p>
                 <div class="emi-text">
                     <strong>EMI Schedule:</strong><br>
                     ${renderEmiItems(emis)}
@@ -337,7 +348,7 @@ function renderEmiItems(emis) {
         const label = full ? 'Paid' : pastDue && partial ? 'Partial • Overdue' : pastDue ? 'Overdue' : partial ? 'Partial' : 'Pending';
         return `<div style="padding:3px 0;border-bottom:1px solid #f0f0f0;">
             <span style="color:${color};">${icon}</span>
-            (${e.installment_number}) ${e.due_day} ${e.due_month}${e.due_year ? ' ' + e.due_year : ' (year not set)'} - ₹${parseInt(e.amount).toLocaleString('en-IN')}
+            (${Number(e.installment_number || 0)}) ${Number(e.due_day || 0)} ${publicEscapeHtml(e.due_month || '')}${e.due_year ? ' ' + publicEscapeHtml(e.due_year) : ' (year not set)'} - ₹${parseInt(e.amount).toLocaleString('en-IN')}
             <span style="font-size:11px;color:${color};"> • ${label}${paid > 0 ? ` • Paid ₹${paid.toLocaleString('en-IN')} • Rem ₹${remaining.toLocaleString('en-IN')}` : ''}</span>
         </div>`;
     }).join('');
@@ -377,7 +388,7 @@ function renderMonthFolders() {
         div.className = 'month-folder';
         div.onclick = () => openMonthDetail(key, d);
         div.innerHTML = `
-            <div>📅 ${d.month} ${d.year || 'Year not set'}</div>
+            <div>📅 ${publicEscapeHtml(d.month || '')} ${d.year ? publicEscapeHtml(d.year) : 'Year not set'}</div>
             <div>
                 <span style="color:#34a853;font-weight:600;">Total: ₹${d.total.toLocaleString('en-IN')}</span><br>
                 <small style="color:#34a853;">✅ Collected: ₹${d.collected.toLocaleString('en-IN')}</small>
@@ -412,8 +423,8 @@ function openMonthDetail(key, monthObj) {
         div.innerHTML = `
             <div>
                 <span style="background:${statusColor};color:white;padding:2px 6px;border-radius:4px;margin-right:5px;">${item.due_day}</span>
-                <strong>${item.name}</strong> ${statusIcon}<br>
-                <small style="color:#888;">${item.loan_code}</small>
+                <strong>${publicEscapeHtml(item.name || 'Unknown')}</strong> ${statusIcon}<br>
+                <small style="color:#888;">${publicEscapeHtml(item.loan_code || '')}</small>
             </div>
             <div style="font-size:14px;font-weight:600;color:#333;text-align:right;">₹${parseInt(item.amount).toLocaleString('en-IN')}<br><small>Paid ₹${itemPaid.toLocaleString('en-IN')} • Rem ₹${itemRemaining.toLocaleString('en-IN')}</small></div>
         `;
@@ -450,7 +461,7 @@ function printStatement() {
                     String(today.getMonth()+1).padStart(2,'0') + '/' + today.getFullYear();
     const timeStr = today.toLocaleString('en-US', { hour:'numeric', minute:'numeric', hour12:true });
     const el = document.getElementById('printDateDisplay');
-    if (el) el.innerHTML = `Date Generated: ${dateStr} at ${timeStr}`;
+    if (el) el.textContent = `Date Generated: ${dateStr} at ${timeStr}`;
     window.print();
 }
 

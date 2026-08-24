@@ -1,4 +1,4 @@
-// Phase 15 PWA helper — static shell only; API/financial responses are never cached.
+// Phase 16 PWA helper — hardened static shell only; API/financial responses are never cached.
 (() => {
     'use strict';
 

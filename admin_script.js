@@ -164,9 +164,10 @@ function emiRemainingAmount(emi) {
 
 function emiIsPastDue(emi) {
     if (!emi?.due_date || emiRemainingAmount(emi) <= 0) return false;
-    const due = new Date(`${String(emi.due_date).slice(0,10)}T00:00:00`);
-    const today = new Date(); today.setHours(0,0,0,0);
-    return !Number.isNaN(due.getTime()) && due < today;
+    const dueDate = String(emi.due_date).slice(0, 10);
+    const businessDate = String(dueCenterData?.businessDate || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate) || !/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) return false;
+    return dueDate < businessDate;
 }
 
 function updateDashboard() {
@@ -260,7 +261,7 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
         if (loan.status !== 'active') return;
         const borrower = loan.borrowers;
         if (!borrower) return;
-        const name = borrower.name.toUpperCase();
+        const name = String(borrower.name || 'Unknown').toUpperCase();
 
         if (searchQuery && !name.includes(searchQuery) && !loan.loan_code?.toUpperCase().includes(searchQuery)) return;
 
@@ -283,10 +284,10 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
         div.className = 'folder';
         div.onclick = () => openFolder(name);
         div.innerHTML = `
-            <div>📁 ${name}</div>
+            <div>📁 ${escapeHtml(name)}</div>
             <div>
                 <span>${f.count} Loans | ₹${f.sum.toLocaleString('en-IN')}</span>
-                ${f.phone ? `<br><small style="color:#34a853;">📱 ${f.phone}</small>` : ''}
+                ${f.phone ? `<br><small style="color:#34a853;">📱 ${escapeHtml(f.phone)}</small>` : ''}
             </div>
         `;
         folderDiv.appendChild(div);
@@ -305,7 +306,7 @@ function openFolder(name) {
 
     let totalAmount = 0, loanCount = 0;
     loans.forEach(loan => {
-        if (loan.borrowers?.name.toUpperCase() === name.toUpperCase() && loan.status === 'active') {
+        if (String(loan.borrowers?.name || '').toUpperCase() === String(name || '').toUpperCase() && loan.status === 'active') {
             totalAmount += parseInt(loan.amount) || 0;
             loanCount++;
         }
@@ -313,7 +314,7 @@ function openFolder(name) {
 
     const badgeBg = document.body.classList.contains('dark-mode') ? '#333' : '#fce8e6';
     document.getElementById('currentFolderName').innerHTML = `
-        📁 ${name}<br>
+        📁 ${escapeHtml(name)}<br>
         <span style="font-size:14px;font-weight:normal;display:inline-block;margin-top:5px;background:${badgeBg};padding:5px 15px;border-radius:20px;">
             Loans: <b>${loanCount}</b> &nbsp;|&nbsp; Amount: <b>₹${totalAmount.toLocaleString('en-IN')}</b>
         </span>
@@ -427,7 +428,7 @@ function renderLoanList(nameFilter) {
     list.innerHTML = '';
 
     loans.forEach(loan => {
-        if (loan.borrowers?.name.toUpperCase() !== nameFilter.toUpperCase()) return;
+        if (String(loan.borrowers?.name || '').toUpperCase() !== String(nameFilter || '').toUpperCase()) return;
 
         let emiSum = 0, paidSum = 0, overdueSum = 0;
         const emis = loan.emis || [];

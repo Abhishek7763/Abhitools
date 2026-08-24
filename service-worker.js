@@ -1,6 +1,6 @@
-// AbhiTools Phase 15 service worker
+// AbhiTools Phase 16 hardened service worker
 // SECURITY RULE: /api/* responses and authenticated financial data are never cached.
-const CACHE_NAME = 'abhi-tools-shell-p15-v1';
+const CACHE_NAME = 'abhi-tools-shell-p16-v1';
 const SHELL = [
   '/',
   '/index.html',
