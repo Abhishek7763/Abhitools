@@ -1,6 +1,6 @@
-// AbhiTools Design Build 1 hardened service worker
+// AbhiTools Design Build 5 hardened service worker
 // SECURITY RULE: /api/* responses and authenticated financial data are never cached.
-const CACHE_NAME = 'abhi-tools-shell-ui-b4-cleanfix-v1';
+const CACHE_NAME = 'abhi-tools-shell-ui-b5-final-v1';
 const SHELL = [
   '/',
   '/index.html',
@@ -77,7 +77,6 @@ self.addEventListener('fetch', event => {
     }
   })());
 });
-
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
