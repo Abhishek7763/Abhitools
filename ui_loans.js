@@ -7,18 +7,6 @@
     window.__ABHITOOLS_LOANS_UI_V2__ = true;
 
     const money = value => `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
-    const moneyCompact = value => {
-        const amount = Math.max(0, Number(value) || 0);
-        const fmt = (divisor, suffix) => {
-            const scaled = amount / divisor;
-            const digits = scaled < 10 ? 2 : scaled < 100 ? 1 : 0;
-            return `₹${Number(scaled.toFixed(digits))}${suffix}`;
-        };
-        if (amount >= 10000000) return fmt(10000000, 'Cr');
-        if (amount >= 100000) return fmt(100000, 'L');
-        if (amount >= 1000) return fmt(1000, 'K');
-        return money(amount);
-    };
     const esc = value => typeof escapeHtml === 'function' ? escapeHtml(value) : String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[ch]));
     const validIso = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').slice(0, 10));
     const isDateIncomplete = emi => !validIso(emi?.due_date) || !emi?.due_year;
@@ -276,10 +264,10 @@
                     <span class="ui-loan-status ${state.key}">${state.label}</span>
                 </div>
                 <div class="ui-loan-card-money">
-                    <div><small>Original</small><strong title="${money(loan.amount)}">${moneyCompact(loan.amount)}</strong></div>
-                    <div><small>Outstanding</small><strong title="${money(totals.remaining)}">${moneyCompact(totals.remaining)}</strong></div>
+                    <div><small>Original</small><strong>${money(loan.amount)}</strong></div>
+                    <div><small>Outstanding</small><strong>${money(totals.remaining)}</strong></div>
                 </div>
-                <div class="ui-loan-card-due ${totals.incomplete ? 'has-incomplete' : ''}"><span>${totals.incomplete ? '🧩' : '📅'}</span><strong>${esc(nextDueText(totals))}</strong>${totals.overdue ? `<b title="${money(totals.overdue)} overdue">${moneyCompact(totals.overdue)} overdue</b>` : ''}</div>
+                <div class="ui-loan-card-due ${totals.incomplete ? 'has-incomplete' : ''}"><span>${totals.incomplete ? '🧩' : '📅'}</span><strong>${esc(nextDueText(totals))}</strong>${totals.overdue ? `<b>${money(totals.overdue)} overdue</b>` : ''}</div>
                 <div class="ui-loan-card-progress"><div><span>${totals.paidCount}/${totals.emiCount} EMIs paid</span><strong>${Math.round(totals.progress)}%</strong></div><div class="ui-loan-progress"><i style="width:${totals.progress.toFixed(1)}%"></i></div></div>
                 <div class="ui-loan-card-actions no-print"><button class="btn btn-view" onclick="uiOpenLoanDetail('${esc(loan.id)}')">Open</button><button class="ui-loan-more-btn" aria-label="More loan actions" title="More actions" onclick="uiOpenLoanDetail('${esc(loan.id)}','more')">•••</button></div>`;
                 list.appendChild(card);

@@ -1,6 +1,6 @@
 // AbhiTools Design Build 1 hardened service worker
 // SECURITY RULE: /api/* responses and authenticated financial data are never cached.
-const CACHE_NAME = 'abhi-tools-shell-ui-b4-hotfix2-v1';
+const CACHE_NAME = 'abhi-tools-shell-ui-b4-cleanfix-v1';
 const SHELL = [
   '/',
   '/index.html',
@@ -15,6 +15,7 @@ const SHELL = [
   '/ui_home_collections.js',
   '/ui_forms_secondary.css',
   '/ui_forms_secondary.js',
+  '/ui_public_compact.js',
   '/manifest.json',
   '/icon-192.png',
   '/icon-512.png',
@@ -23,12 +24,7 @@ const SHELL = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    await cache.addAll(SHELL);
-    // Security/UI hotfix: activate immediately so auth-first navigation takes effect.
-    await self.skipWaiting();
-  })());
+  event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)));
 });
 
 self.addEventListener('activate', event => {
@@ -58,22 +54,6 @@ self.addEventListener('fetch', event => {
 
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
-      // Auth-first admin navigation: avoid rendering the admin shell before session verification.
-      if (url.pathname === '/admin.html' || url.pathname.endsWith('/admin.html')) {
-        try {
-          const auth = await fetch('/api/auth', {
-            method: 'GET',
-            cache: 'no-store',
-            credentials: 'include',
-            headers: { 'Accept': 'application/json' }
-          });
-          if (!auth.ok) return Response.redirect('/advanced_admin_login_panel.html', 302);
-          return await fetch(request);
-        } catch {
-          return Response.redirect('/advanced_admin_login_panel.html', 302);
-        }
-      }
-
       try {
         return await fetch(request);
       } catch {

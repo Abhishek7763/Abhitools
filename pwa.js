@@ -11,6 +11,7 @@
 
     const ADMIN_LOGIN_URL = '/advanced_admin_login_panel.html';
     const adminPath = /(?:^|\/)admin\.html$/i.test(window.location.pathname);
+    const publicPath = window.location.pathname === '/' || /(?:^|\/)index\.html$/i.test(window.location.pathname);
 
     // Security/UI guard: never render the admin page before the signed session is verified.
     // This is presentation hardening; /api/* remains the actual server-side security boundary.
@@ -136,7 +137,9 @@
     }
 
     function adminUiPage() {
-        return adminPath || document.body?.classList.contains('has-mobile-app-nav');
+        // Only the real admin document is auth-gated. The public index page also
+        // uses has-mobile-app-nav, so class-based detection must never be used here.
+        return adminPath;
     }
 
     function revealAuthorizedAdmin() {
@@ -210,6 +213,30 @@
         return false;
     }
 
+    async function waitForPublicCore(timeoutMs = 10000) {
+        const started = Date.now();
+        while (Date.now() - started < timeoutMs) {
+            const ready = typeof window.renderLoanList === 'function'
+                && typeof window.renderFolders === 'function'
+                && typeof window.publicEmiPaid === 'function'
+                && typeof window.publicEmiRemaining === 'function';
+            if (ready) return true;
+            await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        return false;
+    }
+
+    async function loadPublicUiLayer() {
+        if (!publicPath || adminPath) return;
+        try {
+            const coreReady = await waitForPublicCore();
+            if (!coreReady) throw new Error('Public loan handlers were not ready in time');
+            await loadScriptInOrder('/ui_public_compact.js', 'data-abhi-public-compact-ui');
+        } catch (error) {
+            console.error('Public compact UI layer failed; using core public UI:', error);
+        }
+    }
+
     // Hotfix: authenticated, deterministic UI loading. Dynamic scripts are loaded sequentially
     // after admin_script.js has defined the existing financial/action handlers.
     async function loadAdminUiShell() {
@@ -255,12 +282,14 @@
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
             loadAdminUiShell();
+            loadPublicUiLayer();
             bindInstallButtons();
             updateConnectionState();
             registerServiceWorker();
         }, { once: true });
     } else {
         loadAdminUiShell();
+        loadPublicUiLayer();
         bindInstallButtons();
         updateConnectionState();
         registerServiceWorker();

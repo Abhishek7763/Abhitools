@@ -105,7 +105,10 @@
             ${makeNavButton('search', '⌕', 'Search')}
             ${makeNavButton('more', '☰', 'More')}
         </div>
-        <button type="button" id="uiSidebarToggle" class="ui-sidebar-toggle" aria-label="Expand sidebar" title="Expand/collapse sidebar">
+        <button type="button" id="uiSidebarLogout" class="ui-sidebar-toggle ui-sidebar-logout" aria-label="Logout admin" title="Logout">
+            <span aria-hidden="true">🚪</span><span class="ui-sidebar-toggle-text">Logout</span>
+        </button>
+        <button type="button" id="uiSidebarToggle" class="ui-sidebar-toggle" style="margin-top:8px" aria-label="Expand sidebar" title="Expand/collapse sidebar">
             <span aria-hidden="true">⇥</span><span class="ui-sidebar-toggle-text">Expand</span>
         </button>
     `;
@@ -271,6 +274,9 @@
             document.querySelector('[data-ui-destination="more"]')?.focus();
         }
     });
+
+    const sidebarLogout = document.getElementById('uiSidebarLogout');
+    sidebarLogout?.addEventListener('click', () => invoke('logoutAdmin'));
 
     const sidebarToggle = document.getElementById('uiSidebarToggle');
     const savedExpanded = localStorage.getItem(STORAGE_KEY) === 'yes';
