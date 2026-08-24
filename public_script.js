@@ -1,220 +1,216 @@
 // ==========================================
-// ☁️ GITHUB GIST CLOUD SYNC SETTINGS (Read-Only)
-// ==========================================
-const GIST_ID = "2d93e5e61cf6e2f7292d57edebf29fac";
-const GIST_FILENAME = "abhishek_loans.json"; 
+// PUBLIC SCRIPT - Abhishek Management Tool
+// Supabase API se data fetch karta hai
+// Koi bhi token ya secret yahan nahi hai
 // ==========================================
 
-// Purane offline cache (Service Worker) ko hatane ka code taaki live data aaye
+// Service Worker hatao
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(function(registrations) {
-        for(let registration of registrations) {
-            registration.unregister();
-            console.log("Offline Cache hataya gaya, ab app hamesha live chalegi.");
-        }
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let r of registrations) r.unregister();
     });
 }
 
-// PWA Install Logic
+// PWA Install
 let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
-    const installBtn = document.getElementById('installAppBtn');
-    if (installBtn) {
-        installBtn.style.display = 'inline-block';
-        installBtn.addEventListener('click', async () => {
-            installBtn.style.display = 'none';
+    const btn = document.getElementById('installAppBtn');
+    if (btn) {
+        btn.style.display = 'inline-block';
+        btn.addEventListener('click', async () => {
+            btn.style.display = 'none';
             deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
+            await deferredPrompt.userChoice;
             deferredPrompt = null;
         });
     }
 });
 
+// ==========================================
+// GLOBAL VARIABLES
+// ==========================================
 let loans = [];
-let currentTab = 'folder'; 
+let currentTab = 'folder';
 let currentOpenFolder = null;
-let isGridView = false; 
+let isGridView = false;
+let autoSyncInterval = null;
 
-const monthOrder = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-const emiRegex = /(?:\(\d+\))?\s*(\d+)[-\s\/]+([a-zA-Z]+)[-\s\/]+(\d+)/;
+const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
+// ==========================================
+// APP INIT
+// ==========================================
 async function initApp() {
-    // Restore UI preferences from local storage
-    if(localStorage.getItem('abhishek_dark_mode') === 'yes') {
+    // Dark mode restore
+    if (localStorage.getItem('abhishek_dark_mode') === 'yes') {
         document.body.classList.add('dark-mode');
-        document.getElementById('darkModeBtn').innerText = "☀️ Light";
-        document.getElementById('darkModeBtn').style.background = "#fbbc05";
-        document.getElementById('darkModeBtn').style.color = "#333";
+        const btn = document.getElementById('darkModeBtn');
+        if (btn) { btn.innerText = '☀️ Light'; btn.style.background = '#fbbc05'; btn.style.color = '#333'; }
     }
 
-    const layoutPref = localStorage.getItem('abhishek_layout_pref');
-    if(layoutPref === 'grid') {
+    // Layout restore
+    if (localStorage.getItem('abhishek_layout_pref') === 'grid') {
         isGridView = true;
-        document.getElementById('folderView').classList.add('grid-view');
-        document.getElementById('layoutToggleBtn').innerText = "📜 List View";
+        document.getElementById('folderView')?.classList.add('grid-view');
+        const lb = document.getElementById('layoutToggleBtn');
+        if (lb) lb.innerText = '📜 List View';
     }
 
-    // Cloud only data loading (Hamesha fresh data layega, without token)
     await fetchFromCloud();
+
+    // Auto sync har 5 minute mein
+    autoSyncInterval = setInterval(fetchFromCloud, 5 * 60 * 1000);
 }
 
-// DATE FORMAT HELPER
-function formatUpdateTime(dateStr) {
-    const updatedAt = new Date(dateStr);
-    return updatedAt.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: true });
+// ==========================================
+// DATA FETCH - Supabase API se
+// ==========================================
+async function fetchFromCloud() {
+    const badge = document.getElementById('lastUpdatedBadge');
+    try {
+        if (badge) badge.innerHTML = `<span class="spin-icon">🔄</span><br>Updating ✨`;
+
+        const response = await fetch('/api/loans');
+        if (!response.ok) throw new Error('API error');
+        loans = await response.json();
+
+        updateDashboard();
+        renderFolders();
+        if (currentTab === 'month') renderMonthFolders();
+        if (currentOpenFolder) openFolder(currentOpenFolder);
+
+        if (badge) {
+            badge.innerHTML = `Updated! ✅🥰`;
+            setTimeout(() => {
+                badge.innerHTML = `Updated:<br>${new Date().toLocaleString('en-IN', {
+                    day: '2-digit', month: 'short',
+                    hour: '2-digit', minute: '2-digit', hour12: true
+                })}`;
+            }, 2000);
+        }
+
+    } catch (err) {
+        console.error('Fetch error:', err);
+        if (badge) badge.innerHTML = `Offline ❌`;
+        alert('Data load nahi hua. Internet check karein.');
+    }
 }
 
-// MANUAL SYNC FUNCTION
 async function manualSync() {
     await fetchFromCloud();
 }
 
-async function fetchFromCloud() {
-    const badge = document.getElementById('lastUpdatedBadge');
-    try {
-        badge.innerHTML = `<span class="spin-icon">🔄</span><br>Updating ✨`;
-        
-        // Read-only fetch (No token required for fetching public/known gist IDs)
-        const response = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-            cache: 'no-store'
-        });
-        const data = await response.json();
-        
-        if(data.files) {
-            let file = data.files[GIST_FILENAME];
-            if(!file) {
-                const fileNames = Object.keys(data.files);
-                if(fileNames.length > 0) file = data.files[fileNames[0]];
-            }
+// ==========================================
+// DASHBOARD
+// ==========================================
+function updateDashboard() {
+    let totalAmount = 0;
+    let dueThisMonth = 0;
+    let todayDue = 0;
 
-            if(file && file.content) {
-                loans = JSON.parse(file.content);
-                
-                updateDashboard();
-                renderFolders();
-                if (currentTab === 'month') renderMonthFolders();
-                if (currentOpenFolder) openFolder(currentOpenFolder);
-                
-                badge.innerHTML = `Updated! ✅🥰`;
-                setTimeout(() => {
-                    badge.innerHTML = `Updated:<br>${formatUpdateTime(data.updated_at)}`;
-                }, 2000);
+    const today = new Date();
+    const currentMonthShort = today.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+    const todayStr = today.toISOString().split('T')[0];
+
+    const dueLabel = document.getElementById('dueThisMonthLabel');
+    if (dueLabel) dueLabel.innerText = 'Due in ' + currentMonthShort;
+
+    loans.forEach(loan => {
+        if (loan.status !== 'active') return;
+        totalAmount += parseInt(loan.amount) || 0;
+
+        (loan.emis || []).forEach(emi => {
+            if (emi.due_month === currentMonthShort && emi.status !== 'paid') {
+                dueThisMonth += parseInt(emi.amount) || 0;
             }
-        }
-    } catch (err) {
-        console.error("Cloud fetch error:", err);
-        badge.innerHTML = `Offline ❌`;
-        alert("Data fetch nahi ho paya. Internet connection check karein.");
+            if (emi.due_date === todayStr && emi.status !== 'paid') {
+                todayDue += parseInt(emi.amount) || 0;
+            }
+        });
+    });
+
+    const el = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
+    el('totalLoansCount', loans.filter(l => l.status === 'active').length);
+    el('totalAmountSum', '₹' + totalAmount.toLocaleString('en-IN'));
+    el('dueThisMonthSum', '₹' + dueThisMonth.toLocaleString('en-IN'));
+
+    // Aaj ki due EMIs badge
+    const todayBadge = document.getElementById('todayDueBadge');
+    if (todayBadge) {
+        todayBadge.innerText = todayDue > 0 ? `🔔 Aaj Due: ₹${todayDue.toLocaleString('en-IN')}` : '';
+        todayBadge.style.display = todayDue > 0 ? 'block' : 'none';
     }
 }
 
+// ==========================================
+// DARK MODE & LAYOUT
+// ==========================================
 function toggleDarkMode() {
     document.body.classList.toggle('dark-mode');
     const isDark = document.body.classList.contains('dark-mode');
     localStorage.setItem('abhishek_dark_mode', isDark ? 'yes' : 'no');
-    
     const btn = document.getElementById('darkModeBtn');
-    if(isDark) {
-        btn.innerText = "☀️ Light";
-        btn.style.background = "#fbbc05";
-        btn.style.color = "#333";
-    } else {
-        btn.innerText = "🌙 Dark";
-        btn.style.background = "#5f6368";
-        btn.style.color = "white";
-    }
+    if (isDark) { btn.innerText = '☀️ Light'; btn.style.background = '#fbbc05'; btn.style.color = '#333'; }
+    else { btn.innerText = '🌙 Dark'; btn.style.background = '#5f6368'; btn.style.color = 'white'; }
 }
 
 function toggleLayout() {
     isGridView = !isGridView;
     const folderView = document.getElementById('folderView');
     const btn = document.getElementById('layoutToggleBtn');
-    
-    if(isGridView) {
+    if (isGridView) {
         folderView.classList.add('grid-view');
-        btn.innerText = "📜 List View";
+        btn.innerText = '📜 List View';
         localStorage.setItem('abhishek_layout_pref', 'grid');
     } else {
         folderView.classList.remove('grid-view');
-        btn.innerText = "🔲 Grid View";
+        btn.innerText = '🔲 Grid View';
         localStorage.setItem('abhishek_layout_pref', 'list');
     }
 }
 
-function printStatement() {
-    const today = new Date();
-    const dateStr = String(today.getDate()).padStart(2, '0') + '/' + 
-                    String(today.getMonth() + 1).padStart(2, '0') + '/' + 
-                    today.getFullYear();
-    const timeStr = today.toLocaleString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
-    document.getElementById('printDateDisplay').innerHTML = `Date Generated: ${dateStr} at ${timeStr}`;
-    window.print();
-}
-
-function updateDashboard() {
-    let totalAmount = 0;
-    let dueThisMonth = 0;
-    
-    const currentMonthShort = new Date().toLocaleString('en-US', { month: 'short' }).toUpperCase();
-    document.getElementById('dueThisMonthLabel').innerText = "Due in " + currentMonthShort;
-
-    loans.forEach(loan => { 
-        totalAmount += parseInt(loan.amount) || 0; 
-        
-        if(loan.emis) {
-            let lines = loan.emis.split('\n');
-            lines.forEach(line => {
-                let match = line.match(emiRegex); 
-                if(match) {
-                    let emiMonth = match[2].toUpperCase();
-                    let emiAmount = parseInt(match[3]);
-                    
-                    if(emiMonth === currentMonthShort && !isNaN(emiAmount)) {
-                        dueThisMonth += emiAmount;
-                    }
-                }
-            });
-        }
-    });
-    
-    document.getElementById('totalLoansCount').innerText = loans.length;
-    document.getElementById('totalAmountSum').innerText = "₹" + totalAmount.toLocaleString('en-IN');
-    document.getElementById('dueThisMonthSum').innerText = "₹" + dueThisMonth.toLocaleString('en-IN');
-}
-
+// ==========================================
+// TABS
+// ==========================================
 function switchTab(tab) {
     currentTab = tab;
-    document.getElementById('tabFolder').classList.remove('active');
-    document.getElementById('tabMonth').classList.remove('active');
-    
-    document.getElementById('folderView').style.display = 'none';
-    document.getElementById('detailView').style.display = 'none';
-    document.getElementById('monthView').style.display = 'none';
-    document.getElementById('monthDetailView').style.display = 'none';
+    ['tabFolder','tabMonth'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    ['folderView','detailView','monthView','monthDetailView'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
 
-    if(tab === 'folder') {
-        document.getElementById('tabFolder').classList.add('active');
+    if (tab === 'folder') {
+        document.getElementById('tabFolder')?.classList.add('active');
         document.getElementById('folderView').style.display = 'block';
-        document.getElementById('viewControlsContainer').style.display = 'flex'; 
+        document.getElementById('viewControlsContainer').style.display = 'flex';
         document.querySelector('.search-container').style.display = 'flex';
-        handleSearch(); 
+        handleSearch();
     } else {
-        document.getElementById('tabMonth').classList.add('active');
+        document.getElementById('tabMonth')?.classList.add('active');
         document.getElementById('monthView').style.display = 'block';
-        document.getElementById('viewControlsContainer').style.display = 'none'; 
+        document.getElementById('viewControlsContainer').style.display = 'none';
         document.querySelector('.search-container').style.display = 'none';
         renderMonthFolders();
     }
 }
 
+// ==========================================
+// FOLDER VIEW
+// ==========================================
 function renderFolders(searchQuery = '', sortMode = 'name') {
     const folders = {};
+
     loans.forEach(loan => {
-        const name = loan.name.toUpperCase();
-        if(searchQuery && !name.includes(searchQuery) && !loan.id.toUpperCase().includes(searchQuery)) return;
-        
+        if (loan.status !== 'active') return;
+        const borrower = loan.borrowers;
+        if (!borrower) return;
+        const name = borrower.name.toUpperCase();
+
+        if (searchQuery && !name.includes(searchQuery) && !loan.loan_code?.toUpperCase().includes(searchQuery)) return;
+
         if (!folders[name]) folders[name] = { count: 0, sum: 0 };
         folders[name].count++;
         folders[name].sum += parseInt(loan.amount) || 0;
@@ -223,29 +219,27 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
     const folderDiv = document.getElementById('folderView');
     folderDiv.innerHTML = '';
 
-    let sortedFolderNames = Object.keys(folders);
-    
-    if (sortMode === 'highest') {
-        sortedFolderNames.sort((a, b) => folders[b].sum - folders[a].sum);
-    } else if (sortMode === 'lowest') {
-        sortedFolderNames.sort((a, b) => folders[a].sum - folders[b].sum);
-    } else {
-        sortedFolderNames.sort();
-    }
+    let names = Object.keys(folders);
+    if (sortMode === 'highest') names.sort((a, b) => folders[b].sum - folders[a].sum);
+    else if (sortMode === 'lowest') names.sort((a, b) => folders[a].sum - folders[b].sum);
+    else names.sort();
 
-    sortedFolderNames.forEach(name => {
+    names.forEach(name => {
+        const f = folders[name];
         const div = document.createElement('div');
         div.className = 'folder';
         div.onclick = () => openFolder(name);
         div.innerHTML = `
             <div>📁 ${name}</div>
-            <div><span>${folders[name].count} Loans | ₹${folders[name].sum}</span></div>
+            <div>
+                <span>${f.count} Loans | ₹${f.sum.toLocaleString('en-IN')}</span>
+            </div>
         `;
         folderDiv.appendChild(div);
     });
-    
-    if(sortedFolderNames.length === 0) {
-        folderDiv.innerHTML = '<p style="text-align:center; color:#777; margin-top:20px; grid-column: 1 / -1;">No records found.</p>';
+
+    if (names.length === 0) {
+        folderDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;grid-column:1/-1;">Koi record nahi mila.</p>';
     }
 }
 
@@ -253,26 +247,24 @@ function openFolder(name) {
     currentOpenFolder = name;
     document.getElementById('folderView').style.display = 'none';
     document.getElementById('detailView').style.display = 'block';
-    document.getElementById('viewControlsContainer').style.display = 'none'; 
-    
-    let userTotalAmount = 0;
-    let userLoanCount = 0;
+    document.getElementById('viewControlsContainer').style.display = 'none';
+
+    let totalAmount = 0, loanCount = 0;
     loans.forEach(loan => {
-        if(loan.name.toUpperCase() === name.toUpperCase()) {
-            userTotalAmount += parseInt(loan.amount) || 0;
-            userLoanCount++;
+        if (loan.borrowers?.name.toUpperCase() === name.toUpperCase() && loan.status === 'active') {
+            totalAmount += parseInt(loan.amount) || 0;
+            loanCount++;
         }
     });
 
-    let badgeBg = document.body.classList.contains('dark-mode') ? '#333' : '#e8f0fe';
-
+    const badgeBg = document.body.classList.contains('dark-mode') ? '#333' : '#e8f0fe';
     document.getElementById('currentFolderName').innerHTML = `
-        📁 ${name} <br>
-        <span style="font-size: 14px; font-weight: normal; display: inline-block; margin-top: 5px; background: ${badgeBg}; padding: 5px 15px; border-radius: 20px;">
-            Loans: <b>${userLoanCount}</b> &nbsp;|&nbsp; Amount: <b>₹${userTotalAmount.toLocaleString('en-IN')}</b>
+        📁 ${name}<br>
+        <span style="font-size:14px;font-weight:normal;display:inline-block;margin-top:5px;background:${badgeBg};padding:5px 15px;border-radius:20px;">
+            Loans: <b>${loanCount}</b> &nbsp;|&nbsp; Amount: <b>₹${totalAmount.toLocaleString('en-IN')}</b>
         </span>
     `;
-    
+
     renderLoanList(name);
 }
 
@@ -280,111 +272,145 @@ function goBackToFolders() {
     currentOpenFolder = null;
     document.getElementById('detailView').style.display = 'none';
     document.getElementById('folderView').style.display = 'block';
-    document.getElementById('viewControlsContainer').style.display = 'flex'; 
+    document.getElementById('viewControlsContainer').style.display = 'flex';
     handleSearch();
 }
 
+// ==========================================
+// LOAN CARDS - Public View (Read Only)
+// ==========================================
 function renderLoanList(nameFilter) {
     const list = document.getElementById('loanList');
     list.innerHTML = '';
-    
-    loans.forEach((loan, index) => {
-        if(loan.name.toUpperCase() === nameFilter.toUpperCase()) {
-            let emiSum = 0;
-            if(loan.emis) {
-                let lines = loan.emis.split('\n');
-                lines.forEach(line => {
-                    let match = line.match(emiRegex);
-                    if(match) {
-                        let parsedAmount = parseInt(match[3]);
-                        if(!isNaN(parsedAmount)) { emiSum += parsedAmount; }
-                    }
-                });
-            }
 
-            const card = document.createElement('div');
-            card.className = 'card';
-            // Yaha se Edit/Delete button ko hata diya gaya hai
-            card.innerHTML = `
-                <div>
-                    <p style="color:#1a73e8; font-weight:600; font-size:14px;">ID: ${loan.id}</p>
-                    <p><strong>Total Amount:</strong> ₹${loan.amount}</p>
-                    <div class="emi-text"><strong>EMI Dates:</strong><br>${loan.emis}</div>
+    loans.forEach(loan => {
+        if (loan.borrowers?.name.toUpperCase() !== nameFilter.toUpperCase()) return;
+
+        let emiSum = 0, paidSum = 0, overdueSum = 0;
+        const emis = loan.emis || [];
+        emis.forEach(e => {
+            emiSum += parseInt(e.amount) || 0;
+            if (e.status === 'paid') paidSum += parseInt(e.paid_amount || e.amount) || 0;
+            if (e.status === 'overdue') overdueSum += parseInt(e.amount) || 0;
+        });
+
+        const remaining = emiSum - paidSum;
+        const borderColor = overdueSum > 0 ? '#ea4335' : (remaining === 0 ? '#34a853' : '#1a73e8');
+
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.style.borderLeftColor = borderColor;
+
+        const borrower = loan.borrowers || {};
+
+        card.innerHTML = `
+            <div>
+                <p style="color:#1a73e8;font-weight:600;font-size:14px;">ID: ${loan.loan_code}</p>
+                <p><strong>Total Amount:</strong> ₹${parseInt(loan.amount).toLocaleString('en-IN')}</p>
+                <p><strong>Loan Year:</strong> ${loan.loan_year || '-'}</p>
+                <div class="emi-text">
+                    <strong>EMI Schedule:</strong><br>
+                    ${renderEmiItems(emis)}
                 </div>
-                <div style="margin-top: 15px; display: flex; justify-content: flex-end; align-items: center;">
-                    <div class="emi-sum-box" style="background: #e8f0fe; color: #1a73e8; padding: 6px 10px; border-radius: 6px; font-weight: 600; font-size: 14px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">
-                        EMI Sum: ₹${emiSum}
-                    </div>
+            </div>
+            <div style="margin-top:15px;">
+                <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:8px;">
+                    <span style="color:#34a853;font-weight:600;">✅ Paid: ₹${paidSum.toLocaleString('en-IN')}</span>
+                    <span style="color:#ea4335;font-weight:600;">⏳ Remaining: ₹${remaining.toLocaleString('en-IN')}</span>
                 </div>
-            `;
-            list.appendChild(card);
-        }
+                ${overdueSum > 0 ? `<p style="color:#ea4335;font-size:12px;font-weight:600;">🔴 Overdue: ₹${overdueSum.toLocaleString('en-IN')}</p>` : ''}
+                <div class="emi-sum-box" style="background:#e8f0fe;color:#1a73e8;padding:6px 10px;border-radius:6px;font-weight:600;font-size:14px;text-align:right;">
+                    EMI Total: ₹${emiSum.toLocaleString('en-IN')}
+                </div>
+            </div>
+        `;
+        list.appendChild(card);
     });
 }
 
-function parseAllEMIs() {
-    let monthData = {};
-    loans.forEach(loan => {
-        let lines = loan.emis.split('\n');
-        lines.forEach(line => {
-            let match = line.match(emiRegex);
-            if(match) {
-                let date = parseInt(match[1]);
-                let month = match[2].toUpperCase();
-                let amount = parseInt(match[3]);
+function renderEmiItems(emis) {
+    if (!emis || emis.length === 0) return 'Koi EMI nahi';
+    return emis.map(e => {
+        const icon = e.status === 'paid' ? '✅' : e.status === 'overdue' ? '🔴' : '⏳';
+        const color = e.status === 'paid' ? '#34a853' : e.status === 'overdue' ? '#ea4335' : '#fbbc05';
+        return `<div style="padding:3px 0;border-bottom:1px solid #f0f0f0;">
+            <span style="color:${color};">${icon}</span>
+            (${e.installment_number}) ${e.due_day} ${e.due_month}${e.due_year ? ' ' + e.due_year : ' (year not set)'} - ₹${parseInt(e.amount).toLocaleString('en-IN')}
+            ${e.status === 'paid' ? `<span style="font-size:11px;color:#34a853;"> ✓ Paid</span>` : ''}
+        </div>`;
+    }).join('');
+}
 
-                if(!monthData[month]) monthData[month] = { total: 0, items: [] };
-                if(!isNaN(amount)) { monthData[month].total += amount; }
-                monthData[month].items.push({ date, amount, name: loan.name, id: loan.id, original: line });
-            }
+// ==========================================
+// MONTH VIEW
+// ==========================================
+function renderMonthFolders() {
+    const monthData = {};
+
+    loans.forEach(loan => {
+        (loan.emis || []).forEach(e => {
+            const key = `${e.due_month} ${e.due_year || 'YEAR-NOT-SET'}`;
+            if (!monthData[key]) monthData[key] = { total: 0, collected: 0, items: [], month: e.due_month, year: e.due_year || null };
+            monthData[key].total += parseInt(e.amount) || 0;
+            if (e.status === 'paid') monthData[key].collected += parseInt(e.paid_amount || e.amount) || 0;
+            monthData[key].items.push({ ...e, name: loan.borrowers?.name, loan_code: loan.loan_code });
         });
     });
-    return monthData;
-}
 
-function renderMonthFolders() {
-    const data = parseAllEMIs();
     const monthViewDiv = document.getElementById('monthView');
     monthViewDiv.innerHTML = '';
 
-    let availableMonths = Object.keys(data).sort((a, b) => {
-        let idxA = monthOrder.indexOf(a);
-        let idxB = monthOrder.indexOf(b);
-        return (idxA === -1 ? 99 : idxA) - (idxB === -1 ? 99 : idxB);
+    const sorted = Object.keys(monthData).sort((a, b) => {
+        const da = monthData[a];
+        const db = monthData[b];
+        const ya = Number(da.year) || 9999;
+        const yb = Number(db.year) || 9999;
+        if (ya !== yb) return ya - yb;
+        return monthOrder.indexOf(da.month) - monthOrder.indexOf(db.month);
     });
 
-    availableMonths.forEach(month => {
+    sorted.forEach(key => {
+        const d = monthData[key];
         const div = document.createElement('div');
         div.className = 'month-folder';
-        div.onclick = () => openMonthDetail(month, data[month]);
+        div.onclick = () => openMonthDetail(key, d);
         div.innerHTML = `
-            <div>📅 ${month}</div>
-            <div><span style="color:#34a853; font-weight:600;">Total EMI: ₹${data[month].total}</span></div>
+            <div>📅 ${d.month} ${d.year || 'Year not set'}</div>
+            <div>
+                <span style="color:#34a853;font-weight:600;">Total: ₹${d.total.toLocaleString('en-IN')}</span><br>
+                <small style="color:#34a853;">✅ Collected: ₹${d.collected.toLocaleString('en-IN')}</small>
+            </div>
         `;
         monthViewDiv.appendChild(div);
     });
 
-    if(availableMonths.length === 0) {
-        monthViewDiv.innerHTML = '<p style="text-align:center; color:#777; margin-top:20px;">No EMI schedules found.</p>';
+    if (sorted.length === 0) {
+        monthViewDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;">Koi EMI schedule nahi mila.</p>';
     }
 }
 
-function openMonthDetail(month, monthObj) {
+function openMonthDetail(key, monthObj) {
     document.getElementById('monthView').style.display = 'none';
     document.getElementById('monthDetailView').style.display = 'block';
-    document.getElementById('currentMonthName').innerText = `📅 ${month} Collection - Total: ₹${monthObj.total}`;
-    
+    document.getElementById('currentMonthName').innerText =
+        `📅 ${key} - Total: ₹${monthObj.total.toLocaleString('en-IN')} | Collected: ₹${monthObj.collected.toLocaleString('en-IN')}`;
+
     const list = document.getElementById('monthDateList');
     list.innerHTML = '';
 
-    let sortedItems = monthObj.items.sort((a, b) => a.date - b.date);
-
-    sortedItems.forEach(item => {
+    monthObj.items.sort((a, b) => a.due_day - b.due_day).forEach(item => {
+        const statusColor = item.status === 'paid' ? '#34a853' : item.status === 'overdue' ? '#ea4335' : '#fbbc05';
+        const statusIcon = item.status === 'paid' ? '✅' : item.status === 'overdue' ? '🔴' : '⏳';
         const div = document.createElement('div');
         div.className = 'monthly-item';
+        div.style.borderLeftColor = statusColor;
         div.innerHTML = `
-            <div><span style="background:#34a853;color:white;padding:2px 6px;border-radius:4px;margin-right:5px;">${item.date}</span> <strong>${item.name}</strong> <br><small style="color:#888;">${item.id}</small></div>
-            <div style="font-size:16px; font-weight:600; color:#333;">₹${item.amount}</div>
+            <div>
+                <span style="background:${statusColor};color:white;padding:2px 6px;border-radius:4px;margin-right:5px;">${item.due_day}</span>
+                <strong>${item.name}</strong> ${statusIcon}<br>
+                <small style="color:#888;">${item.loan_code}</small>
+            </div>
+            <div style="font-size:16px;font-weight:600;color:#333;">₹${parseInt(item.amount).toLocaleString('en-IN')}</div>
         `;
         list.appendChild(div);
     });
@@ -396,11 +422,14 @@ function goBackToMonths() {
     renderMonthFolders();
 }
 
+// ==========================================
+// SEARCH & PRINT
+// ==========================================
 function handleSearch() {
-    let query = document.getElementById('searchInput').value.toUpperCase().trim();
-    let sortMode = document.getElementById('sortSelect').value;
-    if(currentTab === 'folder') {
-        if(currentOpenFolder) {
+    const query = document.getElementById('searchInput').value.toUpperCase().trim();
+    const sortMode = document.getElementById('sortSelect').value;
+    if (currentTab === 'folder') {
+        if (currentOpenFolder) {
             currentOpenFolder = null;
             document.getElementById('detailView').style.display = 'none';
             document.getElementById('folderView').style.display = 'block';
@@ -410,9 +439,22 @@ function handleSearch() {
     }
 }
 
+function printStatement() {
+    const today = new Date();
+    const dateStr = String(today.getDate()).padStart(2,'0') + '/' +
+                    String(today.getMonth()+1).padStart(2,'0') + '/' + today.getFullYear();
+    const timeStr = today.toLocaleString('en-US', { hour:'numeric', minute:'numeric', hour12:true });
+    const el = document.getElementById('printDateDisplay');
+    if (el) el.innerHTML = `Date Generated: ${dateStr} at ${timeStr}`;
+    window.print();
+}
+
+// ==========================================
+// CONTACT PAGE
+// ==========================================
 function showContactPage() {
     document.getElementById('contactPageContainer').style.display = 'block';
-    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function hideContactPage() {

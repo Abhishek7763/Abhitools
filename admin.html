@@ -4,32 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - Abhishek Management</title>
-    
-    <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#ea4335"> <!-- Admin ke liye alag theme color (Reddish) taaki pehchan sakein -->
+    <meta name="theme-color" content="#ea4335">
     <link rel="apple-touch-icon" href="icon-192.png">
-
-    <!-- CSS Link -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- Header Section -->
-    <div class="header-container no-print" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+    <!-- Header -->
+    <div class="header-container no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
         <div>
-            <button id="darkModeBtn" class="btn btn-secondary" onclick="toggleDarkMode()" style="font-size: 11px; padding: 5px 10px;">🌙 Dark</button>
+            <button id="darkModeBtn" class="btn btn-secondary" onclick="toggleDarkMode()" style="font-size:11px;padding:5px 10px;">🌙 Dark</button>
         </div>
-        <h2 class="no-print" style="margin: 0; flex-grow: 1; text-align: center; color: #ea4335;">Admin Panel 🔐</h2>
-        
-        <!-- CLICKABLE BADGE -->
-        <div id="lastUpdatedBadge" class="clickable-badge" onclick="manualSync()" title="Click to Sync Data" style="font-size: 10px; background: #fce8e6; color: #ea4335; padding: 5px 8px; border-radius: 4px; border: 1px solid #ea4335; font-weight: 600; text-align: center; line-height: 1.2;">
+        <h2 class="no-print" style="margin:0;flex-grow:1;text-align:center;color:#ea4335;">Admin Panel 🔐</h2>
+        <div id="lastUpdatedBadge" class="clickable-badge" onclick="manualSync()" title="Click to Sync"
+            style="font-size:10px;background:#fce8e6;color:#ea4335;padding:5px 8px;border-radius:4px;border:1px solid #ea4335;font-weight:600;text-align:center;line-height:1.2;">
             Updated:<br>N/A
         </div>
     </div>
-    
+
     <!-- Dashboard -->
-    <div class="dashboard no-print" id="dashboard" style="background: linear-gradient(135deg, #ea4335 0%, #b31412 100%);">
+    <div class="dashboard no-print" id="dashboard" style="background:linear-gradient(135deg,#ea4335 0%,#b31412 100%);">
         <div class="dash-box">
             <h4>Total Active</h4>
             <h3 id="totalLoansCount">0</h3>
@@ -38,23 +33,29 @@
             <h4>Total Out</h4>
             <h3 id="totalAmountSum">₹0</h3>
         </div>
-        <div class="dash-box" style="border-left: 1px solid rgba(255,255,255,0.3); padding-left: 15px;">
+        <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
             <h4 id="dueThisMonthLabel">Due This Month</h4>
             <h3 id="dueThisMonthSum">₹0</h3>
         </div>
+        <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
+            <h4>Overdue EMIs</h4>
+            <h3 id="overdueCount" style="color:#ffeb3b;">0</h3>
+        </div>
+        <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
+            <h4>Aaj Due</h4>
+            <h3 id="todayDueSum">₹0</h3>
+        </div>
     </div>
 
-    <!-- Admin Main Controls (Edit / Upload / Download) -->
-    <div class="controls no-print" id="mainControls">
+    <!-- Admin Controls -->
+    <div class="controls no-print">
+        <button class="btn btn-success" onclick="showBorrowerForm()">👤 Add Borrower</button>
         <button class="btn btn-success" onclick="showForm()">➕ Add Loan</button>
-        <button class="btn btn-warning" onclick="exportData()">💾 Export Data</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">📂 Import</button>
-        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
-        <!-- Logout Button -->
+        <button class="btn btn-warning" onclick="exportData()">💾 Export</button>
         <button class="btn btn-danger" onclick="logoutAdmin()">🚪 Logout</button>
     </div>
 
-    <!-- Search and Filter Container -->
+    <!-- Search -->
     <div class="search-container no-print">
         <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search Name or ID..." onkeyup="handleSearch()">
         <select id="sortSelect" class="search-box" onchange="handleSearch()">
@@ -70,68 +71,130 @@
         <div class="tab" id="tabMonth" onclick="switchTab('month')">📅 By Month</div>
     </div>
 
-    <!-- Grid/List View Controller -->
+    <!-- View Toggle -->
     <div class="view-controls no-print" id="viewControlsContainer">
         <button class="btn btn-view" onclick="toggleLayout()" id="layoutToggleBtn">🔲 Grid View</button>
     </div>
 
-    <!-- Add / Edit Form (Admin Only) -->
-    <div id="loanFormContainer" class="no-print">
-        <h3 id="formTitle" style="margin-top:0; color:#34a853;">Add / Edit Loan</h3>
-        <input type="hidden" id="editOriginalId" value="">
-        <div class="form-group">
-            <label>Name (Folder Name):</label>
-            <input type="text" id="loanName" placeholder="e.g. LAKHAN" required>
-        </div>
-        <div class="form-group">
-            <label>Loan ID:</label>
-            <input type="text" id="loanId" placeholder="e.g. ID268904299" required>
-        </div>
-        <div class="form-group">
-            <label>Total Loan Amount (RS):</label>
-            <input type="number" id="loanAmount" placeholder="e.g. 1000" min="1" required>
-        </div>
-        
-        <!-- Dynamic EMI Section -->
-        <div class="form-group">
-            <label>EMI Schedule:</label>
-            <div id="dynamicEmiContainer"></div>
-            <button class="btn btn-secondary" onclick="addEmiRow()" style="margin-top: 10px; width: 100%; text-align: center;">➕ Add EMI Installment</button>
-        </div>
-
-        <div style="display: flex; gap: 10px; margin-top: 15px;">
-            <button class="btn btn-success" style="flex: 1;" onclick="saveLoan()">Save Details</button>
-            <button class="btn btn-danger" style="flex: 1;" onclick="hideForm()">Cancel</button>
+    <!-- Borrower Form -->
+    <div id="borrowerFormContainer" class="no-print" style="display:none;background:white;padding:15px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 15px rgba(0,0,0,0.1);border-top:5px solid #1a73e8;">
+        <h3 style="margin-top:0;color:#1a73e8;">👤 Borrower Details</h3>
+        <input type="hidden" id="editBorrowerId">
+        <form id="borrowerForm">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div class="form-group">
+                    <label>Naam *</label>
+                    <input type="text" id="bName" placeholder="e.g. LAKHAN" required>
+                </div>
+                <div class="form-group">
+                    <label>Father's Name</label>
+                    <input type="text" id="bFatherName" placeholder="e.g. RAMESH">
+                </div>
+                <div class="form-group">
+                    <label>📱 Phone</label>
+                    <input type="tel" id="bPhone" placeholder="9301270671">
+                </div>
+                <div class="form-group">
+                    <label>💬 WhatsApp</label>
+                    <input type="tel" id="bWhatsapp" placeholder="9301270671">
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>🏠 Address</label>
+                    <input type="text" id="bAddress" placeholder="Ghar ka pata">
+                </div>
+                <div class="form-group">
+                    <label>🪪 Aadhaar</label>
+                    <input type="text" id="bAadhaar" placeholder="XXXX XXXX XXXX">
+                </div>
+                <div class="form-group">
+                    <label>📋 PAN</label>
+                    <input type="text" id="bPan" placeholder="ABCDE1234F">
+                </div>
+                <div class="form-group" style="grid-column:1/-1;">
+                    <label>📝 Notes</label>
+                    <textarea id="bNotes" rows="2" placeholder="Koi bhi zaruri baat..."></textarea>
+                </div>
+            </div>
+        </form>
+        <div style="display:flex;gap:10px;margin-top:10px;">
+            <button class="btn btn-success" style="flex:1;" onclick="saveBorrower()">💾 Save Borrower</button>
+            <button class="btn btn-danger" style="flex:1;" onclick="hideBorrowerForm()">❌ Cancel</button>
         </div>
     </div>
 
-    <!-- Container for Views -->
+    <!-- Loan Form -->
+    <div id="loanFormContainer" class="no-print" style="display:none;background:white;padding:15px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 15px rgba(0,0,0,0.1);border-top:5px solid #34a853;">
+        <h3 style="margin-top:0;color:#34a853;">➕ Loan Details</h3>
+        <input type="hidden" id="editLoanId">
+        <div class="form-group">
+            <label>👤 Borrower Chunein *</label>
+            <select id="loanBorrowerSelect" style="width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-family:'Poppins',sans-serif;">
+                <option value="">-- Borrower Chunein --</option>
+            </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+            <div class="form-group">
+                <label>💰 Amount (₹) *</label>
+                <input type="number" id="loanAmount" placeholder="e.g. 10000" min="1">
+            </div>
+            <div class="form-group">
+                <label>📅 Saal *</label>
+                <input type="number" id="loanYear" placeholder="2025" min="2020" max="2099">
+            </div>
+            <div class="form-group">
+                <label>📈 Interest (%)</label>
+                <input type="number" id="loanInterest" placeholder="e.g. 2" min="0" step="0.1">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>📝 Notes</label>
+            <textarea id="loanNotes" rows="2" placeholder="Koi bhi zaruri baat..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>📅 EMI Schedule (Din | Mahina | Saal | Amount):</label>
+            <div id="dynamicEmiContainer"></div>
+            <button class="btn btn-secondary" onclick="addEmiRow()" style="margin-top:10px;width:100%;">➕ EMI Add Karo</button>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:15px;">
+            <button class="btn btn-success" style="flex:1;" onclick="saveLoan()">💾 Save Loan</button>
+            <button class="btn btn-danger" style="flex:1;" onclick="hideForm()">❌ Cancel</button>
+        </div>
+    </div>
+
+    <!-- Print Header -->
+    <div class="print-only" id="printHeader">
+        <h1>Abhishek Management</h1>
+        <p><strong>Official Loan Account Statement</strong></p>
+        <p id="printDateDisplay"></p>
+    </div>
+
+    <!-- Main Content -->
     <div id="mainContent">
         <div id="folderView"></div>
 
         <div id="detailView" style="display:none;">
-            <div class="controls no-print" style="justify-content: space-between;">
+            <div class="controls no-print" style="justify-content:space-between;">
                 <div>
                     <button class="btn btn-secondary" onclick="goBackToFolders()">🔙 Back</button>
+                    <button class="btn btn-warning" onclick="printStatement()">🖨️ Print</button>
                 </div>
                 <button class="btn btn-success" onclick="showForm()">➕ Add Loan</button>
             </div>
-            <h3 id="currentFolderName" style="text-align: center; color: #ea4335; margin-top: 15px; margin-bottom: 15px;"></h3>
+            <h3 id="currentFolderName" style="text-align:center;color:#ea4335;margin:15px 0;"></h3>
             <div id="loanList"></div>
         </div>
 
         <div id="monthView" style="display:none;"></div>
-        
+
         <div id="monthDetailView" style="display:none;">
-            <div class="controls no-print" style="justify-content: flex-start;">
+            <div class="controls no-print" style="justify-content:flex-start;">
                 <button class="btn btn-secondary" onclick="goBackToMonths()">🔙 Back</button>
             </div>
-            <div class="month-header" id="currentMonthName" style="background: #fce8e6; color: #ea4335;"></div>
+            <div class="month-header" id="currentMonthName" style="background:#fce8e6;color:#ea4335;"></div>
             <div id="monthDateList"></div>
         </div>
     </div>
 
-    <!-- JavaScript Link (Admin JS file) -->
     <script src="admin_script.js"></script>
 </body>
 </html>

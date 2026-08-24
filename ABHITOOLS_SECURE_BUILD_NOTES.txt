@@ -1,0 +1,35 @@
+ABHITOOLS SECURE MIGRATION BUILD
+Generated: 2026-08-24
+
+Status:
+- Frontend no longer contains GitHub PAT or hardcoded admin credentials.
+- Admin authentication uses a signed HttpOnly cookie.
+- Borrower/loan mutation APIs require a valid admin session.
+- Public loan API excludes phone/address/private borrower details.
+- Supabase security hardening migrations are included.
+- Existing legacy records can be migrated without inventing missing years:
+  unknown loan/EMI dates remain NULL and can be filled later.
+
+Expected Vercel environment variable names:
+- SUPABASE_URL
+- SUPABASE_SERVICE_KEY
+- ADMIN_ID
+- ADMIN_PASS
+Optional but recommended:
+- ADMIN_SESSION_SECRET
+
+IMPORTANT:
+- Rotate/revoke every GitHub PAT previously used by AbhiTools.
+- Rotate the old admin credentials because they were present in the old public client code.
+- Do not commit any environment-variable values into GitHub.
+
+STAGE 1:
+Contains api/migrate-legacy.js. Deploy temporarily, run the one-time migration,
+verify Supabase counts, then replace with Stage 2.
+
+STAGE 2:
+Final secure build. The temporary migration endpoint is removed.
+
+ChatGPT's connected GitHub app currently returns HTTP 403 for branch/file writes,
+so the code could not yet be pushed automatically. The existing GitHub main branch
+was intentionally left untouched to avoid breaking the live tool.

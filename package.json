@@ -1,0 +1,8 @@
+{
+  "name": "abhishek-management",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  }
+}

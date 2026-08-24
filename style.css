@@ -1,5 +1,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap');
-        
+
+* { box-sizing: border-box; }
+
 body {
     font-family: 'Poppins', sans-serif;
     background-color: #f0f2f5;
@@ -8,6 +10,7 @@ body {
     color: #333;
     transition: background-color 0.3s, color 0.3s;
 }
+
 h2 {
     text-align: center;
     color: #1a73e8;
@@ -16,7 +19,9 @@ h2 {
     letter-spacing: 0.5px;
 }
 
-/* Dashboard */
+/* ================================== */
+/* DASHBOARD                          */
+/* ================================== */
 .dashboard {
     background: linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%);
     color: white;
@@ -25,13 +30,17 @@ h2 {
     margin-bottom: 15px;
     display: flex;
     justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 10px;
     text-align: center;
-    box-shadow: 0 4px 10px rgba(26, 115, 232, 0.3);
+    box-shadow: 0 4px 10px rgba(26,115,232,0.3);
 }
-.dash-box h4 { margin: 0; font-size: 13px; opacity: 0.9; font-weight: 400; }
-.dash-box h3 { margin: 5px 0 0 0; font-size: 24px; font-weight: 600; }
+.dash-box h4 { margin: 0; font-size: 12px; opacity: 0.9; font-weight: 400; }
+.dash-box h3 { margin: 5px 0 0 0; font-size: 22px; font-weight: 600; }
 
-/* Controls & Buttons */
+/* ================================== */
+/* BUTTONS                            */
+/* ================================== */
 .controls {
     display: flex;
     flex-wrap: wrap;
@@ -48,18 +57,25 @@ h2 {
     cursor: pointer;
     font-size: 13px;
     font-weight: 500;
+    font-family: 'Poppins', sans-serif;
     transition: 0.2s;
     box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
 }
-.btn-danger { background-color: #ea4335; }
+.btn-danger  { background-color: #ea4335; }
 .btn-success { background-color: #34a853; }
 .btn-warning { background-color: #fbbc05; color: #333; }
 .btn-secondary { background-color: #5f6368; }
 .btn-view { background-color: #ffffff; color: #1a73e8; border: 1px solid #1a73e8; font-weight: 600; }
-.btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.btn:hover  { opacity: 0.9; transform: translateY(-1px); }
 .btn:active { transform: scale(0.95); }
 
-/* Search Bar & Sorting */
+/* ================================== */
+/* SEARCH BAR                         */
+/* ================================== */
 .search-container {
     display: flex;
     gap: 10px;
@@ -76,17 +92,12 @@ h2 {
     box-shadow: inset 0 1px 3px rgba(0,0,0,0.05);
     transition: border-color 0.3s;
 }
-.search-box:focus {
-    outline: none;
-    border-color: #1a73e8;
-}
-select.search-box {
-    flex-grow: 0;
-    width: auto;
-    cursor: pointer;
-}
+.search-box:focus { outline: none; border-color: #1a73e8; }
+select.search-box { flex-grow: 0; width: auto; cursor: pointer; }
 
-/* Tabs */
+/* ================================== */
+/* TABS                               */
+/* ================================== */
 .tabs {
     display: flex;
     margin-bottom: 15px;
@@ -106,185 +117,322 @@ select.search-box {
     border-bottom: 3px solid transparent;
     transition: 0.3s;
 }
-.tab.active {
-    color: #1a73e8;
-    border-bottom: 3px solid #1a73e8;
-    background: #f8fbff;
-}
+.tab.active { color: #1a73e8; border-bottom: 3px solid #1a73e8; background: #f8fbff; }
 
-/* View Toggle Container */
-.view-controls {
-    display: flex;
-    justify-content: flex-end;
-    margin-bottom: 10px;
-}
+/* ================================== */
+/* VIEW TOGGLE                        */
+/* ================================== */
+.view-controls { display: flex; justify-content: flex-end; margin-bottom: 10px; }
 
-/* Folders Base */
+/* ================================== */
+/* FOLDER VIEW                        */
+/* ================================== */
 #folderView { transition: all 0.3s ease; }
+
 .folder, .month-folder {
-    background: white; padding: 15px; margin-bottom: 12px;
-    border-radius: 10px; border-left: 5px solid #fbbc05; cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.08); display: flex;
-    justify-content: space-between; align-items: center;
-    font-size: 16px; font-weight: 600; transition: 0.2s;
+    background: white;
+    padding: 15px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    border-left: 5px solid #fbbc05;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 16px;
+    font-weight: 600;
+    transition: 0.2s;
 }
 .month-folder { border-left-color: #34a853; }
 .folder:hover, .month-folder:hover { transform: translateX(3px); box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
 .folder:active, .month-folder:active { transform: scale(0.98); }
 .folder span, .month-folder span { font-size: 13px; color: #666; font-weight: 400; }
 
-/* Grid View Mode */
+/* Grid View */
 #folderView.grid-view {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 15px;
 }
 #folderView.grid-view .folder {
-    flex-direction: column; justify-content: center; text-align: center;
-    margin-bottom: 0; padding: 20px 10px; border-left: none; border-top: 5px solid #fbbc05;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    margin-bottom: 0;
+    padding: 20px 10px;
+    border-left: none;
+    border-top: 5px solid #fbbc05;
 }
 #folderView.grid-view .folder:hover { transform: translateY(-3px); }
 #folderView.grid-view .folder span {
-    display: block; margin-top: 10px; background: #f0f2f5;
-    padding: 4px 8px; border-radius: 6px; color: #333; font-size: 12px;
+    display: block;
+    margin-top: 10px;
+    background: #f0f2f5;
+    padding: 4px 8px;
+    border-radius: 6px;
+    color: #333;
+    font-size: 12px;
 }
 
+/* ================================== */
+/* LOAN CARDS                         */
+/* ================================== */
 #loanList {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 15px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 15px;
 }
-
-/* Cards */
 .card {
-    background: white; padding: 15px; border-radius: 10px;
-    border-left: 5px solid #1a73e8; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    display: flex; flex-direction: column; justify-content: space-between;
+    background: white;
+    padding: 15px;
+    border-radius: 10px;
+    border-left: 5px solid #1a73e8;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: border-left-color 0.3s;
 }
-.card p { margin: 5px 0; }
+.card p { margin: 5px 0; font-size: 14px; }
 .emi-text {
-    white-space: pre-wrap; background: #f8f9fa; padding: 10px;
-    border-radius: 6px; font-size: 13px; border: 1px solid #eee;
-    margin-top: 10px; line-height: 1.5; flex-grow: 1;
+    white-space: pre-wrap;
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    border: 1px solid #eee;
+    margin-top: 10px;
+    line-height: 1.8;
+    flex-grow: 1;
+}
+.emi-sum-box {
+    background: #e8f0fe;
+    color: #1a73e8;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 14px;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);
+    margin-top: 8px;
 }
 
-/* Monthly View List */
+/* ================================== */
+/* EMI STATUS BADGES                  */
+/* ================================== */
+.emi-status-paid    { color: #34a853; font-weight: 600; }
+.emi-status-overdue { color: #ea4335; font-weight: 600; }
+.emi-status-pending { color: #fbbc05; font-weight: 600; }
+
+/* ================================== */
+/* MONTHLY VIEW                       */
+/* ================================== */
 .monthly-item {
-    background: #f8f9fa; padding: 10px; margin-bottom: 8px;
-    border-radius: 6px; display: flex; justify-content: space-between;
-    border-left: 3px solid #34a853; font-size: 14px;
+    background: #f8f9fa;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-left: 3px solid #34a853;
+    font-size: 14px;
+    transition: border-left-color 0.3s;
 }
 .monthly-item strong { color: #1a73e8; }
 .month-header {
-    background: #e8f0fe; color: #1a73e8; padding: 10px; border-radius: 6px; margin-bottom: 10px; font-weight: 600; text-align: center;
+    background: #e8f0fe;
+    color: #1a73e8;
+    padding: 10px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    font-weight: 600;
+    text-align: center;
+    font-size: 14px;
 }
 
-/* Form */
-#loanFormContainer {
-    display: none; background: white; padding: 15px;
-    border-radius: 12px; margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #34a853;
+/* ================================== */
+/* FORMS                              */
+/* ================================== */
+#loanFormContainer, #borrowerFormContainer {
+    display: none;
+    background: white;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-top: 5px solid #34a853;
 }
 .form-group { margin-bottom: 12px; }
 .form-group label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 14px; }
-.form-group input, .form-group textarea {
-    width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px;
-    box-sizing: border-box; font-family: 'Poppins', sans-serif; transition: border-color 0.3s;
+.form-group input,
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+    font-size: 14px;
+    transition: border-color 0.3s;
 }
-.form-group input:focus, .form-group textarea:focus {
-    border-color: #34a853; outline: none;
-}
+.form-group input:focus,
+.form-group textarea:focus,
+.form-group select:focus { border-color: #34a853; outline: none; }
 
-/* Dynamic EMI Styles */
-.emi-row {
-    display: flex; gap: 5px; margin-bottom: 8px;
-}
+/* EMI Row */
+.emi-row { display: flex; gap: 5px; margin-bottom: 8px; align-items: center; }
 .emi-row input {
-    padding: 8px; border-radius: 4px; border: 1px solid #ccc; font-family: 'Poppins', sans-serif;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-family: 'Poppins', sans-serif;
+    font-size: 13px;
 }
 
 /* ================================== */
-/* CONTACT PAGE COMPACT STYLES        */
+/* CONTACT PAGE                       */
 /* ================================== */
 #contactPageContainer {
-    display: none; background: white; padding: 15px;
-    border-radius: 12px; margin-bottom: 20px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1); border-top: 5px solid #1a73e8;
+    display: none;
+    background: white;
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border-top: 5px solid #1a73e8;
 }
 .contact-compact-container {
-    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 .contact-btn {
-    flex: 1; min-width: 130px; display: flex; align-items: center; gap: 8px;
-    padding: 12px 10px; border-radius: 8px; text-decoration: none;
-    color: white; transition: 0.2s; box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    flex: 1;
+    min-width: 130px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 10px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: white;
+    transition: 0.2s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
-.contact-btn:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-.contact-btn:active { transform: scale(0.96); }
+.contact-btn:hover { opacity: 0.9; transform: translateY(-2px); }
 .contact-btn .icon { font-size: 22px; }
-.contact-btn .details { display: flex; flex-direction: column; text-align: left; line-height: 1.2; }
+.contact-btn .details { display: flex; flex-direction: column; line-height: 1.2; }
 .contact-btn .label { font-size: 11px; opacity: 0.9; font-weight: 500; }
-.contact-btn .value { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100px; }
-
+.contact-btn .value { font-size: 13px; font-weight: 600; }
 .phone-btn { background: linear-gradient(135deg, #34a853, #25813e); }
 .email-btn { background: linear-gradient(135deg, #ea4335, #b82c20); }
 
-/* Dark Mode Styles */
-body.dark-mode { background-color: #121212; color: #e0e0e0; }
-.dark-mode .dashboard { box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-.dark-mode .folder, .dark-mode .month-folder, .dark-mode .card { background-color: #1e1e1e; border-left-color: #fbbc05; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
-.dark-mode .card { border-left-color: #1a73e8; }
-.dark-mode .folder span, .dark-mode .month-folder span { color: #aaa; }
-.dark-mode #folderView.grid-view .folder span { background: #333; color: #ddd; }
-.dark-mode .tabs { background: #1e1e1e; }
-.dark-mode .tab { background: #1e1e1e; color: #999; }
-.dark-mode .tab.active { background: #2c2c2c; color: #66b2ff; border-bottom-color: #66b2ff; }
-.dark-mode .search-box { background-color: #1e1e1e; color: #fff; border-color: #444; }
-.dark-mode #loanFormContainer, .dark-mode #contactPageContainer { background: #1e1e1e; }
-.dark-mode #contactPageContainer { border-top-color: #66b2ff; }
-.dark-mode #contactPageContainer h3 { color: #66b2ff !important; }
-.dark-mode .form-group input, .dark-mode .form-group textarea, .dark-mode .emi-row input { background: #333; color: #fff; border-color: #555; }
-.dark-mode .emi-text, .dark-mode .monthly-item { background: #2c2c2c; color: #ddd; border-color: #444; }
-.dark-mode .emi-sum-box, .dark-mode .month-header { background: #333 !important; color: #66b2ff !important; border: 1px solid #444; }
-.dark-mode h2, .dark-mode #currentFolderName, .dark-mode .btn-view { color: #66b2ff; }
-.dark-mode .btn-view { border-color: #66b2ff; background: #1e1e1e; }
+/* ================================== */
+/* BORROWER FORM GRID                 */
+/* ================================== */
+#borrowerFormContainer .form-group input,
+#borrowerFormContainer .form-group textarea {
+    width: 100%;
+}
 
-/* Sync Button & Animation Styles */
+/* ================================== */
+/* TODAY DUE BADGE                    */
+/* ================================== */
+#todayDueBadge {
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ================================== */
+/* SYNC BADGE                         */
+/* ================================== */
 .clickable-badge {
     cursor: pointer;
     user-select: none;
-    transition: transform 0.2s, box-shadow 0.2s, background 0.2s;
+    transition: transform 0.2s, box-shadow 0.2s;
 }
-.clickable-badge:active {
-    transform: scale(0.92);
-}
-.dark-mode .clickable-badge {
-    background: #333 !important;
-    border-color: #66b2ff !important;
-    color: #66b2ff !important;
-}
+.clickable-badge:active { transform: scale(0.92); }
+
 @keyframes spin-anim {
-    0% { transform: rotate(0deg); }
+    0%   { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
-.spin-icon {
-    display: inline-block;
-    animation: spin-anim 1s linear infinite;
-}
+.spin-icon { display: inline-block; animation: spin-anim 1s linear infinite; }
 
-/* Clean Print Styles */
+/* ================================== */
+/* DARK MODE                          */
+/* ================================== */
+body.dark-mode { background-color: #121212; color: #e0e0e0; }
+.dark-mode .dashboard { box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+.dark-mode .folder,
+.dark-mode .month-folder,
+.dark-mode .card {
+    background-color: #1e1e1e;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+.dark-mode .folder { border-left-color: #fbbc05; }
+.dark-mode .card  { border-left-color: #1a73e8; }
+.dark-mode .folder span,
+.dark-mode .month-folder span { color: #aaa; }
+.dark-mode #folderView.grid-view .folder span { background: #333; color: #ddd; }
+.dark-mode .tabs { background: #1e1e1e; }
+.dark-mode .tab  { background: #1e1e1e; color: #999; }
+.dark-mode .tab.active { background: #2c2c2c; color: #66b2ff; border-bottom-color: #66b2ff; }
+.dark-mode .search-box { background-color: #1e1e1e; color: #fff; border-color: #444; }
+.dark-mode #loanFormContainer,
+.dark-mode #borrowerFormContainer,
+.dark-mode #contactPageContainer { background: #1e1e1e; }
+.dark-mode .form-group input,
+.dark-mode .form-group textarea,
+.dark-mode .form-group select,
+.dark-mode .emi-row input { background: #333; color: #fff; border-color: #555; }
+.dark-mode .emi-text,
+.dark-mode .monthly-item { background: #2c2c2c; color: #ddd; border-color: #444; }
+.dark-mode .emi-sum-box,
+.dark-mode .month-header { background: #333 !important; color: #66b2ff !important; border: 1px solid #444; }
+.dark-mode h2,
+.dark-mode #currentFolderName { color: #66b2ff; }
+.dark-mode .btn-view { color: #66b2ff; border-color: #66b2ff; background: #1e1e1e; }
+.dark-mode .clickable-badge { background: #333 !important; border-color: #66b2ff !important; color: #66b2ff !important; }
+.dark-mode #todayDueBadge { background: #3a3000 !important; color: #ffc107 !important; border-color: #ffc107 !important; }
+
+/* ================================== */
+/* PRINT STYLES                       */
+/* ================================== */
 .print-only { display: none; }
 @media print {
     @page { margin: 1.5cm; size: A4 portrait; }
-    body { background: white; padding: 0; color: #000; font-family: Arial, Helvetica, sans-serif; }
+    body { background: white; padding: 0; color: #000; font-family: Arial, sans-serif; }
     .no-print { display: none !important; }
     .print-only { display: block; text-align: center; margin-bottom: 20px; border-bottom: 2px solid #1a73e8; padding-bottom: 12px; }
-    .print-only h1 { margin: 0; font-size: 26px; text-transform: uppercase; letter-spacing: 1px; color: #1a73e8; }
-    .print-only p { margin: 4px 0 0 0; font-size: 13px; color: #333; }
-    
+    .print-only h1 { margin: 0; font-size: 26px; text-transform: uppercase; color: #1a73e8; }
+    .print-only p  { margin: 4px 0 0 0; font-size: 13px; color: #333; }
     #detailView { display: block !important; }
     #currentFolderName { text-align: left !important; margin-top: 0 !important; color: #000 !important; font-size: 20px; border-bottom: 1px solid #ddd; padding-bottom: 8px; }
-    #currentFolderName span { background: none !important; padding: 0 !important; color: #000 !important; border: 1px solid #1a73e8; padding: 4px 10px !important; border-radius: 4px !important; }
-    
     #loanList { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-    .card { box-shadow: none; border: 1px solid #ccc !important; border-left: 5px solid #1a73e8 !important; page-break-inside: avoid; margin-bottom: 0; padding: 12px; border-radius: 6px; background: #fff; }
+    .card { box-shadow: none; border: 1px solid #ccc !important; border-left: 5px solid #1a73e8 !important; page-break-inside: avoid; padding: 12px; border-radius: 6px; background: #fff; }
     .card p { color: #000 !important; font-size: 13px; }
-    .emi-text { background: #fdfdfd; border: 1px dashed #888; color: #000; font-family: monospace; font-size: 12px; }
-    .emi-sum-box { background: transparent !important; color: #1a73e8 !important; border: 1px solid #1a73e8 !important; box-shadow: none !important; padding: 4px 8px !important; font-size: 13px; }
+    .emi-text { background: #fdfdfd; border: 1px dashed #888; color: #000; font-size: 12px; }
+    .emi-sum-box { background: transparent !important; color: #1a73e8 !important; border: 1px solid #1a73e8 !important; box-shadow: none !important; }
+}
+
+/* ================================== */
+/* MOBILE RESPONSIVE                  */
+/* ================================== */
+@media (max-width: 480px) {
+    .dashboard { flex-direction: column; gap: 8px; }
+    .dash-box { border-left: none !important; padding-left: 0 !important; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px; }
+    .dash-box:first-child { border-top: none; padding-top: 0; }
+    #loanList { grid-template-columns: 1fr; }
+    .search-container { flex-direction: column; }
+    select.search-box { width: 100%; }
+    .emi-row { flex-wrap: wrap; }
+    .emi-row input { width: 45% !important; }
+    #borrowerFormContainer .form-group { grid-column: 1/-1 !important; }
 }

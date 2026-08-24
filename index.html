@@ -4,38 +4,36 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Abhishek Management Tool</title>
-    
-    <!-- PWA Meta Tags -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1a73e8">
     <link rel="apple-touch-icon" href="icon-192.png">
-
-    <!-- CSS Link -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-    <!-- Header Section -->
-    <div class="header-container no-print" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+    <!-- Header -->
+    <div class="header-container no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
         <div>
-            <button id="darkModeBtn" class="btn btn-secondary" onclick="toggleDarkMode()" style="font-size: 11px; padding: 5px 10px;">🌙 Dark</button>
-            <button id="installAppBtn" class="btn btn-success" style="display: none; font-size: 11px; padding: 5px 10px; margin-left: 5px;">⬇️ Install</button>
+            <button id="darkModeBtn" class="btn btn-secondary" onclick="toggleDarkMode()" style="font-size:11px;padding:5px 10px;">🌙 Dark</button>
+            <button id="installAppBtn" class="btn btn-success" style="display:none;font-size:11px;padding:5px 10px;margin-left:5px;">⬇️ Install</button>
         </div>
-        <h2 class="no-print" style="margin: 0; flex-grow: 1; text-align: center;">Abhishek Management</h2>
-        
-        <!-- CLICKABLE BADGE -->
-        <div id="lastUpdatedBadge" class="clickable-badge" onclick="manualSync()" title="Click to Sync Data" style="font-size: 10px; background: #e8f0fe; color: #1a73e8; padding: 5px 8px; border-radius: 4px; border: 1px solid #1a73e8; font-weight: 600; text-align: center; line-height: 1.2;">
+        <h2 class="no-print" style="margin:0;flex-grow:1;text-align:center;">Abhishek Management</h2>
+        <div id="lastUpdatedBadge" class="clickable-badge" onclick="manualSync()" title="Click to Sync"
+            style="font-size:10px;background:#e8f0fe;color:#1a73e8;padding:5px 8px;border-radius:4px;border:1px solid #1a73e8;font-weight:600;text-align:center;line-height:1.2;">
             Updated:<br>N/A
         </div>
     </div>
-    
-    <!-- Print Only Header -->
+
+    <!-- Print Header -->
     <div class="print-only" id="printHeader">
         <h1>Abhishek Management</h1>
         <p><strong>Official Loan Account Statement</strong></p>
         <p id="printDateDisplay"></p>
     </div>
-    
+
+    <!-- Aaj Ki Due EMIs Badge -->
+    <div id="todayDueBadge" class="no-print" style="display:none;background:#fff3cd;color:#856404;padding:10px 15px;border-radius:8px;margin-bottom:15px;font-weight:600;font-size:14px;border-left:4px solid #ffc107;text-align:center;"></div>
+
     <!-- Dashboard -->
     <div class="dashboard no-print" id="dashboard">
         <div class="dash-box">
@@ -46,19 +44,19 @@
             <h4>Total Out</h4>
             <h3 id="totalAmountSum">₹0</h3>
         </div>
-        <div class="dash-box" style="border-left: 1px solid rgba(255,255,255,0.3); padding-left: 15px;">
+        <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
             <h4 id="dueThisMonthLabel">Due This Month</h4>
             <h3 id="dueThisMonthSum">₹0</h3>
         </div>
     </div>
 
-    <!-- Main Controls (Read-Only) -->
+    <!-- Controls -->
     <div class="controls no-print" id="mainControls">
         <button class="btn btn-view" onclick="showContactPage()">🎧 Contact</button>
         <button class="btn btn-danger" onclick="window.location.href='advanced_admin_login_panel.html'">🔐 Admin Login</button>
     </div>
 
-    <!-- Search and Filter Container -->
+    <!-- Search -->
     <div class="search-container no-print">
         <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search Name or ID..." onkeyup="handleSearch()">
         <select id="sortSelect" class="search-box" onchange="handleSearch()">
@@ -74,16 +72,16 @@
         <div class="tab" id="tabMonth" onclick="switchTab('month')">📅 By Month</div>
     </div>
 
-    <!-- Grid/List View Controller -->
+    <!-- View Toggle -->
     <div class="view-controls no-print" id="viewControlsContainer">
         <button class="btn btn-view" onclick="toggleLayout()" id="layoutToggleBtn">🔲 Grid View</button>
     </div>
 
-    <!-- Compact Contact Us Container -->
+    <!-- Contact Page -->
     <div id="contactPageContainer" class="no-print">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h3 style="margin:0; color:#1a73e8;">🎧 Help & Support</h3>
-            <button class="btn btn-danger" style="padding: 4px 8px; font-size: 11px;" onclick="hideContactPage()">❌ Close</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+            <h3 style="margin:0;color:#1a73e8;">🎧 Help & Support</h3>
+            <button class="btn btn-danger" style="padding:4px 8px;font-size:11px;" onclick="hideContactPage()">❌ Close</button>
         </div>
         <div class="contact-compact-container">
             <a href="tel:9301270671" class="contact-btn phone-btn">
@@ -103,25 +101,25 @@
         </div>
     </div>
 
-    <!-- Container for Views -->
+    <!-- Main Content -->
     <div id="mainContent">
         <div id="folderView"></div>
 
         <div id="detailView" style="display:none;">
-            <div class="controls no-print" style="justify-content: space-between;">
+            <div class="controls no-print" style="justify-content:space-between;">
                 <div>
                     <button class="btn btn-secondary" onclick="goBackToFolders()">🔙 Back</button>
                     <button class="btn btn-warning" onclick="printStatement()">🖨️ Print Statement</button>
                 </div>
             </div>
-            <h3 id="currentFolderName" style="text-align: center; color: #1a73e8; margin-top: 15px; margin-bottom: 15px;"></h3>
+            <h3 id="currentFolderName" style="text-align:center;color:#1a73e8;margin-top:15px;margin-bottom:15px;"></h3>
             <div id="loanList"></div>
         </div>
 
         <div id="monthView" style="display:none;"></div>
-        
+
         <div id="monthDetailView" style="display:none;">
-            <div class="controls no-print" style="justify-content: flex-start;">
+            <div class="controls no-print" style="justify-content:flex-start;">
                 <button class="btn btn-secondary" onclick="goBackToMonths()">🔙 Back</button>
             </div>
             <div class="month-header" id="currentMonthName"></div>
@@ -129,7 +127,6 @@
         </div>
     </div>
 
-    <!-- JavaScript Link (New Public JS file) -->
     <script src="public_script.js"></script>
 </body>
 </html>
