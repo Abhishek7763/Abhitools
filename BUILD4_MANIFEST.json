@@ -1,0 +1,49 @@
+{
+  "build": "Design Build 4 - Forms + Secondary Screens",
+  "date": "2026-08-24",
+  "checks": {
+    "auth_gate_preserved": true,
+    "sequential_load_preserved": true,
+    "build4_assets_loaded": true,
+    "build4_assets_cached": true,
+    "service_worker_cache_bumped": true,
+    "api_network_only": true,
+    "no_backend_calls_in_ui_layer": true,
+    "no_new_ids_in_ui_layer": true,
+    "legacy_nav_cleanup": true,
+    "mobile_form_fullscreen": true,
+    "mobile_emi_no_wide_row": true,
+    "internal_table_scroll": true,
+    "css_balanced": true,
+    "no_retired_api_files": true,
+    "secret_scan_clean": true,
+    "no_api_files_in_package": true
+  },
+  "files": [
+    {
+      "name": "pwa.js",
+      "bytes": 12016,
+      "sha256": "3a13a188bc6fca0136c9cb730f5f500144722164c7838630bc775eb893024044"
+    },
+    {
+      "name": "service-worker.js",
+      "bytes": 2850,
+      "sha256": "a2d34c2a059c3e0d62488299be5a2e0a9505c4c97f93c7e4635ff0616d1994fb"
+    },
+    {
+      "name": "ui_forms_secondary.css",
+      "bytes": 18488,
+      "sha256": "adfcc7244bdfef6dbc6cbfebbf5d4a2e1fd82d2439c1341fc6029757150fd0af"
+    },
+    {
+      "name": "ui_forms_secondary.js",
+      "bytes": 9869,
+      "sha256": "6e54f8ff43f8d035ecbae0d0d04b2330fa470fae2b11670f27df3c6cdd55b86d"
+    },
+    {
+      "name": "ABHITOOLS_DESIGN_BUILD4_NOTES.txt",
+      "bytes": 2258,
+      "sha256": "9175e86879aa8018c929f0d1ec42b81f669c08214675c48f7ee5157bf33f5c58"
+    }
+  ]
+}

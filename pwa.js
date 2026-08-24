@@ -224,10 +224,12 @@
             addStylesheet('/ui_shell.css', 'data-abhi-ui-shell');
             addStylesheet('/ui_loans.css', 'data-abhi-loans-ui');
             addStylesheet('/ui_home_collections.css', 'data-abhi-home-collections-ui');
+            addStylesheet('/ui_forms_secondary.css', 'data-abhi-forms-secondary-ui');
 
             await loadScriptInOrder('/ui_shell.js', 'data-abhi-ui-shell');
             await loadScriptInOrder('/ui_loans.js', 'data-abhi-loans-ui');
             await loadScriptInOrder('/ui_home_collections.js', 'data-abhi-home-collections-ui');
+            await loadScriptInOrder('/ui_forms_secondary.js', 'data-abhi-forms-secondary-ui');
         } catch (error) {
             // Authorized users fall back to the existing admin UI instead of being locked out.
             console.error('Admin UI enhancement layer failed; using core UI:', error);
