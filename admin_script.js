@@ -2369,7 +2369,7 @@ async function refreshCollectionCalendar() {
     if (loading) { loading.style.display='block'; loading.textContent='Calendar load ho raha hai...'; }
     if (content) content.style.display='none';
     try {
-        const response = await adminFetch(`/api/calendar?month=${encodeURIComponent(calendarMonthKey)}`);
+        const response = await adminFetch(`/api/dashboard?mode=calendar&month=${encodeURIComponent(calendarMonthKey)}`);
         collectionCalendarData = await response.json();
         if (!calendarSelectedDate && collectionCalendarData.month === collectionCalendarData.businessDate?.slice(0,7)) {
             calendarSelectedDate = collectionCalendarData.businessDate;
@@ -2538,7 +2538,7 @@ async function runAdvancedSearch() {
     if (loading) loading.style.display = 'block';
     if (results) results.classList.add('is-loading');
     try {
-        const response = await adminFetch(`/api/search?${advancedSearchParams().toString()}`);
+        const response = await adminFetch(`/api/dashboard?mode=search&${advancedSearchParams().toString()}`);
         advancedSearchData = await response.json();
         renderAdvancedSearch(advancedSearchData);
     } catch (err) {
@@ -2981,7 +2981,7 @@ async function loadActivityHistory() {
     try {
         const currentAction = document.getElementById('auditAction')?.value || 'all';
         const currentEntity = document.getElementById('auditEntity')?.value || 'all';
-        const response = await adminFetch(`/api/activity?${currentActivityParams(true).toString()}`);
+        const response = await adminFetch(`/api/dashboard?mode=activity&${currentActivityParams(true).toString()}`);
         const data = await response.json();
         activityHistoryState.items = data.items || [];
         activityHistoryState.actions = data.filters?.actions || [];
@@ -3078,7 +3078,7 @@ async function exportActivityHistoryCsv() {
     try {
         const params = currentActivityParams(false);
         params.set('format', 'csv');
-        const response = await adminFetch(`/api/activity?${params.toString()}`);
+        const response = await adminFetch(`/api/dashboard?mode=activity&${params.toString()}`);
         const blob = await response.blob();
         const disposition = response.headers.get('content-disposition') || '';
         const match = disposition.match(/filename="?([^";]+)"?/i);

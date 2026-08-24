@@ -1,4 +1,7 @@
 import { noStore, requireAdmin, sendServerError, supabaseRequest } from '../server_shared.js';
+import calendarHandler from '../server_routes/calendar.js';
+import searchHandler from '../server_routes/search.js';
+import activityHandler from '../server_routes/activity.js';
 
 const TIME_ZONE = 'Asia/Kolkata';
 
@@ -33,6 +36,10 @@ function safeInt(value) {
 }
 
 export default async function handler(req, res) {
+    const mode = String(req.query?.mode || '').toLowerCase();
+    if (mode === 'calendar') return calendarHandler(req, res);
+    if (mode === 'search') return searchHandler(req, res);
+    if (mode === 'activity') return activityHandler(req, res);
     noStore(res);
     if (!requireAdmin(req, res)) return;
     if (req.method !== 'GET') {
