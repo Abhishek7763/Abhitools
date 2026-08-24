@@ -9,6 +9,21 @@
     let deferredInstallPrompt = null;
     let refreshing = false;
 
+    const ADMIN_LOGIN_URL = '/advanced_admin_login_panel.html';
+    const adminPath = /(?:^|\/)admin\.html$/i.test(window.location.pathname);
+
+    // Security/UI guard: never render the admin page before the signed session is verified.
+    // This is presentation hardening; /api/* remains the actual server-side security boundary.
+    if (adminPath) {
+        document.documentElement.classList.add('abhi-admin-auth-pending');
+        if (!document.getElementById('abhiAdminAuthGuardStyle')) {
+            const guard = document.createElement('style');
+            guard.id = 'abhiAdminAuthGuardStyle';
+            guard.textContent = 'html.abhi-admin-auth-pending body{visibility:hidden!important}';
+            document.head.appendChild(guard);
+        }
+    }
+
     function setInstallButtons(visible) {
         installButtons().forEach(btn => {
             btn.style.display = visible ? 'inline-flex' : 'none';
@@ -120,60 +135,104 @@
         });
     }
 
-    // Design Build 1: load the isolated admin UI shell without rewriting admin.html/admin_script.js.
-    function loadAdminUiShell() {
-        if (!document.body?.classList.contains('has-mobile-app-nav')) return;
+    function adminUiPage() {
+        return adminPath || document.body?.classList.contains('has-mobile-app-nav');
+    }
 
-        if (!document.querySelector('link[data-abhi-ui-shell]')) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = '/ui_shell.css';
-            link.dataset.abhiUiShell = 'yes';
-            document.head.appendChild(link);
+    function revealAuthorizedAdmin() {
+        document.documentElement.classList.remove('abhi-admin-auth-pending');
+        document.documentElement.classList.add('abhi-admin-auth-ok');
+    }
+
+    async function verifyAdminSessionForUi() {
+        if (!adminUiPage()) return true;
+        if (!document.documentElement.classList.contains('abhi-admin-auth-pending')) {
+            document.documentElement.classList.add('abhi-admin-auth-pending');
         }
+        try {
+            const response = await fetch('/api/auth', {
+                method: 'GET',
+                cache: 'no-store',
+                credentials: 'same-origin',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (!response.ok) {
+                window.location.replace(ADMIN_LOGIN_URL);
+                return false;
+            }
+            return true;
+        } catch (error) {
+            console.warn('Admin UI auth verification failed:', error);
+            window.location.replace(ADMIN_LOGIN_URL);
+            return false;
+        }
+    }
 
-        if (!document.querySelector('script[data-abhi-ui-shell]')) {
+    function addStylesheet(href, dataKey) {
+        if (document.querySelector(`link[${dataKey}]`)) return;
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        link.setAttribute(dataKey, 'yes');
+        document.head.appendChild(link);
+    }
+
+    function loadScriptInOrder(src, dataKey) {
+        const existing = document.querySelector(`script[${dataKey}]`);
+        if (existing?.dataset.loaded === 'yes') return Promise.resolve();
+        if (existing) {
+            return new Promise((resolve, reject) => {
+                existing.addEventListener('load', resolve, { once:true });
+                existing.addEventListener('error', reject, { once:true });
+            });
+        }
+        return new Promise((resolve, reject) => {
             const script = document.createElement('script');
-            script.src = '/ui_shell.js';
-            script.defer = true;
-            script.dataset.abhiUiShell = 'yes';
+            script.src = src;
+            script.async = false;
+            script.setAttribute(dataKey, 'yes');
+            script.addEventListener('load', () => { script.dataset.loaded = 'yes'; resolve(); }, { once:true });
+            script.addEventListener('error', () => reject(new Error(`UI layer load failed: ${src}`)), { once:true });
             document.body.appendChild(script);
+        });
+    }
+
+    async function waitForAdminCore(timeoutMs = 10000) {
+        const started = Date.now();
+        while (Date.now() - started < timeoutMs) {
+            const ready = typeof window.renderLoanList === 'function'
+                && typeof window.renderEmiList === 'function'
+                && typeof window.openReminderCenter === 'function'
+                && typeof window.openFollowupCenter === 'function';
+            if (ready) return true;
+            await new Promise(resolve => setTimeout(resolve, 50));
         }
+        return false;
+    }
 
+    // Hotfix: authenticated, deterministic UI loading. Dynamic scripts are loaded sequentially
+    // after admin_script.js has defined the existing financial/action handlers.
+    async function loadAdminUiShell() {
+        if (!adminUiPage()) return;
+        const authorized = await verifyAdminSessionForUi();
+        if (!authorized) return;
 
-        // Design Build 2: Loans + EMI presentation layer. Existing financial handlers remain authoritative.
-        if (!document.querySelector('link[data-abhi-loans-ui]')) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = '/ui_loans.css';
-            link.dataset.abhiLoansUi = 'yes';
-            document.head.appendChild(link);
-        }
+        try {
+            const coreReady = await waitForAdminCore();
+            if (!coreReady) throw new Error('Admin core handlers were not ready in time');
 
-        if (!document.querySelector('script[data-abhi-loans-ui]')) {
-            const script = document.createElement('script');
-            script.src = '/ui_loans.js';
-            script.defer = true;
-            script.dataset.abhiLoansUi = 'yes';
-            document.body.appendChild(script);
-        }
+            addStylesheet('/ui_shell.css', 'data-abhi-ui-shell');
+            addStylesheet('/ui_loans.css', 'data-abhi-loans-ui');
+            addStylesheet('/ui_home_collections.css', 'data-abhi-home-collections-ui');
 
-
-        // Design Build 3: compact Home + Collections workspace. Existing due/reminder/PTP APIs stay authoritative.
-        if (!document.querySelector('link[data-abhi-home-collections-ui]')) {
-            const link = document.createElement('link');
-            link.rel = 'stylesheet';
-            link.href = '/ui_home_collections.css';
-            link.dataset.abhiHomeCollectionsUi = 'yes';
-            document.head.appendChild(link);
-        }
-
-        if (!document.querySelector('script[data-abhi-home-collections-ui]')) {
-            const script = document.createElement('script');
-            script.src = '/ui_home_collections.js';
-            script.defer = true;
-            script.dataset.abhiHomeCollectionsUi = 'yes';
-            document.body.appendChild(script);
+            await loadScriptInOrder('/ui_shell.js', 'data-abhi-ui-shell');
+            await loadScriptInOrder('/ui_loans.js', 'data-abhi-loans-ui');
+            await loadScriptInOrder('/ui_home_collections.js', 'data-abhi-home-collections-ui');
+        } catch (error) {
+            // Authorized users fall back to the existing admin UI instead of being locked out.
+            console.error('Admin UI enhancement layer failed; using core UI:', error);
+        } finally {
+            revealAuthorizedAdmin();
         }
     }
 

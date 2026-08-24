@@ -1,0 +1,39 @@
+{
+  "build": "Design Build 3 Hotfix 1",
+  "date": "2026-08-24",
+  "checks": {
+    "auth_guard_present": true,
+    "unauth_redirect_present": true,
+    "sequential_layers_present": true,
+    "waits_for_admin_core": true,
+    "loans_nav_hardened": true,
+    "sw_cache_bumped": true,
+    "api_network_only": true,
+    "no_api_files": true,
+    "no_legacy_date_logic_change": true,
+    "no_retired_api_files": true,
+    "secret_scan_clean": true
+  },
+  "files": [
+    {
+      "name": "pwa.js",
+      "bytes": 11835,
+      "sha256": "35253e231caa8e94b96583d2dddbb589ec934aafb2db44e14daa5c26e22aa664"
+    },
+    {
+      "name": "service-worker.js",
+      "bytes": 2798,
+      "sha256": "436f2a473ae61bc9f070224dc6b93740050a54dfb8771a0d307e372da7c63a41"
+    },
+    {
+      "name": "ui_shell.js",
+      "bytes": 12194,
+      "sha256": "1698bb4a254fe1f9c050fcabeec7ad0b3d8dce0be5daaf1ae55cb2dac50a2591"
+    },
+    {
+      "name": "ABHITOOLS_BUILD3_HOTFIX1_NOTES.txt",
+      "bytes": 1196,
+      "sha256": "f4aeb022ae31b88f05d048f3250743446bfb026368e26a9846cc2892fb853763"
+    }
+  ]
+}

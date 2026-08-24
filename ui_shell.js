@@ -179,10 +179,12 @@
     function goLoans() {
         closeMore();
         setActive('loans');
-        const folderTab = document.getElementById('tabFolder');
-        if (folderTab) folderTab.click();
-        const target = document.querySelector('.search-container') || document.querySelector('.tabs') || document.getElementById('folderView');
-        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (typeof window.switchTab === 'function') window.switchTab('folder');
+        else document.getElementById('tabFolder')?.click();
+        window.setTimeout(() => {
+            const target = document.getElementById('folderView') || document.querySelector('.search-container') || document.querySelector('.tabs');
+            target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 30);
     }
 
     function goCollections() {

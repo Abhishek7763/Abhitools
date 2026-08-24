@@ -1,0 +1,30 @@
+ABHITOOLS DESIGN BUILD 3 HOTFIX 1
+Date: 2026-08-24
+
+FIXES:
+1. Loans UI load-order regression
+   - Admin enhancement scripts now load sequentially:
+     ui_shell.js -> ui_loans.js -> ui_home_collections.js
+   - Loading waits until existing admin core financial/action handlers are available.
+   - Loans bottom navigation calls the existing switchTab('folder') handler directly.
+
+2. Admin UI visible before login
+   - admin.html stays visually hidden while /api/auth verifies the signed HttpOnly admin session.
+   - On 401/network auth failure, user is redirected to advanced_admin_login_panel.html.
+   - Unauthorized users cannot use the desktop sidebar/Settings UI while redirect is pending.
+   - Backend/API authorization remains authoritative.
+
+SAFETY:
+- No API/serverless file changed.
+- No Supabase/database change.
+- No loan/EMI/payment calculation change.
+- No legacy EMI date guessing.
+- Existing Build 2 loan presentation and Build 3 Home/Collections files are not rewritten.
+- Service worker still keeps /api/* network-only.
+- Vercel function count remains unchanged.
+
+FILES TO UPLOAD/REPLACE IN REPO ROOT:
+- pwa.js
+- service-worker.js
+- ui_shell.js
+- ABHITOOLS_BUILD3_HOTFIX1_NOTES.txt
