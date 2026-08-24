@@ -3,7 +3,7 @@
   "release": "2.3.0",
   "channel": "stable",
   "label": "V2.3 Stable",
-  "release_date": "2026-08-24",
+  "release_date": "2026-08-25",
   "phase": 23,
   "architecture": {
     "hosting": "Vercel",
@@ -13,5 +13,5 @@
     "vercel_hobby_function_budget": 12
   },
   "backup_format_version": 7,
-  "notes": "Final mobile-first UI/UX stable release after Phase 23. Includes compact loan/EMI presentation, Home/Collections shell, responsive forms, print/PDF polish, due-date clarity and admin UI hardening. Financial rules are unchanged and legacy dates are never guessed."
+  "notes": "V2.3 Stable final release with compact mobile-first loan/EMI UI, clearer loan and EMI typography, readable date/status text, print/PDF refinement, and backup format v7. Secrets are intentionally not included."
 }

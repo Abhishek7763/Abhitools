@@ -18,6 +18,17 @@
         const style = document.createElement('style');
         style.id = 'abhiPublicCompactStyles';
         style.textContent = `
+            /* Typography refinement: crisp native UI font, no external font dependency. */
+            body.public-compact-ready,
+            body.public-compact-ready button,
+            body.public-compact-ready input,
+            body.public-compact-ready select {
+                font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans Devanagari","Noto Sans",Arial,sans-serif!important;
+                -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
+            }
+            body.public-compact-ready .public-loan-mini-metric strong,
+            body.public-compact-ready .public-loan-mini-progress b,
+            body.public-compact-ready .public-emi-row-side>strong { font-variant-numeric:tabular-nums; }
             body.public-compact-ready #folderView { gap:8px!important; }
             body.public-compact-ready #folderView .folder {
                 min-height:56px!important; padding:9px 11px!important; margin-bottom:8px!important;
@@ -28,11 +39,11 @@
                 white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
             }
             body.public-compact-ready #folderView .folder>div:last-child,
-            body.public-compact-ready #folderView .folder span { font-size:10px!important; }
+            body.public-compact-ready #folderView .folder span { font-size:11px!important; line-height:1.3!important; }
 
             body.public-compact-ready #detailView>.controls { margin-bottom:7px!important; }
             body.public-compact-ready #currentFolderName { margin:7px 0 10px!important; line-height:1.15!important; }
-            body.public-compact-ready #currentFolderName>span { margin-top:4px!important; padding:4px 10px!important; font-size:11px!important; }
+            body.public-compact-ready #currentFolderName>span { margin-top:4px!important; padding:5px 10px!important; font-size:12px!important; line-height:1.3!important; }
             body.public-compact-ready #loanList {
                 display:grid!important; grid-template-columns:repeat(auto-fit,minmax(245px,1fr))!important;
                 gap:8px!important; align-items:start!important;
@@ -60,14 +71,14 @@
                 align-items:center!important; gap:10px!important;
             }
             .public-loan-mini-id { min-width:0; line-height:1.1; }
-            .public-loan-mini-id small { display:block; color:#64748b; font-size:10px; margin-bottom:2px; }
+            .public-loan-mini-id small { display:block; color:#64748b; font-size:11px; line-height:1.25; margin-bottom:2px; font-weight:600; }
             .public-loan-mini-id strong {
                 display:block; color:#1d4ed8; font-size:17px; line-height:1.15; font-weight:800;
                 white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
             }
             .public-loan-mini-status {
                 flex:0 0 auto; max-width:150px; padding:6px 10px; border-radius:999px; border:1px solid #dbeafe;
-                background:#eff6ff; color:#1d4ed8; font-size:10px; line-height:1.12; font-weight:850;
+                background:#eff6ff; color:#1d4ed8; font-size:11px; line-height:1.15; font-weight:800;
                 letter-spacing:.02em; text-align:center;
             }
             .public-loan-mini-status.overdue { color:#991b1b; background:#fef2f2; border-color:#fecaca; }
@@ -82,7 +93,7 @@
             .public-loan-mini-metric:first-child { padding-left:0; }
             .public-loan-mini-metric:last-child { padding-right:0; }
             .public-loan-mini-metric + .public-loan-mini-metric { border-left:1px solid #e2e8f0; }
-            .public-loan-mini-metric small { display:block; color:#64748b; font-size:10px; line-height:1.15; }
+            .public-loan-mini-metric small { display:block; color:#64748b; font-size:11px; line-height:1.2; font-weight:600; }
             .public-loan-mini-metric strong {
                 display:block; color:#0f172a; font-size:16px; line-height:1.2; margin-top:3px; font-weight:800;
                 white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-variant-numeric:tabular-nums;
@@ -91,14 +102,14 @@
             .public-loan-mini-info {
                 width:100%!important; min-height:0!important; display:grid!important;
                 grid-template-columns:repeat(auto-fit,minmax(125px,1fr))!important; gap:7px!important;
-                align-items:stretch!important; color:#64748b; font-size:11px;
+                align-items:stretch!important; color:#64748b; font-size:11.5px;
             }
             .public-loan-mini-chip,
             .public-loan-mini-quality,
             .public-loan-mini-overdue {
                 min-height:36px; width:100%; display:flex; align-items:center;
                 padding:7px 9px; border-radius:9px; box-sizing:border-box;
-                font-size:11px; line-height:1.25; font-weight:750;
+                font-size:11.5px; line-height:1.3; font-weight:700;
             }
             .public-loan-mini-chip { background:#f1f5f9; color:#475569; }
             .public-loan-mini-quality { color:#6b21a8; background:#faf5ff; border:1px solid #f3e8ff; }
@@ -112,13 +123,13 @@
                 min-width:0; display:grid; grid-template-columns:auto minmax(80px,1fr) auto;
                 gap:7px; align-items:center;
             }
-            .public-loan-mini-progress small,.public-loan-mini-progress b { font-size:10px; color:#64748b; white-space:nowrap; }
+            .public-loan-mini-progress small,.public-loan-mini-progress b { font-size:11px; line-height:1.2; color:#64748b; white-space:nowrap; }
             .public-loan-mini-progress b { font-weight:800; }
             .public-loan-mini-track { height:7px; overflow:hidden; border-radius:999px; background:#e5e7eb; }
             .public-loan-mini-track i { display:block; height:100%; border-radius:inherit; background:#16a34a; }
             .public-loan-mini-open {
                 min-height:44px; width:100%; padding:9px 12px; border:0; border-radius:10px; background:#1a73e8; color:#fff;
-                font:750 13px/1.15 'Poppins',system-ui,sans-serif; white-space:nowrap; cursor:pointer;
+                font:750 13.5px/1.15 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; white-space:nowrap; cursor:pointer;
             }
 
             body.dark-mode .public-loan-mini-card { background:#1f1f1f!important; border-color:#3a3a3a!important; }
@@ -132,6 +143,21 @@
             body.dark-mode .public-loan-mini-progress b { color:#a8b0bb; }
             body.dark-mode .public-loan-mini-track { background:#3a3a3a; }
 
+            #publicDateIncompleteBanner {
+                margin:8px 0 10px; padding:9px 11px; border:1px solid #e9d5ff; border-radius:11px;
+                background:#faf5ff; color:#6b21a8; display:grid; gap:6px;
+                font-size:11px; line-height:1.4;
+            }
+            #publicDateIncompleteBanner strong { display:block; font-size:12px; line-height:1.35; }
+            #publicDateIncompleteBanner span { display:block; font-size:11px; line-height:1.35; }
+            #publicDateIncompleteBanner .public-dq-month { padding-top:5px; border-top:1px solid #f3e8ff; }
+            body.dark-mode #publicDateIncompleteBanner { background:#281638; color:#d8b4fe; border-color:#58336d; }
+
+            /* Month/date views: keep supporting text readable on phones. */
+            body.public-compact-ready .month-folder small,
+            body.public-compact-ready .monthly-item small { font-size:11px!important; line-height:1.35!important; }
+            body.public-compact-ready .monthly-item { font-size:14px!important; }
+
             /* Compact public bottom nav: still comfortable to tap, less screen occupation. */
             @media(max-width:720px) {
                 body.public-compact-ready { padding-bottom:calc(68px + env(safe-area-inset-bottom))!important; }
@@ -140,32 +166,32 @@
                     padding:3px 4px; border-radius:14px;
                 }
                 body.public-compact-ready .phase15-mobile-nav button { min-height:44px; padding:3px 1px; gap:0; }
-                body.public-compact-ready .phase15-mobile-nav button span { font-size:17px; line-height:19px; }
-                body.public-compact-ready .phase15-mobile-nav button small { font-size:7px; line-height:10px; }
+                body.public-compact-ready .phase15-mobile-nav button span { font-size:18px; line-height:20px; }
+                body.public-compact-ready .phase15-mobile-nav button small { font-size:9.5px; line-height:11px; font-weight:700; }
                 body.public-compact-ready #loanList { padding-bottom:8px; }
             }
             @media(max-width:430px) {
                 body.public-compact-ready #loanList { grid-template-columns:1fr!important; gap:9px!important; }
                 .public-loan-mini-card { padding:11px 12px!important; gap:8px!important; }
-                .public-loan-mini-id strong { font-size:16px; }
-                .public-loan-mini-status { max-width:142px; font-size:9px; padding:6px 9px; }
+                .public-loan-mini-id strong { font-size:17px; }
+                .public-loan-mini-status { max-width:148px; font-size:10.5px; line-height:1.12; padding:6px 9px; white-space:normal; }
                 .public-loan-mini-metrics { padding:8px 9px!important; }
                 .public-loan-mini-metric { padding:0 7px; }
-                .public-loan-mini-metric small { font-size:9px; }
-                .public-loan-mini-metric strong { font-size:15px; }
+                .public-loan-mini-metric small { font-size:10.5px; }
+                .public-loan-mini-metric strong { font-size:16px; }
                 .public-loan-mini-info { grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:6px!important; }
-                .public-loan-mini-chip,.public-loan-mini-quality,.public-loan-mini-overdue { min-height:34px; font-size:10px; padding:7px 8px; }
+                .public-loan-mini-chip,.public-loan-mini-quality,.public-loan-mini-overdue { min-height:36px; font-size:11px; line-height:1.25; padding:7px 8px; }
                 .public-loan-mini-footer { grid-template-columns:minmax(0,1fr) 132px!important; gap:8px!important; }
-                .public-loan-mini-progress small,.public-loan-mini-progress b { font-size:9px; }
-                .public-loan-mini-open { min-height:42px; font-size:12px; padding:8px 10px; }
+                .public-loan-mini-progress small,.public-loan-mini-progress b { font-size:10.5px; }
+                .public-loan-mini-open { min-height:43px; font-size:13.5px; padding:8px 10px; }
             }
             @media(max-width:360px) {
                 .public-loan-mini-head { gap:7px!important; }
-                .public-loan-mini-id strong { font-size:15px; }
-                .public-loan-mini-status { max-width:126px; font-size:8px; }
-                .public-loan-mini-metric strong { font-size:14px; }
+                .public-loan-mini-id strong { font-size:16px; }
+                .public-loan-mini-status { max-width:132px; font-size:10px; line-height:1.1; white-space:normal; }
+                .public-loan-mini-metric strong { font-size:15.5px; }
                 .public-loan-mini-footer { grid-template-columns:minmax(0,1fr) 122px!important; }
-                .public-loan-mini-open { font-size:11px; }
+                .public-loan-mini-open { font-size:13px; }
             }
             @media(min-width:720px) {
                 body.public-compact-ready #loanList { grid-template-columns:repeat(auto-fit,minmax(270px,1fr))!important; }
@@ -183,27 +209,27 @@
                 box-shadow:0 28px 80px rgba(0,0,0,.28); display:flex; flex-direction:column;
             }
             .public-loan-detail-head { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 11px; border-bottom:1px solid #e5e7eb; }
-            .public-loan-detail-head small { display:block; color:#64748b; font-size:8px; }
-            .public-loan-detail-head h3 { margin:1px 0 0; font-size:14px; color:#1d4ed8; }
+            .public-loan-detail-head small { display:block; color:#64748b; font-size:11px; line-height:1.3; font-weight:600; }
+            .public-loan-detail-head h3 { margin:2px 0 0; font-size:16px; line-height:1.2; color:#1d4ed8; }
             .public-loan-detail-close { flex:0 0 40px; width:40px; height:40px; border:1px solid #e5e7eb; border-radius:10px; background:#f8fafc; color:#0f172a; cursor:pointer; font-size:16px; }
             .public-loan-detail-body { overflow:auto; overscroll-behavior:contain; padding:8px 8px calc(14px + env(safe-area-inset-bottom)); display:grid; gap:7px; }
             .public-loan-detail-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; }
             .public-loan-detail-summary>div { padding:7px 8px; border:1px solid #e5e7eb; border-radius:9px; background:#f8fafc; }
-            .public-loan-detail-summary small { display:block; color:#64748b; font-size:8px; }
-            .public-loan-detail-summary strong { display:block; margin-top:1px; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-            .public-loan-detail-note { padding:7px 8px; border-radius:8px; background:#faf5ff; color:#6b21a8; font-size:8px; }
+            .public-loan-detail-summary small { display:block; color:#64748b; font-size:10.5px; line-height:1.25; font-weight:600; }
+            .public-loan-detail-summary strong { display:block; margin-top:2px; font-size:14px; line-height:1.2; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .public-loan-detail-note { padding:8px 9px; border-radius:8px; background:#faf5ff; color:#6b21a8; font-size:10.5px; line-height:1.4; font-weight:600; }
             .public-emi-list { display:grid; gap:5px; }
             .public-emi-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px; align-items:center; padding:8px 9px; border:1px solid #e5e7eb; border-radius:10px; background:#fff; }
             .public-emi-row.overdue { border-left:3px solid #dc2626; }
             .public-emi-row.incomplete { border-left:3px solid #7c3aed; }
             .public-emi-row.paid { border-left:3px solid #16a34a; }
             .public-emi-row-head { min-width:0; }
-            .public-emi-row-head strong { display:block; font-size:10px; }
-            .public-emi-row-head small { display:block; color:#64748b; font-size:8px; margin-top:1px; }
+            .public-emi-row-head strong { display:block; font-size:13.5px; line-height:1.2; }
+            .public-emi-row-head small { display:block; color:#475569; font-size:12.5px; line-height:1.35; margin-top:3px; font-weight:650; }
             .public-emi-row-side { text-align:right; }
-            .public-emi-row-side>strong { display:block; font-size:11px; white-space:nowrap; }
-            .public-emi-state { display:inline-block; margin-top:2px; font-size:7px; font-weight:800; border-radius:999px; padding:2px 5px; background:#f1f5f9; color:#475569; }
-            .public-emi-row-side small { display:block; color:#64748b; font-size:7px; margin-top:2px; white-space:nowrap; }
+            .public-emi-row-side>strong { display:block; font-size:14px; line-height:1.2; white-space:nowrap; }
+            .public-emi-state { display:inline-block; margin-top:3px; font-size:10px; line-height:1.15; font-weight:800; border-radius:999px; padding:3px 6px; background:#f1f5f9; color:#475569; }
+            .public-emi-row-side small { display:block; color:#475569; font-size:11px; line-height:1.3; margin-top:3px; white-space:nowrap; }
             body.public-loan-detail-open { overflow:hidden!important; }
             body.dark-mode .public-loan-detail-panel,body.dark-mode .public-emi-row { background:#1f1f1f; color:#f8fafc; border-color:#3a3a3a; }
             body.dark-mode .public-loan-detail-head { border-color:#3a3a3a; }
@@ -223,26 +249,26 @@
                 .abhi-print-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border-bottom:2px solid #1a73e8; padding-bottom:7px; margin-bottom:9px; }
                 .abhi-print-brand h1 { margin:0; color:#1a73e8; font-size:19px; letter-spacing:.02em; }
                 .abhi-print-brand p { margin:2px 0 0; font-size:9px; color:#555; }
-                .abhi-print-meta { text-align:right; font-size:8px; line-height:1.5; color:#555; }
+                .abhi-print-meta { text-align:right; font-size:9px; line-height:1.5; color:#555; }
                 .abhi-print-borrower { margin:0 0 8px; padding:7px 9px; background:#f6f8fb; border:1px solid #d9e2ef; border-radius:6px; }
                 .abhi-print-borrower strong { font-size:13px; }
-                .abhi-print-borrower span { display:block; margin-top:2px; font-size:8px; color:#555; }
+                .abhi-print-borrower span { display:block; margin-top:2px; font-size:9px; color:#555; }
                 .abhi-print-loan { page-break-inside:avoid; break-inside:avoid; margin:0 0 9px; border:1px solid #cfd8e3; border-radius:6px; overflow:hidden; }
                 .abhi-print-loan-head { display:flex; justify-content:space-between; gap:10px; padding:6px 8px; background:#eef5ff; border-bottom:1px solid #cfd8e3; }
-                .abhi-print-loan-head strong { font-size:10px; color:#174ea6; }
-                .abhi-print-loan-head span { font-size:8px; font-weight:700; }
+                .abhi-print-loan-head strong { font-size:11px; color:#174ea6; }
+                .abhi-print-loan-head span { font-size:9px; font-weight:700; }
                 .abhi-print-kpis { display:grid; grid-template-columns:repeat(5,1fr); border-bottom:1px solid #dfe5ec; }
                 .abhi-print-kpis>div { padding:5px 6px; border-right:1px solid #e5e9ef; }
                 .abhi-print-kpis>div:last-child { border-right:0; }
-                .abhi-print-kpis small { display:block; color:#666; font-size:6.5px; text-transform:uppercase; }
-                .abhi-print-kpis b { display:block; margin-top:1px; font-size:9px; }
-                .abhi-print-table { width:100%; border-collapse:collapse; font-size:7.5px; }
+                .abhi-print-kpis small { display:block; color:#666; font-size:7.5px; text-transform:uppercase; }
+                .abhi-print-kpis b { display:block; margin-top:1px; font-size:10px; }
+                .abhi-print-table { width:100%; border-collapse:collapse; font-size:8.5px; }
                 .abhi-print-table th,.abhi-print-table td { border-bottom:1px solid #e6e9ed; padding:4px 5px; text-align:left; }
-                .abhi-print-table th { background:#f8fafc; color:#555; font-size:6.5px; text-transform:uppercase; }
+                .abhi-print-table th { background:#f8fafc; color:#555; font-size:7.5px; text-transform:uppercase; }
                 .abhi-print-table th:nth-child(n+3),.abhi-print-table td:nth-child(n+3) { text-align:right; }
                 .abhi-print-table tr:last-child td { border-bottom:0; }
-                .abhi-print-warning { padding:4px 7px; font-size:7px; color:#6b21a8; background:#faf5ff; border-top:1px solid #eadcf7; }
-                .abhi-print-footer { margin-top:8px; padding-top:5px; border-top:1px solid #bbb; font-size:6.5px; color:#666; text-align:center; }
+                .abhi-print-warning { padding:4px 7px; font-size:9px; color:#6b21a8; background:#faf5ff; border-top:1px solid #eadcf7; }
+                .abhi-print-footer { margin-top:8px; padding-top:5px; border-top:1px solid #bbb; font-size:7.5px; color:#666; text-align:center; }
             }
         `;
         document.head.appendChild(style);
@@ -328,7 +354,7 @@
                     <div class="public-emi-row-head"><strong>EMI #${Number(emi.installment_number || 0)}</strong><small>${esc(dateText(emi))}</small></div>
                     <div class="public-emi-row-side"><strong>${money(s.amount)}</strong><span class="public-emi-state">${esc(s.label)}</span><small>Paid ${money(s.paid)} • Rem ${money(s.remaining)}</small></div>
                 </article>`;
-            }).join('') || '<div style="padding:16px;text-align:center;color:#64748b;font-size:10px;">Koi EMI schedule nahi.</div>';
+            }).join('') || '<div style="padding:16px;text-align:center;color:#64748b;font-size:12px;">Koi EMI schedule nahi.</div>';
 
         const overlay = document.createElement('div');
         overlay.id = 'publicLoanDetailOverlay';
