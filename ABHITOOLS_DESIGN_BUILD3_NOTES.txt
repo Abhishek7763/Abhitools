@@ -1,0 +1,35 @@
+ABHITOOLS DESIGN BUILD 3 — HOME + COLLECTIONS
+Date: 2026-08-24
+Base: Design Build 2 live production
+
+CHANGED / NEW FILES
+- pwa.js (loads Build 3 assets)
+- service-worker.js (new static shell cache version; /api/* remains network-only)
+- ui_home_collections.js (new)
+- ui_home_collections.css (new)
+
+WHAT THIS BUILD DOES
+1. Replaces the oversized home dashboard/command-center presentation with a compact Collection Snapshot.
+2. Home top cards: Overdue, Due Today, Next 7 Days, Collected Today.
+3. Adds quick actions: Add Borrower, Add Loan, Collections, Search.
+4. Shows only a short priority queue on Home instead of the full operational wall.
+5. Bottom navigation Collections now opens a dedicated Collections Hub.
+6. Collections Hub tabs: Priority, Overdue, Today, Upcoming, PTP.
+7. Collections Hub reuses existing due/reminder/follow-up endpoints and existing payment/profile/WhatsApp/follow-up handlers.
+8. Reminder Center, Follow-up Center and Calendar remain available as full tools from the hub footer.
+9. Legacy year/date-incomplete EMI counts are explicitly shown and excluded from automatic overdue/today queues.
+10. Existing dashboard and Home Command Center remain in the DOM and become visible again for print/rollback safety.
+
+SAFETY / NON-CHANGES
+- No API file changed.
+- No Vercel function added.
+- No Supabase schema/data change.
+- No payment, settlement, EMI status, due-date or PTP business logic rewritten.
+- No unknown-year EMI is guessed into an overdue/today queue.
+- Existing Loans + EMI Build 2 files remain unchanged.
+
+ROLLBACK
+Restore previous pwa.js and service-worker.js and remove ui_home_collections.js / ui_home_collections.css.
+
+NEXT AFTER LIVE VERIFICATION
+Design Build 4 — Forms + secondary screens compact/mobile cleanup.

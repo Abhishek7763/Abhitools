@@ -157,6 +157,24 @@
             script.dataset.abhiLoansUi = 'yes';
             document.body.appendChild(script);
         }
+
+
+        // Design Build 3: compact Home + Collections workspace. Existing due/reminder/PTP APIs stay authoritative.
+        if (!document.querySelector('link[data-abhi-home-collections-ui]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = '/ui_home_collections.css';
+            link.dataset.abhiHomeCollectionsUi = 'yes';
+            document.head.appendChild(link);
+        }
+
+        if (!document.querySelector('script[data-abhi-home-collections-ui]')) {
+            const script = document.createElement('script');
+            script.src = '/ui_home_collections.js';
+            script.defer = true;
+            script.dataset.abhiHomeCollectionsUi = 'yes';
+            document.body.appendChild(script);
+        }
     }
 
     window.addEventListener('beforeinstallprompt', event => {

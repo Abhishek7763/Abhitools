@@ -1,0 +1,47 @@
+{
+  "build": "Design Build 3 - Home + Collections",
+  "date": "2026-08-24",
+  "files": [
+    {
+      "name": "pwa.js",
+      "bytes": 9147,
+      "sha256": "5b7be00d2a33b6f03b2610bc1cea4adf5eca0e04e7a65f41b59eae52d3535f20"
+    },
+    {
+      "name": "service-worker.js",
+      "bytes": 2793,
+      "sha256": "7d8199d470ee8b6a1d34215cf115c681064da5b011289bdf834d9bc60f9d502e"
+    },
+    {
+      "name": "ui_home_collections.js",
+      "bytes": 26093,
+      "sha256": "8bdd343367ade369360ef7de15d5e83839a8e2c32572ef92182f94c2855c10a5"
+    },
+    {
+      "name": "ui_home_collections.css",
+      "bytes": 11465,
+      "sha256": "8937c054cd79f10ceabe592a4c9a2e1b641422aecda06e01bdafcece1c390744"
+    },
+    {
+      "name": "ABHITOOLS_DESIGN_BUILD3_NOTES.txt",
+      "bytes": 1763,
+      "sha256": "1a88bce48ec70c3b59776d1c6600464561a3a0862d1c4ff552530626566f9f1e"
+    }
+  ],
+  "checks": {
+    "only_expected_files": true,
+    "build3_assets_loaded": true,
+    "build3_assets_cached": true,
+    "service_worker_cache_bumped": true,
+    "api_network_only_rule_present": true,
+    "no_retired_api_files": true,
+    "no_api_file_in_package": true,
+    "uses_existing_reminder_mode": true,
+    "uses_existing_followup_mode": true,
+    "legacy_guard_visible": true,
+    "collections_tabs_present": true,
+    "css_balanced_braces": true,
+    "js_balanced_template_markers": true,
+    "secret_scan_clean": true
+  }
+}
