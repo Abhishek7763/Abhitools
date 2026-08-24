@@ -64,6 +64,77 @@
         </div>
     </div>
 
+    <!-- Phase 19: Dashboard UX Pro / Daily Command Center -->
+    <section id="homeCommandCenter" class="home-pro no-print" aria-labelledby="homeProTitle">
+        <div class="home-pro-head">
+            <div>
+                <h3 id="homeProTitle">⚡ Today’s Command Center</h3>
+                <small id="homeProMeta">Daily priorities • collections • safety • recent work</small>
+            </div>
+            <div class="home-pro-head-actions">
+                <button class="btn btn-view" onclick="refreshHomeCommandCenter()">🔄 Refresh</button>
+                <button id="homeProToggleBtn" class="btn btn-secondary" onclick="toggleHomeCommandCenter()">➖ Compact</button>
+            </div>
+        </div>
+        <div id="homeProLoading" class="home-pro-loading">Command Center load ho raha hai...</div>
+        <div id="homeProContent" style="display:none;">
+            <div class="home-pro-kpis">
+                <button class="home-pro-kpi critical" onclick="openReminderCenter('all')"><small>Action Now</small><strong id="homeUrgentCount">0</strong><span id="homeUrgentAmount">₹0</span></button>
+                <button class="home-pro-kpi danger" onclick="openReminderCenter('overdue')"><small>Overdue</small><strong id="homeOverdueCount">0</strong><span id="homeOverdueAmount">₹0</span></button>
+                <button class="home-pro-kpi warning" onclick="openReminderCenter('today')"><small>Due Today</small><strong id="homeTodayCount">0</strong><span id="homeTodayAmount">₹0</span></button>
+                <button class="home-pro-kpi success" onclick="openReminderCenter('all')"><small>Contacted Urgent</small><strong id="homeContactedUrgent">0</strong><span id="homeUncontactedUrgent">0 pending</span></button>
+                <button class="home-pro-kpi info" onclick="openDataQualityCenter('dates')"><small>Data Quality</small><strong id="homeLegacyMissing">0</strong><span>dates pending</span></button>
+                <button class="home-pro-kpi neutral" onclick="openRecycleBin()"><small>Recycle Bin</small><strong id="homeRecycleCount">0</strong><span>recoverable items</span></button>
+            </div>
+
+            <div class="home-pro-grid">
+                <div class="home-pro-panel">
+                    <div class="home-pro-panel-head"><h4>💰 Collection Pulse</h4><button class="home-pro-link" onclick="openAdvancedDashboard()">Details →</button></div>
+                    <div class="home-pro-money-grid">
+                        <div><small>Today Collected</small><strong id="homeTodayCollected">₹0</strong></div>
+                        <div><small>This Month</small><strong id="homeMonthCollected">₹0</strong></div>
+                        <div><small>Outstanding</small><strong id="homeOutstanding">₹0</strong></div>
+                        <div><small>Recovery</small><strong id="homeRecoveryRate">0%</strong></div>
+                    </div>
+                    <div class="home-pro-progress"><div id="homeRecoveryBar" style="width:0%"></div></div>
+                    <div id="homeRecoveryHint" class="home-pro-muted">Scheduled recovery progress</div>
+                </div>
+
+                <div class="home-pro-panel">
+                    <div class="home-pro-panel-head"><h4>🛡️ Safety & Follow-up</h4><button class="home-pro-link" onclick="openDataSafetyCenter('history')">Backups →</button></div>
+                    <div class="home-pro-safety-list">
+                        <button onclick="openReminderCenter('all')"><span>🔔</span><div><b id="homeFollowupCount">0 urgent follow-ups</b><small id="homeMissingContact">0 without contact</small></div></button>
+                        <button onclick="openDataQualityCenter('dates')"><span>🧩</span><div><b id="homeQualityText">0 legacy dates pending</b><small>Manual review only</small></div></button>
+                        <button onclick="openRecycleBin()"><span>♻️</span><div><b id="homeRecycleText">Recycle Bin empty</b><small>Restore or permanently purge</small></div></button>
+                        <button onclick="downloadFullBackup()"><span>💾</span><div><b id="homeBackupText">Latest backup: checking…</b><small>Tap to create fresh full backup</small></div></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="home-pro-grid home-pro-bottom-grid">
+                <div class="home-pro-panel">
+                    <div class="home-pro-panel-head"><h4>🎯 Top Priority</h4><button class="home-pro-link" onclick="openReminderCenter('all')">All reminders →</button></div>
+                    <div id="homePriorityList" class="home-pro-priority-list"></div>
+                </div>
+                <div class="home-pro-panel">
+                    <div class="home-pro-panel-head"><h4>🕘 Recent Activity</h4><button class="home-pro-link" onclick="openActivityHistory()">Full history →</button></div>
+                    <div id="homeRecentActivity" class="home-pro-activity-list"></div>
+                </div>
+            </div>
+
+            <div class="home-pro-quick-actions" aria-label="Quick actions">
+                <button onclick="showBorrowerForm()">👤<span>Add Borrower</span></button>
+                <button onclick="showForm()">➕<span>Add Loan</span></button>
+                <button onclick="openDueCenter('overdue')">⏰<span>Due Center</span></button>
+                <button onclick="openAdvancedSearch()">🔎<span>Search</span></button>
+                <button onclick="openCollectionCalendar()">🗓️<span>Calendar</span></button>
+                <button onclick="openWhatsAppCenter()">💬<span>WhatsApp</span></button>
+                <button onclick="openReportsCenter()">📈<span>Reports</span></button>
+                <button onclick="downloadFullBackup()">💾<span>Backup</span></button>
+            </div>
+        </div>
+    </section>
+
     <!-- Admin Controls -->
     <div class="controls no-print">
         <button class="btn btn-success" onclick="showBorrowerForm()">👤 Add Borrower</button>

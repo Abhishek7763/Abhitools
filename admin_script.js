@@ -74,6 +74,7 @@ let reportsAllDates = false;
 let reportsPeriod = '12m';
 let reminderCenterData = null;
 let reminderBucket = 'all';
+let homeCommandData = null;
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -126,6 +127,7 @@ async function loadAllData() {
         if (currentTab === 'month') renderMonthFolders();
         if (currentOpenFolder) openFolder(currentOpenFolder);
         refreshReminderBadge(true).catch(err => console.warn('Reminder badge refresh failed:', err));
+        refreshHomeCommandCenter(true).catch(err => console.warn('Home Command Center refresh failed:', err));
 
         if (badge) badge.innerHTML = `Updated! ✅🥰`;
         setTimeout(() => {
@@ -199,6 +201,155 @@ function updateDashboard() {
     el('tomorrowDueCount', `${Number(tomorrow.count || 0)} EMI`);
     el('next7DueSum', '₹' + Number(next7.amount || 0).toLocaleString('en-IN'));
     el('next7DueCount', `${Number(next7.count || 0)} EMI`);
+}
+
+// ==========================================
+// PHASE 19 - DASHBOARD UX PRO / COMMAND CENTER
+// ==========================================
+function homeMoney(value) {
+    return `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
+}
+
+function homeSetText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function homeActivityIcon(category) {
+    return ({payment:'💰',borrower:'👤',loan:'💳',document:'📎',recycle:'♻️',safety:'🛡️',reminder:'🔔',quality:'🧩',system:'⚙️'})[category] || '🕘';
+}
+
+function homeActivityLabel(action = '') {
+    const key = String(action || '').toUpperCase();
+    const labels = {
+        ADD_BORROWER:'Borrower added', UPDATE_BORROWER:'Borrower updated', ADD_LOAN:'Loan added', UPDATE_LOAN:'Loan updated',
+        ADD_EMI_PAYMENT:'Payment added', UPDATE_EMI_PAYMENT:'Payment corrected', REVERSE_EMI_PAYMENT:'Payment reversed',
+        SETTLE_LOAN:'Loan settled', REOPEN_LOAN:'Settlement reopened', CONTACT_REMINDER:'Reminder contacted',
+        LEGACY_DATE_CLEANUP:'Legacy dates cleaned', CREATE_BACKUP:'Backup created', RESTORE_BACKUP:'Backup restored',
+        RECYCLE_BORROWER:'Borrower recycled', RECYCLE_LOAN:'Loan recycled', RESTORE_RECYCLE_ITEM:'Recycle item restored'
+    };
+    return labels[key] || key.split('_').filter(Boolean).map(x => x.charAt(0) + x.slice(1).toLowerCase()).join(' ') || 'Activity';
+}
+
+function homeDateTime(value) {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return '-';
+    return d.toLocaleString('en-IN', { timeZone:'Asia/Kolkata', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit', hour12:true });
+}
+
+function homePriorityDueText(item) {
+    const today = String(homeCommandData?.businessDate || '');
+    const due = String(item?.due_date || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(today) || !/^\d{4}-\d{2}-\d{2}$/.test(due)) return due || '-';
+    const diff = Math.round((Date.parse(`${due}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86400000);
+    if (diff < 0) return `${Math.abs(diff)} day late`;
+    if (diff === 0) return 'Due today';
+    if (diff === 1) return 'Due tomorrow';
+    return `Due in ${diff} days`;
+}
+
+function renderHomeCommandCenter(data) {
+    homeCommandData = data;
+    const summary = data?.summary || {};
+    const money = data?.money || {};
+    homeSetText('homeProMeta', `Business date: ${data?.businessDate || '-'} • Daily priorities • collections • safety`);
+    homeSetText('homeUrgentCount', Number(summary.urgentCount || 0));
+    homeSetText('homeUrgentAmount', homeMoney(summary.urgentAmount));
+    homeSetText('homeOverdueCount', Number(summary.overdueCount || 0));
+    homeSetText('homeOverdueAmount', homeMoney(summary.overdueAmount));
+    homeSetText('homeTodayCount', Number(summary.todayCount || 0));
+    homeSetText('homeTodayAmount', homeMoney(summary.todayAmount));
+    homeSetText('homeContactedUrgent', Number(summary.contactedUrgent || 0));
+    homeSetText('homeUncontactedUrgent', `${Number(summary.uncontactedUrgent || 0)} pending`);
+    homeSetText('homeLegacyMissing', Number(summary.legacyMissingDates || 0));
+    homeSetText('homeRecycleCount', Number(summary.recycleItems || 0));
+    homeSetText('homeTodayCollected', homeMoney(money.todayCollected));
+    homeSetText('homeMonthCollected', homeMoney(money.monthCollected));
+    homeSetText('homeOutstanding', homeMoney(money.outstanding));
+    homeSetText('homeRecoveryRate', `${Number(money.recoveryRate || 0).toLocaleString('en-IN')}%`);
+    homeSetText('homeFollowupCount', `${Number(summary.uncontactedUrgent || 0)} urgent follow-up${Number(summary.uncontactedUrgent || 0) === 1 ? '' : 's'}`);
+    homeSetText('homeMissingContact', `${Number(summary.missingContactUrgent || 0)} urgent without contact`);
+    homeSetText('homeQualityText', `${Number(summary.legacyMissingDates || 0)} legacy dates pending`);
+    homeSetText('homeRecycleText', Number(summary.recycleItems || 0) ? `${Number(summary.recycleItems || 0)} recoverable item(s)` : 'Recycle Bin empty');
+
+    const rate = Math.max(0, Math.min(100, Number(money.recoveryRate || 0)));
+    const bar = document.getElementById('homeRecoveryBar');
+    if (bar) bar.style.width = `${rate}%`;
+    homeSetText('homeRecoveryHint', `${homeMoney(money.outstanding)} outstanding • ${rate.toLocaleString('en-IN')}% scheduled recovery`);
+
+    const backup = data?.latestBackup;
+    homeSetText('homeBackupText', backup ? `Latest backup: ${homeDateTime(backup.created_at)}` : 'No snapshot found');
+
+    const priorityBox = document.getElementById('homePriorityList');
+    if (priorityBox) {
+        const rows = Array.isArray(data?.priorities) ? data.priorities : [];
+        priorityBox.innerHTML = rows.length ? rows.map(item => {
+            const urgent = String(item.due_date || '') <= String(data?.businessDate || '');
+            const status = item.contacted_today ? '<span class="home-pro-tag contacted">✓ Contacted</span>' : (!item.has_contact ? '<span class="home-pro-tag missing">No contact</span>' : '<span class="home-pro-tag pending">Follow-up</span>');
+            return `<div class="home-pro-priority ${urgent ? 'urgent' : ''}">
+                <div class="home-pro-priority-main">
+                    <div><strong>${escapeHtml(item.borrower_name || 'Borrower')}</strong> ${status}</div>
+                    <small>${escapeHtml(item.loan_code || '')} • EMI ${escapeHtml(item.installment_number ?? '-')} • ${escapeHtml(homePriorityDueText(item))}</small>
+                    <span>${homeMoney(item.remaining)} remaining${Number(item.paid || 0) ? ` • ${homeMoney(item.paid)} paid` : ''}</span>
+                </div>
+                <div class="home-pro-priority-actions">
+                    <button class="btn btn-success" onclick="openPaymentModal('${escapeHtml(item.emi_id)}')">💰 Pay</button>
+                    <button class="btn btn-view" onclick="openWhatsAppCenter({borrowerId:'${escapeHtml(item.borrower_id)}',loanId:'${escapeHtml(item.loan_id)}',emiId:'${escapeHtml(item.emi_id)}',template:'${String(item.due_date || '') < String(data?.businessDate || '') ? 'overdue' : 'due'}'})" ${item.has_contact ? '' : 'disabled'}>💬</button>
+                    <button class="btn btn-secondary" onclick="openBorrowerProfile('${escapeHtml(item.borrower_id)}')">👤</button>
+                </div>
+            </div>`;
+        }).join('') : '<div class="home-pro-empty">✅ Abhi koi dated urgent/upcoming reminder nahi hai.</div>';
+    }
+
+    const activityBox = document.getElementById('homeRecentActivity');
+    if (activityBox) {
+        const rows = Array.isArray(data?.recentActivity) ? data.recentActivity : [];
+        activityBox.innerHTML = rows.length ? rows.slice(0, 6).map(row => `<button class="home-pro-activity" onclick="openActivityHistory()">
+            <span>${homeActivityIcon(row.category)}</span>
+            <div><b>${escapeHtml(homeActivityLabel(row.action))}</b><small>${escapeHtml(row.description || 'Activity recorded')}</small></div>
+            <time>${escapeHtml(homeDateTime(row.created_at))}</time>
+        </button>`).join('') : '<div class="home-pro-empty">Recent activity abhi available nahi hai.</div>';
+    }
+
+    const badge = document.getElementById('reminderActionBadge');
+    if (badge) {
+        const count = Number(summary.uncontactedUrgent || 0);
+        badge.textContent = String(count);
+        badge.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+}
+
+async function refreshHomeCommandCenter(silent = false) {
+    const loading = document.getElementById('homeProLoading');
+    const content = document.getElementById('homeProContent');
+    if (!silent && loading) { loading.style.display = 'block'; loading.textContent = 'Command Center refresh ho raha hai...'; }
+    try {
+        const response = await adminFetch('/api/dashboard?mode=home');
+        const data = await response.json();
+        renderHomeCommandCenter(data);
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = localStorage.getItem('abhi_home_pro_compact') === 'yes' ? 'none' : 'block';
+        updateHomeCommandToggle();
+        return data;
+    } catch (err) {
+        if (loading) { loading.style.display = 'block'; loading.textContent = `Command Center load nahi hua: ${err.message}`; }
+        throw err;
+    }
+}
+
+function updateHomeCommandToggle() {
+    const compact = localStorage.getItem('abhi_home_pro_compact') === 'yes';
+    const btn = document.getElementById('homeProToggleBtn');
+    if (btn) btn.textContent = compact ? '➕ Expand' : '➖ Compact';
+}
+
+function toggleHomeCommandCenter() {
+    const content = document.getElementById('homeProContent');
+    const compact = localStorage.getItem('abhi_home_pro_compact') === 'yes';
+    localStorage.setItem('abhi_home_pro_compact', compact ? 'no' : 'yes');
+    if (content) content.style.display = compact ? 'block' : 'none';
+    updateHomeCommandToggle();
 }
 
 // ==========================================
@@ -2827,14 +2978,15 @@ async function enableReminderBrowserAlerts() {
     }
 }
 
-function openReminderCenter() {
+function openReminderCenter(initialBucket = 'all') {
     const modal = document.getElementById('reminderCenterModal');
     if (!modal) return;
-    reminderBucket = 'all';
+    reminderBucket = initialBucket || 'all';
     const search = document.getElementById('reminderSearch');
     if (search) search.value = '';
     const hide = document.getElementById('reminderHideContacted');
-    if (hide) hide.checked = true;
+    if (hide) hide.checked = reminderBucket !== 'contacted';
+    document.querySelectorAll('#reminderBuckets .reminder-bucket').forEach(btn => btn.classList.toggle('active', btn.dataset.bucket === reminderBucket));
     modal.style.display = 'block';
     document.body.style.overflow = 'hidden';
     updateReminderAlertButton();
@@ -3007,6 +3159,7 @@ async function markReminderContacted(emiId) {
             body:JSON.stringify({ action:'contacted', emi_id:emiId, channel:'manual' })
         });
         await refreshReminderCenter();
+        await refreshHomeCommandCenter(true).catch(() => null);
     } catch (err) {
         alert(err.message || 'Contacted status save nahi hua.');
     }
