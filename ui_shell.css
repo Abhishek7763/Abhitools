@@ -1,0 +1,618 @@
+/* AbhiTools Design Build 1 — compact responsive shell/navigation.
+   Scope: app shell only. Loan/EMI rendering is intentionally left for Design Build 2. */
+
+:root {
+    --ui-accent: #ea4335;
+    --ui-bg: #f4f6f8;
+    --ui-surface: #ffffff;
+    --ui-surface-2: #f8fafc;
+    --ui-text: #1f2937;
+    --ui-muted: #6b7280;
+    --ui-border: #e5e7eb;
+    --ui-shadow: 0 10px 30px rgba(15, 23, 42, .10);
+    --ui-radius: 14px;
+    --ui-nav-height: 68px;
+    --ui-sidebar-width: 76px;
+    --ui-sidebar-expanded: 226px;
+}
+
+body.dark-mode {
+    --ui-bg: #111315;
+    --ui-surface: #1b1e22;
+    --ui-surface-2: #24282d;
+    --ui-text: #f3f4f6;
+    --ui-muted: #a7adb6;
+    --ui-border: #333941;
+    --ui-shadow: 0 12px 32px rgba(0, 0, 0, .34);
+}
+
+body.ui-shell-ready {
+    background: var(--ui-bg);
+    padding-bottom: calc(var(--ui-nav-height) + env(safe-area-inset-bottom) + 18px);
+}
+
+body.ui-shell-ready > .controls {
+    display: none !important;
+}
+
+body.ui-shell-ready > .header-container {
+    position: sticky;
+    top: 0;
+    z-index: 500;
+    min-height: 52px;
+    padding: 7px 8px;
+    margin: -2px 0 10px !important;
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--ui-surface) 92%, transparent);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 4px 18px rgba(15, 23, 42, .06);
+    gap: 6px;
+}
+
+body.ui-shell-ready > .header-container h2 {
+    font-size: clamp(15px, 4vw, 20px);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+body.ui-shell-ready #releaseVersionBadge,
+body.ui-shell-ready #lastUpdatedBadge,
+body.ui-shell-ready #darkModeBtn,
+body.ui-shell-ready #installAdminAppBtn {
+    min-height: 38px;
+}
+
+body.ui-shell-ready #dashboard {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 1px;
+    padding: 6px !important;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: none;
+}
+
+body.ui-shell-ready #dashboard .dash-box {
+    min-width: 0;
+    padding: 9px 6px !important;
+    border-left: 0 !important;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, .07);
+}
+
+body.ui-shell-ready #dashboard .dash-box h4 {
+    font-size: 10px;
+    line-height: 1.25;
+}
+
+body.ui-shell-ready #dashboard .dash-box h3 {
+    margin-top: 3px;
+    font-size: 17px;
+    line-height: 1.25;
+}
+
+body.ui-shell-ready #dashboard .dash-box small {
+    font-size: 10px;
+}
+
+body.ui-shell-ready .search-container,
+body.ui-shell-ready .tabs,
+body.ui-shell-ready .view-controls {
+    margin-bottom: 10px;
+}
+
+body.ui-shell-ready .search-box {
+    min-height: 44px;
+    padding: 9px 10px;
+}
+
+body.ui-shell-ready .tab {
+    min-height: 44px;
+    padding: 10px 8px;
+    font-size: 13px;
+}
+
+body.ui-shell-ready .btn {
+    min-height: 42px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    box-shadow: none;
+}
+
+.ui-bottom-nav {
+    position: fixed;
+    z-index: 900;
+    left: max(8px, env(safe-area-inset-left));
+    right: max(8px, env(safe-area-inset-right));
+    bottom: max(8px, env(safe-area-inset-bottom));
+    height: var(--ui-nav-height);
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: stretch;
+    padding: 5px;
+    border: 1px solid var(--ui-border);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
+    box-shadow: 0 12px 34px rgba(15, 23, 42, .18);
+    backdrop-filter: blur(18px);
+}
+
+.ui-nav-btn {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    min-height: 56px;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 2px;
+    border: 0;
+    border-radius: 13px;
+    background: transparent;
+    color: var(--ui-muted);
+    font: 600 10px/1.1 'Poppins', system-ui, sans-serif;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ui-nav-btn.active {
+    background: color-mix(in srgb, var(--ui-accent) 11%, var(--ui-surface));
+    color: var(--ui-accent);
+}
+
+.ui-nav-icon {
+    font: 700 20px/1 system-ui, sans-serif;
+}
+
+.ui-nav-label {
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.ui-nav-badge {
+    position: absolute;
+    top: 4px;
+    right: 14%;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border: 2px solid var(--ui-surface);
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font: 700 9px/14px system-ui, sans-serif;
+}
+
+.ui-sidebar {
+    display: none;
+}
+
+.ui-more-overlay[hidden] {
+    display: none !important;
+}
+
+.ui-more-overlay {
+    position: fixed;
+    z-index: 30000;
+    inset: 0;
+}
+
+.ui-more-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(15, 23, 42, .52);
+    backdrop-filter: blur(2px);
+}
+
+.ui-more-panel {
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: calc(var(--ui-nav-height) + env(safe-area-inset-bottom) + 14px);
+    max-height: min(76dvh, 680px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--ui-border);
+    border-radius: 22px;
+    background: var(--ui-surface);
+    color: var(--ui-text);
+    box-shadow: 0 24px 70px rgba(0, 0, 0, .30);
+    animation: uiSheetIn .18s ease-out;
+}
+
+@keyframes uiSheetIn {
+    from { transform: translateY(14px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.ui-more-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 14px 10px;
+    border-bottom: 1px solid var(--ui-border);
+}
+
+.ui-more-header small {
+    display: block;
+    margin-bottom: 1px;
+    color: var(--ui-muted);
+    font-size: 11px;
+}
+
+.ui-more-header h3 {
+    margin: 0;
+    font-size: 19px;
+}
+
+.ui-icon-btn {
+    width: 42px;
+    height: 42px;
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    background: var(--ui-surface-2);
+    color: var(--ui-text);
+    font-size: 18px;
+    cursor: pointer;
+}
+
+.ui-more-content {
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 8px 12px 18px;
+}
+
+.ui-more-group {
+    padding: 8px 0;
+}
+
+.ui-more-group + .ui-more-group {
+    border-top: 1px solid var(--ui-border);
+}
+
+.ui-more-group h4 {
+    margin: 2px 2px 8px;
+    color: var(--ui-muted);
+    font-size: 11px;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.ui-more-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+}
+
+.ui-more-action {
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 9px 10px;
+    border: 1px solid var(--ui-border);
+    border-radius: 12px;
+    background: var(--ui-surface-2);
+    color: var(--ui-text);
+    text-align: left;
+    cursor: pointer;
+    font-family: 'Poppins', system-ui, sans-serif;
+}
+
+.ui-more-action > span {
+    flex: 0 0 28px;
+    font-size: 18px;
+    text-align: center;
+}
+
+.ui-more-action b {
+    min-width: 0;
+    font-size: 12px;
+    line-height: 1.25;
+}
+
+.ui-more-action.danger {
+    color: #b91c1c;
+    border-color: color-mix(in srgb, #dc2626 30%, var(--ui-border));
+    background: color-mix(in srgb, #dc2626 7%, var(--ui-surface));
+}
+
+.dark-mode .ui-more-action.danger {
+    color: #fca5a5;
+}
+
+.ui-shell-toast {
+    position: fixed;
+    z-index: 31000;
+    left: 50%;
+    bottom: calc(var(--ui-nav-height) + 24px + env(safe-area-inset-bottom));
+    max-width: min(92vw, 420px);
+    transform: translate(-50%, 14px);
+    opacity: 0;
+    pointer-events: none;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: #111827;
+    color: #fff;
+    box-shadow: var(--ui-shadow);
+    font: 600 12px/1.35 system-ui, sans-serif;
+    transition: opacity .18s, transform .18s;
+}
+
+.ui-shell-toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+@media (max-width: 560px) {
+    body.ui-shell-ready {
+        padding-left: 7px;
+        padding-right: 7px;
+        padding-top: 7px;
+    }
+
+    body.ui-shell-ready > .header-container {
+        padding: 6px !important;
+    }
+
+    body.ui-shell-ready > .header-container h2 {
+        font-size: 15px;
+    }
+
+    body.ui-shell-ready #lastUpdatedBadge {
+        display: none;
+    }
+
+    body.ui-shell-ready #releaseVersionBadge {
+        max-width: 86px;
+        padding-left: 7px;
+        padding-right: 7px;
+        font-size: 10px;
+    }
+
+    body.ui-shell-ready #darkModeBtn,
+    body.ui-shell-ready #installAdminAppBtn {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+        font-size: 10px !important;
+    }
+
+    body.ui-shell-ready .search-container {
+        gap: 7px;
+    }
+
+    body.ui-shell-ready select.search-box {
+        max-width: 42%;
+    }
+}
+
+@media (min-width: 720px) {
+    body.ui-shell-ready #dashboard {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .ui-more-grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 960px) {
+    body.ui-shell-ready {
+        padding: 12px 18px 22px calc(var(--ui-sidebar-width) + 18px);
+        transition: padding-left .18s ease;
+    }
+
+    body.ui-shell-ready.ui-sidebar-expanded {
+        padding-left: calc(var(--ui-sidebar-expanded) + 18px);
+    }
+
+    .ui-bottom-nav {
+        display: none;
+    }
+
+    .ui-sidebar {
+        position: fixed;
+        z-index: 800;
+        top: 10px;
+        left: 10px;
+        bottom: 10px;
+        width: var(--ui-sidebar-width);
+        display: flex;
+        flex-direction: column;
+        padding: 8px;
+        border: 1px solid var(--ui-border);
+        border-radius: 18px;
+        background: color-mix(in srgb, var(--ui-surface) 96%, transparent);
+        box-shadow: var(--ui-shadow);
+        backdrop-filter: blur(16px);
+        transition: width .18s ease;
+    }
+
+    body.ui-sidebar-expanded .ui-sidebar {
+        width: var(--ui-sidebar-expanded);
+    }
+
+    .ui-sidebar-brand {
+        min-height: 54px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px;
+        overflow: hidden;
+    }
+
+    .ui-sidebar-logo {
+        flex: 0 0 46px;
+        width: 46px;
+        height: 46px;
+        display: grid;
+        place-items: center;
+        border-radius: 13px;
+        background: var(--ui-accent);
+        color: #fff;
+        font: 800 16px/1 system-ui, sans-serif;
+    }
+
+    .ui-sidebar-brand-text {
+        min-width: 130px;
+        display: flex;
+        flex-direction: column;
+        opacity: 0;
+        transition: opacity .12s;
+    }
+
+    body.ui-sidebar-expanded .ui-sidebar-brand-text {
+        opacity: 1;
+    }
+
+    .ui-sidebar-brand-text strong {
+        font-size: 14px;
+        color: var(--ui-text);
+    }
+
+    .ui-sidebar-brand-text small {
+        color: var(--ui-muted);
+        font-size: 10px;
+    }
+
+    .ui-sidebar-main {
+        display: grid;
+        gap: 5px;
+        margin-top: 12px;
+    }
+
+    .ui-sidebar .ui-nav-btn {
+        min-height: 50px;
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        justify-content: stretch;
+        padding: 4px;
+        text-align: left;
+    }
+
+    .ui-sidebar .ui-nav-icon {
+        display: grid;
+        place-items: center;
+    }
+
+    .ui-sidebar .ui-nav-label {
+        opacity: 0;
+        width: 0;
+        font-size: 12px;
+        text-align: left;
+        transition: opacity .12s;
+    }
+
+    body.ui-sidebar-expanded .ui-sidebar .ui-nav-label {
+        width: auto;
+        opacity: 1;
+    }
+
+    .ui-sidebar .ui-nav-badge {
+        top: 3px;
+        right: 3px;
+    }
+
+    .ui-sidebar-toggle {
+        margin-top: auto;
+        min-height: 46px;
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        align-items: center;
+        overflow: hidden;
+        border: 1px solid var(--ui-border);
+        border-radius: 12px;
+        background: var(--ui-surface-2);
+        color: var(--ui-text);
+        cursor: pointer;
+        font-family: 'Poppins', system-ui, sans-serif;
+    }
+
+    .ui-sidebar-toggle > span:first-child {
+        font-size: 20px;
+    }
+
+    .ui-sidebar-toggle-text {
+        opacity: 0;
+        width: 0;
+        font-size: 11px;
+        text-align: left;
+    }
+
+    body.ui-sidebar-expanded .ui-sidebar-toggle-text {
+        width: auto;
+        opacity: 1;
+    }
+
+    .ui-more-panel {
+        left: calc(var(--ui-sidebar-width) + 20px);
+        right: auto;
+        top: 12px;
+        bottom: 12px;
+        width: min(390px, calc(100vw - 120px));
+        max-height: none;
+        border-radius: 18px;
+        animation-name: uiPanelIn;
+    }
+
+    body.ui-sidebar-expanded .ui-more-panel {
+        left: calc(var(--ui-sidebar-expanded) + 20px);
+    }
+
+    @keyframes uiPanelIn {
+        from { transform: translateX(-12px); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+
+    .ui-more-grid {
+        grid-template-columns: 1fr;
+    }
+
+    body.ui-shell-ready > .header-container,
+    body.ui-shell-ready > #dashboard,
+    body.ui-shell-ready > #homeCommandCenter,
+    body.ui-shell-ready > .search-container,
+    body.ui-shell-ready > .tabs,
+    body.ui-shell-ready > .view-controls,
+    body.ui-shell-ready > #folderView,
+    body.ui-shell-ready > #detailView,
+    body.ui-shell-ready > #monthView,
+    body.ui-shell-ready > #monthDetailView,
+    body.ui-shell-ready > #borrowerFormContainer,
+    body.ui-shell-ready > #loanFormContainer {
+        max-width: 1480px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ui-more-panel,
+    .ui-sidebar,
+    body.ui-shell-ready,
+    .ui-shell-toast {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+@media print {
+    .ui-bottom-nav,
+    .ui-sidebar,
+    .ui-more-overlay,
+    .ui-shell-toast {
+        display: none !important;
+    }
+
+    body.ui-shell-ready {
+        padding: 0 !important;
+    }
+}

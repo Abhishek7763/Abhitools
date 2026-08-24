@@ -120,6 +120,27 @@
         });
     }
 
+    // Design Build 1: load the isolated admin UI shell without rewriting admin.html/admin_script.js.
+    function loadAdminUiShell() {
+        if (!document.body?.classList.contains('has-mobile-app-nav')) return;
+
+        if (!document.querySelector('link[data-abhi-ui-shell]')) {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = '/ui_shell.css';
+            link.dataset.abhiUiShell = 'yes';
+            document.head.appendChild(link);
+        }
+
+        if (!document.querySelector('script[data-abhi-ui-shell]')) {
+            const script = document.createElement('script');
+            script.src = '/ui_shell.js';
+            script.defer = true;
+            script.dataset.abhiUiShell = 'yes';
+            document.body.appendChild(script);
+        }
+    }
+
     window.addEventListener('beforeinstallprompt', event => {
         event.preventDefault();
         deferredInstallPrompt = event;
@@ -136,11 +157,13 @@
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
+            loadAdminUiShell();
             bindInstallButtons();
             updateConnectionState();
             registerServiceWorker();
         }, { once: true });
     } else {
+        loadAdminUiShell();
         bindInstallButtons();
         updateConnectionState();
         registerServiceWorker();
