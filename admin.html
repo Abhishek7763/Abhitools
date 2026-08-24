@@ -38,12 +38,24 @@
             <h3 id="dueThisMonthSum">₹0</h3>
         </div>
         <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
-            <h4>Overdue EMIs</h4>
-            <h3 id="overdueCount" style="color:#ffeb3b;">0</h3>
+            <h4>Overdue</h4>
+            <h3 id="overdueDueSum" style="color:#ffeb3b;">₹0</h3>
+            <small id="overdueCount">0 EMI</small>
         </div>
         <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
             <h4>Aaj Due</h4>
             <h3 id="todayDueSum">₹0</h3>
+            <small id="todayDueCount">0 EMI</small>
+        </div>
+        <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
+            <h4>Kal Due</h4>
+            <h3 id="tomorrowDueSum">₹0</h3>
+            <small id="tomorrowDueCount">0 EMI</small>
+        </div>
+        <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
+            <h4>Next 7 Days</h4>
+            <h3 id="next7DueSum">₹0</h3>
+            <small id="next7DueCount">0 EMI</small>
         </div>
     </div>
 
@@ -52,6 +64,7 @@
         <button class="btn btn-success" onclick="showBorrowerForm()">👤 Add Borrower</button>
         <button class="btn btn-success" onclick="showForm()">➕ Add Loan</button>
         <button class="btn btn-warning" onclick="downloadFullBackup()">💾 Full Backup</button>
+        <button class="btn btn-view" onclick="openDueCenter('overdue')">⏰ Due Center</button>
         <button class="btn btn-view" onclick="openDataSafetyCenter('import')">📥 Import / Restore</button>
         <button class="btn btn-danger" onclick="logoutAdmin()">🚪 Logout</button>
     </div>
@@ -197,6 +210,33 @@
     </div>
 
 
+
+    <!-- Phase 3: Automatic Due & Overdue Center -->
+    <div id="dueCenterModal" class="due-overlay no-print" style="display:none;" onclick="handleDueOverlayClick(event)">
+        <div class="due-card" role="dialog" aria-modal="true" aria-labelledby="dueCenterTitle">
+            <div class="due-header">
+                <div>
+                    <h3 id="dueCenterTitle">⏰ Due & Overdue Center</h3>
+                    <small id="dueBusinessDate">Automatic calculation • Asia/Kolkata</small>
+                </div>
+                <button class="btn btn-danger due-close" onclick="closeDueCenter()" aria-label="Close">✕</button>
+            </div>
+            <div class="due-summary-grid">
+                <button class="due-summary-tile overdue" onclick="renderDueBucket('overdue')"><span>🔴 Overdue</span><strong id="dueTileOverdue">₹0</strong><small id="dueTileOverdueCount">0 EMI</small></button>
+                <button class="due-summary-tile" onclick="renderDueBucket('today')"><span>🔔 Aaj</span><strong id="dueTileToday">₹0</strong><small id="dueTileTodayCount">0 EMI</small></button>
+                <button class="due-summary-tile" onclick="renderDueBucket('tomorrow')"><span>🌅 Kal</span><strong id="dueTileTomorrow">₹0</strong><small id="dueTileTomorrowCount">0 EMI</small></button>
+                <button class="due-summary-tile" onclick="renderDueBucket('next7')"><span>📆 Next 7 Days</span><strong id="dueTileNext7">₹0</strong><small id="dueTileNext7Count">0 EMI</small></button>
+                <button class="due-summary-tile" onclick="renderDueBucket('month')"><span>🗓️ This Month</span><strong id="dueTileMonth">₹0</strong><small id="dueTileMonthCount">0 EMI</small></button>
+                <div class="due-summary-tile legacy"><span>⚠️ Year not set</span><strong id="dueTileLegacy">₹0</strong><small id="dueTileLegacyCount">0 EMI</small></div>
+            </div>
+            <div class="due-list-head">
+                <h4 id="dueBucketTitle">Overdue EMIs</h4>
+                <button class="btn btn-secondary" onclick="refreshDueCenter()">🔄 Refresh</button>
+            </div>
+            <div id="dueBucketList" class="due-list"></div>
+            <div id="dueLegacyNote" class="due-legacy-note" style="display:none;"></div>
+        </div>
+    </div>
 
     <!-- Phase 2: EMI Payment Manager -->
     <div id="paymentModal" class="payment-overlay no-print" style="display:none;" onclick="handlePaymentOverlayClick(event)">

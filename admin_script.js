@@ -65,6 +65,8 @@ let currentBorrowerId = null;
 let currentPaymentEmiId = null;
 let currentPaymentId = null;
 let currentPaymentHistory = [];
+let dueCenterData = null;
+let currentDueBucket = 'overdue';
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -100,6 +102,10 @@ async function loadAllData() {
     try {
         if (badge) badge.innerHTML = `<span class="spin-icon">🔄</span><br>Loading...`;
 
+        // Server-side due engine refreshes statuses first; legacy year-less EMIs are intentionally skipped.
+        const dueRes = await adminFetch('/api/due');
+        dueCenterData = await dueRes.json();
+
         const [borrowersRes, loansRes] = await Promise.all([
             adminFetch('/api/borrowers'),
             adminFetch('/api/loans')
@@ -107,9 +113,6 @@ async function loadAllData() {
 
         borrowers = await borrowersRes.json();
         loans = await loansRes.json();
-
-        // Overdue EMIs auto-detect karo
-        await autoMarkOverdue();
 
         updateDashboard();
         renderFolders();
@@ -133,28 +136,12 @@ async function manualSync() {
 }
 
 // ==========================================
-// OVERDUE AUTO DETECT
+// PHASE 3 - SERVER-SIDE DUE ENGINE
 // ==========================================
-async function autoMarkOverdue() {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (const loan of loans) {
-        if (!loan.emis) continue;
-        for (const emi of loan.emis) {
-            if (emi.status === 'pending' && emi.due_date) {
-                const dueDate = new Date(emi.due_date);
-                if (dueDate < today) {
-                    await adminFetch('/api/loans?action=emi-status', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ emi_id: emi.id, status: 'overdue' })
-                    });
-                    emi.status = 'overdue';
-                }
-            }
-        }
-    }
+async function refreshDueData() {
+    const response = await adminFetch('/api/due');
+    dueCenterData = await response.json();
+    return dueCenterData;
 }
 
 // ==========================================
@@ -179,35 +166,30 @@ function emiIsPastDue(emi) {
 
 function updateDashboard() {
     let totalAmount = 0;
-    let dueThisMonth = 0;
-    let overdueCount = 0;
-    let todayDue = 0;
+    loans.forEach(loan => { if (loan.status === 'active') totalAmount += parseInt(loan.amount) || 0; });
 
-    const today = new Date();
-    const currentMonthShort = today.toLocaleString('en-US', { month: 'short' }).toUpperCase();
-    const todayStr = today.toISOString().split('T')[0];
+    const summary = dueCenterData?.summary || {};
+    const month = summary.month || { amount: 0, count: 0 };
+    const overdue = summary.overdue || { amount: 0, count: 0 };
+    const today = summary.today || { amount: 0, count: 0 };
+    const tomorrow = summary.tomorrow || { amount: 0, count: 0 };
+    const next7 = summary.next7 || { amount: 0, count: 0 };
+    const monthName = dueCenterData?.businessDate ? new Date(`${dueCenterData.businessDate}T00:00:00Z`).toLocaleString('en-US', { month:'short', timeZone:'UTC' }).toUpperCase() : '';
 
     const dueLabel = document.getElementById('dueThisMonthLabel');
-    if (dueLabel) dueLabel.innerText = 'Due in ' + currentMonthShort;
-
-    loans.forEach(loan => {
-        if (loan.status !== 'active') return;
-        totalAmount += parseInt(loan.amount) || 0;
-
-        (loan.emis || []).forEach(emi => {
-            const remaining = emiRemainingAmount(emi);
-            if (emi.due_month === currentMonthShort && remaining > 0) dueThisMonth += remaining;
-            if ((emi.status === 'overdue' || emiIsPastDue(emi)) && remaining > 0) overdueCount++;
-            if (emi.due_date === todayStr && remaining > 0) todayDue += remaining;
-        });
-    });
-
+    if (dueLabel) dueLabel.innerText = monthName ? `Due in ${monthName}` : 'Due This Month';
     const el = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
     el('totalLoansCount', loans.filter(l => l.status === 'active').length);
     el('totalAmountSum', '₹' + totalAmount.toLocaleString('en-IN'));
-    el('dueThisMonthSum', '₹' + dueThisMonth.toLocaleString('en-IN'));
-    el('overdueCount', overdueCount);
-    el('todayDueSum', '₹' + todayDue.toLocaleString('en-IN'));
+    el('dueThisMonthSum', '₹' + Number(month.amount || 0).toLocaleString('en-IN'));
+    el('overdueDueSum', '₹' + Number(overdue.amount || 0).toLocaleString('en-IN'));
+    el('overdueCount', `${Number(overdue.count || 0)} EMI`);
+    el('todayDueSum', '₹' + Number(today.amount || 0).toLocaleString('en-IN'));
+    el('todayDueCount', `${Number(today.count || 0)} EMI`);
+    el('tomorrowDueSum', '₹' + Number(tomorrow.amount || 0).toLocaleString('en-IN'));
+    el('tomorrowDueCount', `${Number(tomorrow.count || 0)} EMI`);
+    el('next7DueSum', '₹' + Number(next7.amount || 0).toLocaleString('en-IN'));
+    el('next7DueCount', `${Number(next7.count || 0)} EMI`);
 }
 
 // ==========================================
@@ -341,6 +323,95 @@ function goBackToFolders() {
     document.getElementById('folderView').style.display = 'block';
     document.getElementById('viewControlsContainer').style.display = 'flex';
     handleSearch();
+}
+
+// ==========================================
+// ==========================================
+// PHASE 3 - DUE & OVERDUE CENTER
+// ==========================================
+function dueMoney(value) { return '₹' + Number(value || 0).toLocaleString('en-IN'); }
+
+function updateDueCenterTiles() {
+    const s = dueCenterData?.summary || {};
+    const set = (id, text) => { const e = document.getElementById(id); if (e) e.textContent = text; };
+    for (const [key, cap] of [['overdue','Overdue'],['today','Today'],['tomorrow','Tomorrow'],['next7','Next7'],['month','Month']]) {
+        const x = s[key] || { amount:0, count:0 };
+        set(`dueTile${cap}`, dueMoney(x.amount));
+        set(`dueTile${cap}Count`, `${Number(x.count || 0)} EMI`);
+    }
+    const legacy = s.yearNotSet || { amount:0, count:0 };
+    set('dueTileLegacy', dueMoney(legacy.amount));
+    set('dueTileLegacyCount', `${Number(legacy.count || 0)} EMI`);
+    set('dueBusinessDate', `Business date: ${dueCenterData?.businessDate || '-'} • Asia/Kolkata • statuses auto-refreshed`);
+    const note = document.getElementById('dueLegacyNote');
+    if (note) {
+        note.style.display = legacy.count > 0 ? 'block' : 'none';
+        note.textContent = legacy.count > 0
+            ? `⚠️ ${legacy.count} legacy EMI ka year/date set nahi hai. Inhe automatic overdue/today calculation me include nahi kiya gaya, taaki galat year assume na ho.`
+            : '';
+    }
+}
+
+function dueBucketLabel(bucket) {
+    return { overdue:'🔴 Overdue EMIs', today:'🔔 Aaj Due', tomorrow:'🌅 Kal Due', next7:'📆 Next 7 Days', month:'🗓️ This Month' }[bucket] || 'Due EMIs';
+}
+
+function renderDueBucket(bucket = currentDueBucket) {
+    currentDueBucket = bucket;
+    const title = document.getElementById('dueBucketTitle');
+    if (title) title.textContent = dueBucketLabel(bucket);
+    const list = document.getElementById('dueBucketList');
+    if (!list) return;
+    const items = dueCenterData?.buckets?.[bucket] || [];
+    if (!items.length) {
+        list.innerHTML = '<div class="due-empty">✅ Is category me koi EMI nahi hai.</div>';
+        return;
+    }
+    list.innerHTML = items.map(item => {
+        const paid = Number(item.paid_amount || 0);
+        const partial = paid > 0 && Number(item.remaining || 0) > 0;
+        return `<div class="due-item ${bucket === 'overdue' ? 'is-overdue' : ''}">
+            <div class="due-item-main">
+                <strong>${escapeHtml(item.borrower_name || 'Unknown')}</strong>
+                <small>${escapeHtml(item.loan_code || '')} • EMI #${Number(item.installment_number || 0)} • ${escapeHtml(item.due_date || '')}</small>
+                ${partial ? `<small>Part paid: ${dueMoney(paid)}</small>` : ''}
+            </div>
+            <div class="due-item-side">
+                <strong>${dueMoney(item.remaining)}</strong>
+                ${item.emi_id ? `<button class="btn btn-success" onclick="closeDueCenter(); openPaymentModal('${item.emi_id}')">💰 Pay</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function openDueCenter(bucket = 'overdue') {
+    const modal = document.getElementById('dueCenterModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    updateDueCenterTiles();
+    renderDueBucket(bucket);
+}
+
+function closeDueCenter() {
+    const modal = document.getElementById('dueCenterModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleDueOverlayClick(event) {
+    if (event.target?.id === 'dueCenterModal') closeDueCenter();
+}
+
+async function refreshDueCenter() {
+    try {
+        await refreshDueData();
+        updateDashboard();
+        updateDueCenterTiles();
+        renderDueBucket(currentDueBucket);
+    } catch (err) {
+        alert('Due data refresh nahi hua.');
+    }
 }
 
 // ==========================================

@@ -1,0 +1,14 @@
+ABHITOOLS PHASE 3 - AUTOMATIC DUE & OVERDUE ENGINE
+
+Features:
+- Server-side automatic EMI status refresh using Asia/Kolkata business date.
+- Paid stays paid; unpaid/partial past-due EMI becomes overdue automatically.
+- Legacy EMI rows with no year/due_date are never guessed or auto-overdue.
+- New /api/due endpoint with sanitized public summary and admin IDs for payment actions.
+- Admin dashboard: overdue amount/count, today, tomorrow, next 7 days, this month.
+- Admin Due Center with Overdue/Today/Tomorrow/Next 7/Month lists and Pay shortcut.
+- Public dashboard: overdue, tomorrow and next-7-day summaries.
+- Payment add/edit/undo immediately recalculates overdue state correctly.
+
+No new environment variables are required.
+Supabase migration: phase3_due_overdue_engine.

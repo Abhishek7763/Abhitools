@@ -36,6 +36,7 @@ let currentTab = 'folder';
 let currentOpenFolder = null;
 let isGridView = false;
 let autoSyncInterval = null;
+let publicDueData = null;
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -72,7 +73,12 @@ async function fetchFromCloud() {
     try {
         if (badge) badge.innerHTML = `<span class="spin-icon">🔄</span><br>Updating ✨`;
 
-        const response = await fetch('/api/loans');
+        // Refresh due/overdue statuses first on the server, then fetch the loan list.
+        const dueResponse = await fetch('/api/due', { cache: 'no-store' });
+        if (!dueResponse.ok) throw new Error('Due API error');
+        publicDueData = await dueResponse.json();
+
+        const response = await fetch('/api/loans', { cache: 'no-store' });
         if (!response.ok) throw new Error('API error');
         loans = await response.json();
 
@@ -124,35 +130,34 @@ function publicEmiPastDue(emi) {
 
 function updateDashboard() {
     let totalAmount = 0;
-    let dueThisMonth = 0;
-    let todayDue = 0;
+    loans.forEach(loan => { if (loan.status === 'active') totalAmount += parseInt(loan.amount) || 0; });
 
-    const today = new Date();
-    const currentMonthShort = today.toLocaleString('en-US', { month: 'short' }).toUpperCase();
-    const todayStr = today.toISOString().split('T')[0];
+    const summary = publicDueData?.summary || {};
+    const month = summary.month || { amount:0, count:0 };
+    const today = summary.today || { amount:0, count:0 };
+    const tomorrow = summary.tomorrow || { amount:0, count:0 };
+    const next7 = summary.next7 || { amount:0, count:0 };
+    const overdue = summary.overdue || { amount:0, count:0 };
+    const monthName = publicDueData?.businessDate ? new Date(`${publicDueData.businessDate}T00:00:00Z`).toLocaleString('en-US', { month:'short', timeZone:'UTC' }).toUpperCase() : '';
 
     const dueLabel = document.getElementById('dueThisMonthLabel');
-    if (dueLabel) dueLabel.innerText = 'Due in ' + currentMonthShort;
-
-    loans.forEach(loan => {
-        if (loan.status !== 'active') return;
-        totalAmount += parseInt(loan.amount) || 0;
-        (loan.emis || []).forEach(emi => {
-            const remaining = publicEmiRemaining(emi);
-            if (emi.due_month === currentMonthShort && remaining > 0) dueThisMonth += remaining;
-            if (emi.due_date === todayStr && remaining > 0) todayDue += remaining;
-        });
-    });
-
+    if (dueLabel) dueLabel.innerText = monthName ? `Due in ${monthName}` : 'Due This Month';
     const el = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
     el('totalLoansCount', loans.filter(l => l.status === 'active').length);
     el('totalAmountSum', '₹' + totalAmount.toLocaleString('en-IN'));
-    el('dueThisMonthSum', '₹' + dueThisMonth.toLocaleString('en-IN'));
+    el('dueThisMonthSum', '₹' + Number(month.amount || 0).toLocaleString('en-IN'));
+    el('publicOverdueSum', '₹' + Number(overdue.amount || 0).toLocaleString('en-IN'));
+    el('publicOverdueCount', `${Number(overdue.count || 0)} EMI`);
+    el('publicTomorrowDue', '₹' + Number(tomorrow.amount || 0).toLocaleString('en-IN'));
+    el('publicNext7Due', '₹' + Number(next7.amount || 0).toLocaleString('en-IN'));
 
     const todayBadge = document.getElementById('todayDueBadge');
     if (todayBadge) {
-        todayBadge.innerText = todayDue > 0 ? `🔔 Aaj Due: ₹${todayDue.toLocaleString('en-IN')}` : '';
-        todayBadge.style.display = todayDue > 0 ? 'block' : 'none';
+        const parts = [];
+        if (Number(overdue.amount || 0) > 0) parts.push(`🔴 Overdue: ₹${Number(overdue.amount).toLocaleString('en-IN')}`);
+        if (Number(today.amount || 0) > 0) parts.push(`🔔 Aaj Due: ₹${Number(today.amount).toLocaleString('en-IN')}`);
+        todayBadge.innerText = parts.join('   •   ');
+        todayBadge.style.display = parts.length ? 'block' : 'none';
     }
 }
 
