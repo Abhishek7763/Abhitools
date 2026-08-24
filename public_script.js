@@ -105,6 +105,23 @@ async function manualSync() {
 // ==========================================
 // DASHBOARD
 // ==========================================
+function publicEmiPaid(emi) {
+    const scheduled = Number.parseInt(emi?.amount, 10) || 0;
+    const paid = Number.parseInt(emi?.paid_amount, 10) || 0;
+    return Math.max(0, Math.min(paid, scheduled));
+}
+
+function publicEmiRemaining(emi) {
+    return Math.max((Number.parseInt(emi?.amount, 10) || 0) - publicEmiPaid(emi), 0);
+}
+
+function publicEmiPastDue(emi) {
+    if (!emi?.due_date || publicEmiRemaining(emi) <= 0) return false;
+    const due = new Date(`${String(emi.due_date).slice(0,10)}T00:00:00`);
+    const today = new Date(); today.setHours(0,0,0,0);
+    return !Number.isNaN(due.getTime()) && due < today;
+}
+
 function updateDashboard() {
     let totalAmount = 0;
     let dueThisMonth = 0;
@@ -120,14 +137,10 @@ function updateDashboard() {
     loans.forEach(loan => {
         if (loan.status !== 'active') return;
         totalAmount += parseInt(loan.amount) || 0;
-
         (loan.emis || []).forEach(emi => {
-            if (emi.due_month === currentMonthShort && emi.status !== 'paid') {
-                dueThisMonth += parseInt(emi.amount) || 0;
-            }
-            if (emi.due_date === todayStr && emi.status !== 'paid') {
-                todayDue += parseInt(emi.amount) || 0;
-            }
+            const remaining = publicEmiRemaining(emi);
+            if (emi.due_month === currentMonthShort && remaining > 0) dueThisMonth += remaining;
+            if (emi.due_date === todayStr && remaining > 0) todayDue += remaining;
         });
     });
 
@@ -136,7 +149,6 @@ function updateDashboard() {
     el('totalAmountSum', '₹' + totalAmount.toLocaleString('en-IN'));
     el('dueThisMonthSum', '₹' + dueThisMonth.toLocaleString('en-IN'));
 
-    // Aaj ki due EMIs badge
     const todayBadge = document.getElementById('todayDueBadge');
     if (todayBadge) {
         todayBadge.innerText = todayDue > 0 ? `🔔 Aaj Due: ₹${todayDue.toLocaleString('en-IN')}` : '';
@@ -290,11 +302,12 @@ function renderLoanList(nameFilter) {
         const emis = loan.emis || [];
         emis.forEach(e => {
             emiSum += parseInt(e.amount) || 0;
-            if (e.status === 'paid') paidSum += parseInt(e.paid_amount || e.amount) || 0;
-            if (e.status === 'overdue') overdueSum += parseInt(e.amount) || 0;
+            const paid = publicEmiPaid(e);
+            paidSum += paid;
+            if (e.status === 'overdue' || publicEmiPastDue(e)) overdueSum += publicEmiRemaining(e);
         });
 
-        const remaining = emiSum - paidSum;
+        const remaining = Math.max(emiSum - paidSum, 0);
         const borderColor = overdueSum > 0 ? '#ea4335' : (remaining === 0 ? '#34a853' : '#1a73e8');
 
         const card = document.createElement('div');
@@ -331,12 +344,18 @@ function renderLoanList(nameFilter) {
 function renderEmiItems(emis) {
     if (!emis || emis.length === 0) return 'Koi EMI nahi';
     return emis.map(e => {
-        const icon = e.status === 'paid' ? '✅' : e.status === 'overdue' ? '🔴' : '⏳';
-        const color = e.status === 'paid' ? '#34a853' : e.status === 'overdue' ? '#ea4335' : '#fbbc05';
+        const paid = publicEmiPaid(e);
+        const remaining = publicEmiRemaining(e);
+        const full = remaining === 0 && Number(e.amount) > 0;
+        const partial = paid > 0 && !full;
+        const pastDue = e.status === 'overdue' || publicEmiPastDue(e);
+        const icon = full ? '✅' : pastDue ? '🔴' : partial ? '🟠' : '⏳';
+        const color = full ? '#34a853' : pastDue ? '#ea4335' : partial ? '#f57c00' : '#fbbc05';
+        const label = full ? 'Paid' : pastDue && partial ? 'Partial • Overdue' : pastDue ? 'Overdue' : partial ? 'Partial' : 'Pending';
         return `<div style="padding:3px 0;border-bottom:1px solid #f0f0f0;">
             <span style="color:${color};">${icon}</span>
             (${e.installment_number}) ${e.due_day} ${e.due_month}${e.due_year ? ' ' + e.due_year : ' (year not set)'} - ₹${parseInt(e.amount).toLocaleString('en-IN')}
-            ${e.status === 'paid' ? `<span style="font-size:11px;color:#34a853;"> ✓ Paid</span>` : ''}
+            <span style="font-size:11px;color:${color};"> • ${label}${paid > 0 ? ` • Paid ₹${paid.toLocaleString('en-IN')} • Rem ₹${remaining.toLocaleString('en-IN')}` : ''}</span>
         </div>`;
     }).join('');
 }
@@ -352,7 +371,7 @@ function renderMonthFolders() {
             const key = `${e.due_month} ${e.due_year || 'YEAR-NOT-SET'}`;
             if (!monthData[key]) monthData[key] = { total: 0, collected: 0, items: [], month: e.due_month, year: e.due_year || null };
             monthData[key].total += parseInt(e.amount) || 0;
-            if (e.status === 'paid') monthData[key].collected += parseInt(e.paid_amount || e.amount) || 0;
+            monthData[key].collected += publicEmiPaid(e);
             monthData[key].items.push({ ...e, name: loan.borrowers?.name, loan_code: loan.loan_code });
         });
     });
@@ -399,8 +418,11 @@ function openMonthDetail(key, monthObj) {
     list.innerHTML = '';
 
     monthObj.items.sort((a, b) => a.due_day - b.due_day).forEach(item => {
-        const statusColor = item.status === 'paid' ? '#34a853' : item.status === 'overdue' ? '#ea4335' : '#fbbc05';
-        const statusIcon = item.status === 'paid' ? '✅' : item.status === 'overdue' ? '🔴' : '⏳';
+        const itemPaid = publicEmiPaid(item);
+        const itemRemaining = publicEmiRemaining(item);
+        const itemPastDue = item.status === 'overdue' || publicEmiPastDue(item);
+        const statusColor = itemRemaining === 0 ? '#34a853' : itemPastDue ? '#ea4335' : itemPaid > 0 ? '#f57c00' : '#fbbc05';
+        const statusIcon = itemRemaining === 0 ? '✅' : itemPastDue ? '🔴' : itemPaid > 0 ? '🟠' : '⏳';
         const div = document.createElement('div');
         div.className = 'monthly-item';
         div.style.borderLeftColor = statusColor;
@@ -410,7 +432,7 @@ function openMonthDetail(key, monthObj) {
                 <strong>${item.name}</strong> ${statusIcon}<br>
                 <small style="color:#888;">${item.loan_code}</small>
             </div>
-            <div style="font-size:16px;font-weight:600;color:#333;">₹${parseInt(item.amount).toLocaleString('en-IN')}</div>
+            <div style="font-size:14px;font-weight:600;color:#333;text-align:right;">₹${parseInt(item.amount).toLocaleString('en-IN')}<br><small>Paid ₹${itemPaid.toLocaleString('en-IN')} • Rem ₹${itemRemaining.toLocaleString('en-IN')}</small></div>
         `;
         list.appendChild(div);
     });

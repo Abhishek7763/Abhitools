@@ -197,6 +197,54 @@
     </div>
 
 
+
+    <!-- Phase 2: EMI Payment Manager -->
+    <div id="paymentModal" class="payment-overlay no-print" style="display:none;" onclick="handlePaymentOverlayClick(event)">
+        <div class="payment-card" role="dialog" aria-modal="true" aria-labelledby="paymentModalTitle">
+            <div class="payment-header">
+                <div>
+                    <h3 id="paymentModalTitle">💰 EMI Payment</h3>
+                    <small>Partial/full payment, correction aur undo history.</small>
+                </div>
+                <button class="btn btn-danger payment-close" onclick="closePaymentModal()" aria-label="Close">✕</button>
+            </div>
+
+            <div id="paymentStatusBox" class="payment-summary">Loading...</div>
+
+            <div class="payment-form-grid">
+                <div class="form-group">
+                    <label>Amount (₹)</label>
+                    <input id="paymentAmount" type="number" min="1" placeholder="Payment amount">
+                </div>
+                <div class="form-group">
+                    <label>Paid Date</label>
+                    <input id="paymentDate" type="date">
+                </div>
+                <div class="form-group">
+                    <label>Method</label>
+                    <select id="paymentMethod">
+                        <option value="Cash">Cash</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Bank Transfer">Bank Transfer</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group payment-notes-field">
+                    <label>Notes</label>
+                    <input id="paymentNotes" type="text" maxlength="500" placeholder="Optional note">
+                </div>
+            </div>
+
+            <div class="payment-form-actions">
+                <button id="savePaymentBtn" class="btn btn-success" onclick="savePayment()">💰 Add Payment</button>
+                <button id="cancelPaymentEditBtn" class="btn btn-secondary" style="display:none;" onclick="resetPaymentForm()">Cancel Edit</button>
+            </div>
+
+            <h4 class="payment-history-title">🧾 Payment History</h4>
+            <div id="paymentHistoryList" class="payment-history-list"></div>
+        </div>
+    </div>
+
     <!-- Phase 1: Smart Import + Backup / Restore -->
     <div id="dataSafetyModal" class="data-safety-overlay no-print" style="display:none;" onclick="handleSafetyOverlayClick(event)">
         <div class="data-safety-card" role="dialog" aria-modal="true" aria-labelledby="dataSafetyTitle">

@@ -8,22 +8,24 @@ function cleanLabel(value, fallback = null) {
 }
 
 async function fullBackupPayload() {
-    const [borrowersRes, loansRes, emisRes, documentsRes] = await Promise.all([
+    const [borrowersRes, loansRes, emisRes, paymentsRes, documentsRes] = await Promise.all([
         supabaseRequest('borrowers?select=*&order=created_at.asc'),
         supabaseRequest('loans?select=*&order=created_at.asc'),
         supabaseRequest('emis?select=*&order=loan_id.asc,installment_number.asc'),
+        supabaseRequest('emi_payments?select=*&order=payment_date.asc,created_at.asc'),
         supabaseRequest('documents?select=*&order=uploaded_at.asc')
     ]);
 
     return {
         format: 'abhitools-backup',
-        version: 2,
+        version: 3,
         created_at: new Date().toISOString(),
-        note: 'Full AbhiTools data backup. Document records contain metadata/paths; storage file bytes are not embedded.',
+        note: 'Full AbhiTools data backup including EMI payment history. Document records contain metadata/paths; storage file bytes are not embedded.',
         data: {
             borrowers: borrowersRes.data || [],
             loans: loansRes.data || [],
             emis: emisRes.data || [],
+            emi_payments: paymentsRes.data || [],
             documents: documentsRes.data || []
         }
     };

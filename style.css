@@ -576,3 +576,124 @@ body.dark-mode .import-stat strong { color: #93c5fd; }
     .backup-history-item { align-items: stretch; flex-direction: column; }
     .backup-history-item .btn { width: 100%; }
 }
+
+/* ==========================================
+   PHASE 2 - EMI PAYMENT MANAGER
+   ========================================== */
+.payment-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10020;
+    background: rgba(15, 23, 42, 0.72);
+    padding: 18px;
+    overflow-y: auto;
+}
+.payment-card {
+    width: min(720px, 100%);
+    margin: 22px auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 22px 70px rgba(0,0,0,.28);
+    padding: 20px;
+}
+.payment-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-start;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 14px;
+}
+.payment-header h3 { margin: 0 0 4px; color: #0f9d58; }
+.payment-header small { color: #64748b; }
+.payment-close { width: auto; min-width: 42px; margin: 0; }
+.payment-summary {
+    margin: 14px 0;
+    padding: 12px;
+    border-radius: 10px;
+    background: #ecfdf5;
+    border: 1px solid #a7f3d0;
+    color: #065f46;
+    line-height: 1.5;
+}
+.payment-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.payment-form-grid input,
+.payment-form-grid select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+}
+.payment-notes-field { grid-column: 1/-1; }
+.payment-form-actions {
+    display: flex;
+    gap: 8px;
+    margin: 12px 0 16px;
+}
+.payment-form-actions .btn { flex: 1; margin: 0; }
+.payment-history-title { margin: 14px 0 8px; color: #111827; }
+.payment-history-list { display: grid; gap: 8px; }
+.payment-history-item {
+    border: 1px solid #dbe4f0;
+    border-radius: 10px;
+    padding: 11px;
+    background: #f8fafc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+}
+.payment-history-item.baseline { background: #fff7ed; border-color: #fed7aa; }
+.payment-history-meta { min-width: 0; }
+.payment-history-meta strong { display: block; color: #111827; }
+.payment-history-meta small { display: block; margin-top: 4px; color: #64748b; line-height: 1.4; word-break: break-word; }
+.payment-history-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.payment-history-actions .btn { margin: 0; width: auto; padding: 6px 8px; font-size: 11px; }
+.payment-empty { padding: 14px; text-align: center; color: #64748b; border: 1px dashed #cbd5e1; border-radius: 10px; }
+.emi-payment-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 0;
+    padding: 8px;
+    border-radius: 8px;
+    background: rgba(0,0,0,.03);
+    border-left: 4px solid #fbbc05;
+}
+.emi-payment-main { min-width: 0; font-size: 12px; line-height: 1.45; }
+.emi-payment-main small { display: block; margin-top: 2px; }
+.emi-payment-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.emi-status-select { font-size: 11px; padding: 5px 4px; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; }
+
+body.dark-mode .payment-card { background: #111827; color: #e5e7eb; }
+body.dark-mode .payment-header { border-bottom-color: #374151; }
+body.dark-mode .payment-header h3 { color: #4ade80; }
+body.dark-mode .payment-summary { background: #052e16; border-color: #166534; color: #bbf7d0; }
+body.dark-mode .payment-form-grid input,
+body.dark-mode .payment-form-grid select,
+body.dark-mode .emi-status-select { background: #1f2937; color: #e5e7eb; border-color: #475569; }
+body.dark-mode .payment-history-title,
+body.dark-mode .payment-history-meta strong { color: #f8fafc; }
+body.dark-mode .payment-history-item { background: #0f172a; border-color: #334155; }
+body.dark-mode .payment-history-item.baseline { background: #431407; border-color: #9a3412; }
+body.dark-mode .emi-payment-row { background: rgba(255,255,255,.05); }
+
+@media (max-width: 650px) {
+    .payment-overlay { padding: 8px; }
+    .payment-card { margin: 8px auto; padding: 14px; border-radius: 13px; }
+    .payment-form-grid { grid-template-columns: 1fr; }
+    .payment-notes-field { grid-column: auto; }
+    .payment-form-actions { flex-direction: column; }
+    .payment-history-item { align-items: stretch; flex-direction: column; }
+    .payment-history-actions .btn { flex: 1; }
+    .emi-payment-row { align-items: stretch; flex-direction: column; }
+    .emi-payment-actions { width: 100%; }
+    .emi-payment-actions .btn, .emi-status-select { flex: 1; }
+}

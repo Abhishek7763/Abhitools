@@ -62,6 +62,9 @@ let currentTab = 'folder';
 let currentOpenFolder = null;
 let isGridView = false;
 let currentBorrowerId = null;
+let currentPaymentEmiId = null;
+let currentPaymentId = null;
+let currentPaymentHistory = [];
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -157,6 +160,23 @@ async function autoMarkOverdue() {
 // ==========================================
 // DASHBOARD
 // ==========================================
+function emiPaidAmount(emi) {
+    const scheduled = Number.parseInt(emi?.amount, 10) || 0;
+    const paid = Number.parseInt(emi?.paid_amount, 10) || 0;
+    return Math.max(0, Math.min(paid, scheduled));
+}
+
+function emiRemainingAmount(emi) {
+    return Math.max((Number.parseInt(emi?.amount, 10) || 0) - emiPaidAmount(emi), 0);
+}
+
+function emiIsPastDue(emi) {
+    if (!emi?.due_date || emiRemainingAmount(emi) <= 0) return false;
+    const due = new Date(`${String(emi.due_date).slice(0,10)}T00:00:00`);
+    const today = new Date(); today.setHours(0,0,0,0);
+    return !Number.isNaN(due.getTime()) && due < today;
+}
+
 function updateDashboard() {
     let totalAmount = 0;
     let dueThisMonth = 0;
@@ -174,17 +194,12 @@ function updateDashboard() {
         if (loan.status !== 'active') return;
         totalAmount += parseInt(loan.amount) || 0;
 
-        if (loan.emis) {
-            loan.emis.forEach(emi => {
-                if (emi.due_month === currentMonthShort && emi.status !== 'paid') {
-                    dueThisMonth += parseInt(emi.amount) || 0;
-                }
-                if (emi.status === 'overdue') overdueCount++;
-                if (emi.due_date === todayStr && emi.status !== 'paid') {
-                    todayDue += parseInt(emi.amount) || 0;
-                }
-            });
-        }
+        (loan.emis || []).forEach(emi => {
+            const remaining = emiRemainingAmount(emi);
+            if (emi.due_month === currentMonthShort && remaining > 0) dueThisMonth += remaining;
+            if ((emi.status === 'overdue' || emiIsPastDue(emi)) && remaining > 0) overdueCount++;
+            if (emi.due_date === todayStr && remaining > 0) todayDue += remaining;
+        });
     });
 
     const el = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
@@ -329,7 +344,7 @@ function goBackToFolders() {
 }
 
 // ==========================================
-// LOAN CARDS
+// LOAN CARDS + PHASE 2 PAYMENT MANAGEMENT
 // ==========================================
 function renderLoanList(nameFilter) {
     const list = document.getElementById('loanList');
@@ -341,13 +356,16 @@ function renderLoanList(nameFilter) {
         let emiSum = 0, paidSum = 0, overdueSum = 0;
         const emis = loan.emis || [];
         emis.forEach(e => {
-            emiSum += parseInt(e.amount) || 0;
-            if (e.status === 'paid') paidSum += parseInt(e.paid_amount || e.amount) || 0;
-            if (e.status === 'overdue') overdueSum += parseInt(e.amount) || 0;
+            const scheduled = parseInt(e.amount) || 0;
+            const paid = emiPaidAmount(e);
+            const remaining = Math.max(scheduled - paid, 0);
+            emiSum += scheduled;
+            paidSum += paid;
+            if (e.status === 'overdue' || emiIsPastDue(e)) overdueSum += remaining;
         });
 
-        const remaining = emiSum - paidSum;
-        const borderColor = overdueSum > 0 ? '#ea4335' : (remaining === 0 ? '#34a853' : '#fbbc05');
+        const remaining = Math.max(emiSum - paidSum, 0);
+        const borderColor = overdueSum > 0 ? '#ea4335' : (remaining === 0 && emiSum > 0 ? '#34a853' : '#fbbc05');
         const statusBadge = loan.status === 'closed' ? '🔒 Closed' : loan.status === 'defaulted' ? '⚠️ Defaulted' : '✅ Active';
 
         const card = document.createElement('div');
@@ -361,25 +379,25 @@ function renderLoanList(nameFilter) {
         card.innerHTML = `
             <div>
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                    <p style="color:#ea4335;font-weight:600;font-size:14px;margin:0;">ID: ${loan.loan_code}</p>
+                    <p style="color:#ea4335;font-weight:600;font-size:14px;margin:0;">ID: ${escapeHtml(loan.loan_code)}</p>
                     <span style="font-size:11px;background:#f0f2f5;padding:3px 8px;border-radius:10px;">${statusBadge}</span>
                 </div>
                 <p><strong>Total Amount:</strong> ₹${parseInt(loan.amount).toLocaleString('en-IN')}</p>
                 <p><strong>Loan Year:</strong> ${loan.loan_year || '-'}</p>
-                ${borrower.phone ? `<p><strong>📱 Phone:</strong> <a href="tel:${borrower.phone}" style="color:#1a73e8;">${borrower.phone}</a></p>` : ''}
+                ${borrower.phone ? `<p><strong>📱 Phone:</strong> <a href="tel:${escapeHtml(borrower.phone)}" style="color:#1a73e8;">${escapeHtml(borrower.phone)}</a></p>` : ''}
                 <div class="emi-text"><strong>EMI Schedule:</strong><br>${renderEmiList(emis, loan.id)}</div>
             </div>
             <div style="margin-top:15px;">
-                <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:13px;">
-                    <span style="color:#34a853;font-weight:600;">✅ Paid: ₹${paidSum.toLocaleString('en-IN')}</span>
+                <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:13px;gap:8px;flex-wrap:wrap;">
+                    <span style="color:#34a853;font-weight:600;">✅ Collected: ₹${paidSum.toLocaleString('en-IN')}</span>
                     <span style="color:#ea4335;font-weight:600;">⏳ Remaining: ₹${remaining.toLocaleString('en-IN')}</span>
                 </div>
-                ${overdueSum > 0 ? `<p style="color:#ea4335;font-size:12px;font-weight:600;">🔴 Overdue: ₹${overdueSum.toLocaleString('en-IN')}</p>` : ''}
+                ${overdueSum > 0 ? `<p style="color:#ea4335;font-size:12px;font-weight:600;">🔴 Overdue Remaining: ₹${overdueSum.toLocaleString('en-IN')}</p>` : ''}
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;" class="no-print">
                     <button class="btn btn-warning" onclick="editLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">✏️ Edit</button>
                     <button class="btn btn-danger" onclick="deleteLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">🗑️ Delete</button>
                     <button class="btn btn-secondary" onclick="closeLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">🔒 Close</button>
-                    ${whatsappNum ? `<a href="https://wa.me/91${whatsappNum}?text=${whatsappMsg}" target="_blank" class="btn btn-success" style="font-size:12px;padding:6px 10px;text-decoration:none;">💬 WhatsApp</a>` : ''}
+                    ${whatsappNum ? `<a href="https://wa.me/91${escapeHtml(whatsappNum)}?text=${whatsappMsg}" target="_blank" class="btn btn-success" style="font-size:12px;padding:6px 10px;text-decoration:none;">💬 WhatsApp</a>` : ''}
                 </div>
             </div>
         `;
@@ -387,33 +405,209 @@ function renderLoanList(nameFilter) {
     });
 }
 
+function emiDisplayState(e) {
+    const paid = emiPaidAmount(e);
+    const scheduled = Number.parseInt(e.amount, 10) || 0;
+    if (paid >= scheduled && scheduled > 0) return { icon: '✅', text: 'Paid', color: '#34a853' };
+    if (paid > 0 && (e.status === 'overdue' || emiIsPastDue(e))) return { icon: '🔴', text: 'Partial • Overdue', color: '#ea4335' };
+    if (paid > 0) return { icon: '🟠', text: 'Partial', color: '#f57c00' };
+    if (e.status === 'overdue' || emiIsPastDue(e)) return { icon: '🔴', text: 'Overdue', color: '#ea4335' };
+    return { icon: '⏳', text: 'Pending', color: '#fbbc05' };
+}
+
 function renderEmiList(emis, loanId) {
     if (!emis || emis.length === 0) return 'Koi EMI nahi';
     return emis.map(e => {
-        const statusColor = e.status === 'paid' ? '#34a853' : e.status === 'overdue' ? '#ea4335' : '#fbbc05';
-        const statusIcon = e.status === 'paid' ? '✅' : e.status === 'overdue' ? '🔴' : '⏳';
-        return `<div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0;padding:4px 6px;border-radius:4px;background:rgba(0,0,0,0.03);">
-            <span>${statusIcon} (${e.installment_number}) ${e.due_day} ${e.due_month}${e.due_year ? ' ' + e.due_year : ' (year not set)'} - ₹${e.amount}</span>
-            <select onchange="changeEmiStatus('${e.id}', this.value)" style="font-size:11px;padding:2px;border:1px solid ${statusColor};border-radius:4px;color:${statusColor};background:white;cursor:pointer;" class="no-print">
-                <option value="pending" ${e.status==='pending'?'selected':''}>⏳ Pending</option>
-                <option value="paid" ${e.status==='paid'?'selected':''}>✅ Paid</option>
-                <option value="overdue" ${e.status==='overdue'?'selected':''}>🔴 Overdue</option>
-            </select>
+        const state = emiDisplayState(e);
+        const paid = emiPaidAmount(e);
+        const remaining = emiRemainingAmount(e);
+        const dateLabel = `${e.due_day} ${e.due_month}${e.due_year ? ' ' + e.due_year : ' (year not set)'}`;
+        return `<div class="emi-payment-row" style="border-left-color:${state.color};">
+            <div class="emi-payment-main">
+                <div><strong>${state.icon} EMI ${e.installment_number}</strong> • ${escapeHtml(dateLabel)} • ₹${Number(e.amount).toLocaleString('en-IN')}</div>
+                <small style="color:${state.color};font-weight:600;">${state.text}${paid > 0 ? ` • Paid ₹${paid.toLocaleString('en-IN')} • Remaining ₹${remaining.toLocaleString('en-IN')}` : ''}</small>
+            </div>
+            <div class="emi-payment-actions no-print">
+                <button class="btn btn-success" onclick="openPaymentModal('${e.id}','${loanId}')" style="font-size:11px;padding:6px 8px;">${paid > 0 ? '🧾 Payments' : '💰 Pay'}</button>
+                ${paid === 0 ? `<select onchange="changeEmiStatus('${e.id}', this.value); this.value=''" class="emi-status-select" title="Manual pending/overdue correction">
+                    <option value="">Status</option>
+                    <option value="pending">⏳ Pending</option>
+                    <option value="overdue">🔴 Overdue</option>
+                </select>` : ''}
+            </div>
         </div>`;
     }).join('');
 }
 
 async function changeEmiStatus(emiId, status) {
+    if (!status) return;
     try {
-        const paid_date = status === 'paid' ? new Date().toISOString().split('T')[0] : null;
         await adminFetch('/api/loans?action=emi-status', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ emi_id: emiId, status, paid_date })
+            body: JSON.stringify({ emi_id: emiId, status })
         });
         await loadAllData();
     } catch (err) {
-        alert('EMI status update nahi hua. Try again.');
+        alert(err.message || 'EMI status update nahi hua.');
+    }
+}
+
+function findEmiContext(emiId) {
+    for (const loan of loans) {
+        const emi = (loan.emis || []).find(e => e.id === emiId);
+        if (emi) return { loan, emi };
+    }
+    return null;
+}
+
+async function openPaymentModal(emiId) {
+    currentPaymentEmiId = emiId;
+    currentPaymentId = null;
+    const modal = document.getElementById('paymentModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    resetPaymentForm();
+    await loadPaymentHistory();
+}
+
+function closePaymentModal() {
+    const modal = document.getElementById('paymentModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+    currentPaymentEmiId = null;
+    currentPaymentId = null;
+    currentPaymentHistory = [];
+}
+
+function handlePaymentOverlayClick(event) {
+    if (event.target?.id === 'paymentModal') closePaymentModal();
+}
+
+function resetPaymentForm() {
+    currentPaymentId = null;
+    const ctx = findEmiContext(currentPaymentEmiId);
+    const remaining = ctx ? emiRemainingAmount(ctx.emi) : 0;
+    const amount = document.getElementById('paymentAmount');
+    const date = document.getElementById('paymentDate');
+    const method = document.getElementById('paymentMethod');
+    const notes = document.getElementById('paymentNotes');
+    if (amount) { amount.value = remaining || ''; amount.max = remaining || ''; }
+    if (date) date.value = new Date().toISOString().slice(0, 10);
+    if (method) method.value = 'Cash';
+    if (notes) notes.value = '';
+    const saveBtn = document.getElementById('savePaymentBtn');
+    if (saveBtn) saveBtn.textContent = '💰 Add Payment';
+    const cancel = document.getElementById('cancelPaymentEditBtn');
+    if (cancel) cancel.style.display = 'none';
+}
+
+async function loadPaymentHistory() {
+    const status = document.getElementById('paymentStatusBox');
+    const history = document.getElementById('paymentHistoryList');
+    const title = document.getElementById('paymentModalTitle');
+    const ctx = findEmiContext(currentPaymentEmiId);
+    if (!ctx) {
+        if (status) status.textContent = 'EMI not found.';
+        return;
+    }
+    if (title) title.textContent = `💰 EMI ${ctx.emi.installment_number} Payment • ${ctx.loan.borrowers?.name || ''}`;
+    if (status) status.textContent = 'Loading payment history...';
+    if (history) history.innerHTML = '';
+
+    try {
+        const response = await adminFetch(`/api/payments?emi_id=${encodeURIComponent(currentPaymentEmiId)}`);
+        const data = await response.json();
+        const summary = data.summary || {};
+        if (status) status.innerHTML = `Scheduled <strong>₹${Number(summary.scheduled || 0).toLocaleString('en-IN')}</strong> • Paid <strong>₹${Number(summary.paid || 0).toLocaleString('en-IN')}</strong> • Remaining <strong>₹${Number(summary.remaining || 0).toLocaleString('en-IN')}</strong>`;
+
+        const amountInput = document.getElementById('paymentAmount');
+        if (!currentPaymentId && amountInput) {
+            amountInput.value = summary.remaining || '';
+            amountInput.max = summary.remaining || '';
+        }
+
+        const payments = data.payments || [];
+        currentPaymentHistory = payments;
+        const virtualOpening = summary.hasOpeningBalance ? Number(data.emi?.paid_amount || 0) - payments.reduce((sum,p) => sum + (Number(p.amount)||0), 0) : 0;
+        let html = '';
+        if (virtualOpening > 0) {
+            html += `<div class="payment-history-item baseline"><div><strong>Opening paid balance</strong><small>Previous/imported record</small></div><strong>₹${virtualOpening.toLocaleString('en-IN')}</strong></div>`;
+        }
+        html += payments.map(p => {
+            const editable = p.source === 'manual';
+            return `<div class="payment-history-item ${editable ? '' : 'baseline'}">
+                <div class="payment-history-meta">
+                    <strong>₹${Number(p.amount || 0).toLocaleString('en-IN')} • ${escapeHtml(p.paid_date || '')}</strong>
+                    <small>${escapeHtml(p.method || 'Payment')}${p.notes ? ' • ' + escapeHtml(p.notes) : ''}${!editable ? ' • Opening balance' : ''}</small>
+                </div>
+                ${editable ? `<div class="payment-history-actions"><button class="btn btn-warning" onclick="editPayment('${p.id}')">✏️</button><button class="btn btn-danger" onclick="deletePayment('${p.id}')">↩️ Undo</button></div>` : ''}
+            </div>`;
+        }).join('');
+        if (history) history.innerHTML = html || '<div class="payment-empty">Abhi koi payment entry nahi hai.</div>';
+    } catch (err) {
+        if (status) status.textContent = err.message || 'Payment history load nahi hui.';
+    }
+}
+
+function editPayment(paymentId) {
+    const p = currentPaymentHistory.find(item => item.id === paymentId);
+    if (!p?.id || p.source !== 'manual') return;
+    currentPaymentId = p.id;
+    document.getElementById('paymentAmount').value = p.amount || '';
+    document.getElementById('paymentDate').value = p.paid_date || new Date().toISOString().slice(0, 10);
+    document.getElementById('paymentMethod').value = p.method || 'Cash';
+    document.getElementById('paymentNotes').value = p.notes || '';
+    document.getElementById('savePaymentBtn').textContent = '✅ Save Correction';
+    document.getElementById('cancelPaymentEditBtn').style.display = 'inline-block';
+}
+
+async function savePayment() {
+    const amount = document.getElementById('paymentAmount').value;
+    const paid_date = document.getElementById('paymentDate').value;
+    const method = document.getElementById('paymentMethod').value;
+    const notes = document.getElementById('paymentNotes').value;
+    if (!currentPaymentEmiId || !Number(amount) || Number(amount) <= 0) {
+        alert('Valid payment amount required hai.');
+        return;
+    }
+    const btn = document.getElementById('savePaymentBtn');
+    if (btn) btn.disabled = true;
+    try {
+        const isEdit = Boolean(currentPaymentId);
+        await adminFetch('/api/payments', {
+            method: isEdit ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(isEdit
+                ? { payment_id: currentPaymentId, amount, paid_date, method, notes }
+                : { emi_id: currentPaymentEmiId, amount, paid_date, method, notes })
+        });
+        await loadAllData();
+        resetPaymentForm();
+        await loadPaymentHistory();
+        if (currentOpenFolder) openFolder(currentOpenFolder);
+    } catch (err) {
+        alert(err.message || 'Payment save nahi hua.');
+    } finally {
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function deletePayment(paymentId) {
+    if (!confirm('Is payment entry ko undo/delete karna hai? EMI balance automatically recalculate hoga.')) return;
+    try {
+        await adminFetch('/api/payments', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payment_id: paymentId, confirm: true })
+        });
+        await loadAllData();
+        resetPaymentForm();
+        await loadPaymentHistory();
+        if (currentOpenFolder) openFolder(currentOpenFolder);
+    } catch (err) {
+        alert(err.message || 'Payment undo nahi hua.');
     }
 }
 
@@ -513,10 +707,11 @@ function hideForm() {
     document.getElementById('loanFormContainer').style.display = 'none';
 }
 
-function addEmiRow(day = '', month = '', year = undefined, amount = '') {
+function addEmiRow(day = '', month = '', year = undefined, amount = '', emiId = '') {
     const container = document.getElementById('dynamicEmiContainer');
     const row = document.createElement('div');
     row.className = 'emi-row';
+    row.dataset.emiId = emiId || '';
     row.innerHTML = `
         <input type="number" placeholder="Din (10)" value="${day}" style="width:20%;" min="1" max="31">
         <input type="text" placeholder="Mahina (AUG)" value="${month}" style="width:25%;text-transform:uppercase;">
@@ -538,14 +733,26 @@ async function saveLoan() {
     if (!borrower_id || !amount) { alert('Borrower aur Amount required hain!'); return; }
 
     const emis = [];
+    let invalidNewLegacyRow = false;
     document.querySelectorAll('.emi-row').forEach(row => {
         const inputs = row.querySelectorAll('input');
         const day = inputs[0].value.trim();
         const month = inputs[1].value.trim().toUpperCase();
         const year = inputs[2].value.trim();
         const amt = inputs[3].value.trim();
-        if (day && month && year && amt) emis.push({ day, month, year, amount: amt });
+        const id = row.dataset.emiId || null;
+        if (!day && !month && !year && !amt) return;
+        if (!day || !month || !amt || (!id && !year)) {
+            invalidNewLegacyRow = true;
+            return;
+        }
+        emis.push({ id, day, month, year: year || null, amount: amt });
     });
+
+    if (invalidNewLegacyRow) {
+        alert('New EMI ke liye Din, Mahina, Saal aur Amount required hain. Purani imported EMI ka blank year preserve kiya ja sakta hai.');
+        return;
+    }
 
     try {
         if (loanId) {
@@ -567,7 +774,7 @@ async function saveLoan() {
         await loadAllData();
         if (currentOpenFolder) openFolder(currentOpenFolder);
     } catch (err) {
-        alert('Loan save nahi hua. Try again.');
+        alert(err.message || 'Loan save nahi hua.');
     }
 }
 
@@ -584,7 +791,8 @@ async function editLoan(loanId) {
     document.getElementById('loanNotes').value = loan.notes || '';
 
     document.getElementById('dynamicEmiContainer').innerHTML = '';
-    (loan.emis || []).forEach(e => addEmiRow(e.due_day, e.due_month, e.due_year, e.amount));
+    (loan.emis || []).sort((a,b) => (a.installment_number || 0) - (b.installment_number || 0))
+        .forEach(e => addEmiRow(e.due_day, e.due_month, e.due_year, e.amount, e.id));
     if (!loan.emis?.length) addEmiRow();
 }
 
@@ -628,7 +836,7 @@ function renderMonthFolders() {
             const key = `${e.due_month} ${e.due_year || 'YEAR-NOT-SET'}`;
             if (!monthData[key]) monthData[key] = { total: 0, collected: 0, items: [], month: e.due_month, year: e.due_year || null };
             monthData[key].total += parseInt(e.amount) || 0;
-            if (e.status === 'paid') monthData[key].collected += parseInt(e.paid_amount || e.amount) || 0;
+            monthData[key].collected += emiPaidAmount(e);
             monthData[key].items.push({ ...e, name: loan.borrowers?.name, loan_code: loan.loan_code });
         });
     });
@@ -685,7 +893,7 @@ function openMonthDetail(key, monthObj) {
                 <strong>${item.name}</strong> ${statusIcon}<br>
                 <small style="color:#888;">${item.loan_code}</small>
             </div>
-            <div style="font-size:16px;font-weight:600;color:#333;">₹${item.amount.toLocaleString('en-IN')}</div>
+            <div style="font-size:14px;font-weight:600;color:#333;text-align:right;">₹${Number(item.amount).toLocaleString('en-IN')}<br><small>Paid ₹${emiPaidAmount(item).toLocaleString('en-IN')} • Rem ₹${emiRemainingAmount(item).toLocaleString('en-IN')}</small></div>
         `;
         list.appendChild(div);
     });
@@ -831,7 +1039,7 @@ async function loadBackupHistory() {
                 <div class="backup-history-item">
                     <div class="meta">
                         <strong>${escapeHtml(label)}</strong>
-                        <small>${escapeHtml(when)} • ${Number(s.borrowers || 0)} borrowers • ${Number(s.loans || 0)} loans • ${Number(s.emis || 0)} EMIs<br>${escapeHtml(item.reason || '')}</small>
+                        <small>${escapeHtml(when)} • ${Number(s.borrowers || 0)} borrowers • ${Number(s.loans || 0)} loans • ${Number(s.emis || 0)} EMIs • ${Number(s.payments ?? s.emi_payments ?? 0)} payments<br>${escapeHtml(item.reason || '')}</small>
                     </div>
                     <button class="btn btn-warning" onclick="restoreSnapshot('${String(item.id || '').replace(/[^0-9a-f-]/gi, '')}')">♻️ Restore</button>
                 </div>`;
@@ -856,7 +1064,7 @@ async function restoreSnapshot(snapshotId) {
             body: JSON.stringify({ snapshot_id: snapshotId, confirm: true })
         });
         const data = await response.json();
-        alert(`✅ Restore complete. Loans: ${data?.summary?.loans ?? 'OK'}, EMIs: ${data?.summary?.emis ?? 'OK'}`);
+        alert(`✅ Restore complete. Loans: ${data?.summary?.loans ?? 'OK'}, EMIs: ${data?.summary?.emis ?? 'OK'}, Payments: ${data?.summary?.payments ?? data?.summary?.emi_payments ?? 0}`);
         currentOpenFolder = null;
         await loadAllData();
         await loadBackupHistory();
@@ -929,6 +1137,7 @@ function renderImportPreview(preview) {
             <div class="import-stat"><strong>${Number(c.loans || 0)}</strong>Loans</div>
             <div class="import-stat"><strong>${Number(c.emis || 0)}</strong>EMIs</div>
             <div class="import-stat"><strong>${Number(c.documents || 0)}</strong>Documents</div>
+            <div class="import-stat"><strong>${Number(c.payments || 0)}</strong>Payments</div>
         </div>
         <div class="import-warning">
             Existing matches: ${Number(d.existing_borrowers || 0)} borrower names, ${Number(d.existing_loans || 0)} loan IDs.<br>
@@ -978,7 +1187,7 @@ async function applySmartImport() {
         const data = await response.json();
         const r = data.result || {};
         if (resultBox) {
-            resultBox.textContent = `✅ Import complete\nBorrowers added: ${r.inserted_borrowers ?? 0}\nBorrowers reused: ${r.reused_borrowers ?? 0}\nLoans added: ${r.inserted_loans ?? 0}\nDuplicate loans skipped: ${r.duplicate_loans ?? 0}\nEMIs added: ${r.inserted_emis ?? 0}\nEMIs skipped: ${r.skipped_emis ?? 0}\nSafety snapshot: ${r.backup_snapshot_id || 'created'}`;
+            resultBox.textContent = `✅ Import complete\nBorrowers added: ${r.inserted_borrowers ?? 0}\nBorrowers reused: ${r.reused_borrowers ?? 0}\nLoans added: ${r.inserted_loans ?? 0}\nDuplicate loans skipped: ${r.duplicate_loans ?? 0}\nEMIs added: ${r.inserted_emis ?? 0}\nEMIs skipped: ${r.skipped_emis ?? 0}\nPayment history added: ${r.payment_history_inserted ?? 0}\nPayment history skipped: ${r.payment_history_skipped ?? 0}\nSafety snapshot: ${r.backup_snapshot_id || 'created'}`;
         }
         currentOpenFolder = null;
         await loadAllData();

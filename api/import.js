@@ -45,8 +45,9 @@ function baseResult(format) {
         loans: [],
         emis: [],
         documents: [],
+        payments: [],
         issues: [],
-        skipped: { borrowers: 0, loans: 0, emis: 0, documents: 0 }
+        skipped: { borrowers: 0, loans: 0, emis: 0, documents: 0, payments: 0 }
     };
 }
 
@@ -114,7 +115,11 @@ function addEmi(result, loanKey, raw, index = 0) {
         result.issues.push(`EMI skipped for ${loanKey}: invalid calendar date ${day}-${month}-${year}.`);
         return;
     }
-    const status = ['pending','paid','overdue'].includes(raw?.status) ? raw.status : 'pending';
+    let status = ['pending','paid','overdue'].includes(raw?.status) ? raw.status : 'pending';
+    let paidAmount = positiveInt(raw?.paid_amount);
+    if (status === 'paid' && !paidAmount) paidAmount = amount;
+    if (paidAmount) paidAmount = Math.min(paidAmount, amount);
+    if (paidAmount >= amount) status = 'paid';
     result.emis.push({
         loan_key: String(loanKey),
         installment_number: positiveInt(raw?.installment_number) || index + 1,
@@ -124,8 +129,8 @@ function addEmi(result, loanKey, raw, index = 0) {
         due_year: year,
         amount,
         status,
-        paid_date: status === 'paid' ? validIsoDate(raw?.paid_date) : null,
-        paid_amount: status === 'paid' ? positiveInt(raw?.paid_amount) : null,
+        paid_date: paidAmount ? validIsoDate(raw?.paid_date) : null,
+        paid_amount: paidAmount || null,
         notes: text(raw?.notes, 1000)
     });
 }
@@ -188,6 +193,7 @@ function normalizeStructured(input, format) {
     const loans = Array.isArray(root?.loans) ? root.loans : [];
     const flatEmis = Array.isArray(root?.emis) ? root.emis : [];
     const documents = Array.isArray(root?.documents) ? root.documents : [];
+    const payments = Array.isArray(root?.emi_payments) ? root.emi_payments : [];
 
     const borrowerKeyById = new Map();
     borrowers.forEach((b, index) => {
@@ -197,6 +203,7 @@ function normalizeStructured(input, format) {
 
     const borrowerByName = new Map(result.borrowers.map(b => [b.name, b.source_key]));
     const loanKeyById = new Map();
+    const emiRefById = new Map();
 
     loans.forEach((l, index) => {
         let borrowerKey = borrowerKeyById.get(String(l?.borrower_id || ''));
@@ -212,7 +219,10 @@ function normalizeStructured(input, format) {
         if (addLoan(result, loanKey, borrowerKey, l)) {
             loanKeyById.set(String(l?.id || loanKey), loanKey);
             const nestedEmis = Array.isArray(l?.emis) ? l.emis : [];
-            nestedEmis.forEach((e, emiIndex) => addEmi(result, loanKey, e, emiIndex));
+            nestedEmis.forEach((e, emiIndex) => {
+                addEmi(result, loanKey, e, emiIndex);
+                if (e?.id) emiRefById.set(String(e.id), { loan_key: loanKey, installment_number: positiveInt(e.installment_number) || emiIndex + 1 });
+            });
         }
     });
 
@@ -220,11 +230,33 @@ function normalizeStructured(input, format) {
         // Prefer the explicit flat EMI table in full backups to avoid double-importing nested EMI arrays.
         result.emis = [];
         result.skipped.emis = 0;
+        emiRefById.clear();
         flatEmis.forEach((e, index) => {
             const loanKey = loanKeyById.get(String(e?.loan_id || ''));
             addEmi(result, loanKey, e, index);
+            if (e?.id && loanKey) emiRefById.set(String(e.id), { loan_key: loanKey, installment_number: positiveInt(e.installment_number) || index + 1 });
         });
     }
+
+    payments.forEach((p) => {
+        const ref = emiRefById.get(String(p?.emi_id || ''));
+        const amount = positiveInt(p?.amount);
+        const paidDate = validIsoDate(p?.payment_date ?? p?.paid_date);
+        if (!ref || !amount || !paidDate) {
+            result.skipped.payments++;
+            return;
+        }
+        result.payments.push({
+            loan_key: ref.loan_key,
+            installment_number: ref.installment_number,
+            amount,
+            payment_date: paidDate,
+            method: text(p?.method, 60),
+            notes: text(p?.notes, 500),
+            source: ['manual','baseline'].includes(p?.source) ? p.source : 'manual',
+            reversed_at: p?.reversed_at || null
+        });
+    });
 
     documents.forEach((d) => {
         const docType = text(d?.doc_type, 50);
@@ -287,8 +319,11 @@ function dedupeNormalized(result) {
     const before = result.emis.length;
     result.emis = result.emis.filter(e => keptLoanKeys.has(e.loan_key));
     result.skipped.emis += before - result.emis.length;
+    const paymentBefore = result.payments.length;
+    result.payments = result.payments.filter(p => keptLoanKeys.has(p.loan_key));
+    result.skipped.payments += paymentBefore - result.payments.length;
 
-    if (result.borrowers.length + result.loans.length + result.emis.length > MAX_RECORDS) {
+    if (result.borrowers.length + result.loans.length + result.emis.length + result.payments.length > MAX_RECORDS) {
         throw Object.assign(new Error(`Import is too large. Maximum ${MAX_RECORDS} normalized records.`), { status: 413 });
     }
     return result;
@@ -310,7 +345,8 @@ async function buildPreview(result) {
             borrowers: result.borrowers.length,
             loans: result.loans.length,
             emis: result.emis.length,
-            documents: result.documents.length
+            documents: result.documents.length,
+            payments: result.payments.length
         },
         skipped: result.skipped,
         duplicates: {
@@ -329,8 +365,62 @@ function normalizedPayload(result) {
         borrowers: result.borrowers,
         loans: result.loans,
         emis: result.emis,
-        documents: result.documents
+        documents: result.documents,
+        payments: result.payments
     };
+}
+
+
+async function restoreSnapshotAfterImportFailure(snapshotId) {
+    if (!snapshotId) return;
+    try {
+        await supabaseRequest('rpc/abhi_restore_backup_snapshot', 'POST', { p_snapshot_id: snapshotId });
+    } catch (restoreErr) {
+        console.error('Automatic import rollback restore failed:', restoreErr);
+    }
+}
+
+async function importPaymentHistory(normalized, existingCodesBefore, mode, snapshotId) {
+    if (!normalized.payments?.length) return { inserted: 0, skipped: 0 };
+    try {
+        const [loanRes, emiRes] = await Promise.all([
+            supabaseRequest('loans?select=id,loan_code'),
+            supabaseRequest('emis?select=id,loan_id,installment_number')
+        ]);
+        const targetLoanByCode = new Map((loanRes.data || []).map(l => [String(l.loan_code), l.id]));
+        const targetEmiByKey = new Map((emiRes.data || []).map(e => [`${e.loan_id}:${e.installment_number}`, e.id]));
+        const loanCodeByKey = new Map(normalized.loans.map(l => [l.source_key, l.loan_code]));
+        const rows = [];
+        const touchedEmis = new Set();
+        let skipped = 0;
+
+        for (const payment of normalized.payments) {
+            const loanCode = loanCodeByKey.get(payment.loan_key);
+            if (!loanCode || (mode === 'merge' && existingCodesBefore.has(loanCode))) { skipped++; continue; }
+            const targetLoanId = targetLoanByCode.get(loanCode);
+            const targetEmiId = targetLoanId ? targetEmiByKey.get(`${targetLoanId}:${payment.installment_number}`) : null;
+            if (!targetEmiId) { skipped++; continue; }
+            rows.push({
+                emi_id: targetEmiId,
+                amount: payment.amount,
+                payment_date: payment.payment_date,
+                method: payment.method,
+                notes: payment.notes,
+                source: payment.source || 'manual',
+                reversed_at: payment.reversed_at || null
+            });
+            touchedEmis.add(targetEmiId);
+        }
+
+        if (rows.length) await supabaseRequest('emi_payments', 'POST', rows);
+        for (const emiId of touchedEmis) {
+            await supabaseRequest('rpc/abhi_recalculate_emi', 'POST', { p_emi_id: emiId });
+        }
+        return { inserted: rows.length, skipped };
+    } catch (err) {
+        await restoreSnapshotAfterImportFailure(snapshotId);
+        throw err;
+    }
 }
 
 export default async function handler(req, res) {
@@ -359,13 +449,16 @@ export default async function handler(req, res) {
             if (!preview.can_import) return res.status(400).json({ error: 'No valid loans found in import file' });
 
             const label = text(req.body?.label, 120) || `Before ${mode} import`;
+            const existingBeforeRes = await supabaseRequest('loans?select=loan_code');
+            const existingCodesBefore = new Set((existingBeforeRes.data || []).map(l => String(l.loan_code || '').trim()));
             const { data } = await supabaseRequest('rpc/abhi_import_management_data', 'POST', {
                 p_payload: normalizedPayload(normalized),
                 p_mode: mode,
                 p_label: label
             });
             const result = Array.isArray(data) ? data[0] : data;
-            return res.status(200).json({ success: true, preview, result: result || {} });
+            const paymentResult = await importPaymentHistory(normalized, existingCodesBefore, mode, result?.backup_snapshot_id);
+            return res.status(200).json({ success: true, preview, result: { ...(result || {}), payment_history_inserted: paymentResult.inserted, payment_history_skipped: paymentResult.skipped } });
         }
 
         return res.status(404).json({ error: 'Import action not found' });
