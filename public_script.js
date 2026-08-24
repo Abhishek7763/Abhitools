@@ -4,29 +4,7 @@
 // Koi bhi token ya secret yahan nahi hai
 // ==========================================
 
-// Service Worker hatao
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let r of registrations) r.unregister();
-    });
-}
-
-// PWA Install
-let deferredPrompt;
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    const btn = document.getElementById('installAppBtn');
-    if (btn) {
-        btn.style.display = 'inline-block';
-        btn.addEventListener('click', async () => {
-            btn.style.display = 'none';
-            deferredPrompt.prompt();
-            await deferredPrompt.userChoice;
-            deferredPrompt = null;
-        });
-    }
-});
+// Phase 15 PWA lifecycle/install handling lives in pwa.js.
 
 // ==========================================
 // GLOBAL VARIABLES

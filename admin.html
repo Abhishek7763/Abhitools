@@ -2,19 +2,24 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Admin Dashboard - Abhishek Management</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#ea4335">
     <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AbhiTools">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="has-mobile-app-nav">
 
     <!-- Header -->
     <div class="header-container no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
-        <div>
+        <div style="display:flex;gap:5px;align-items:center;">
             <button id="darkModeBtn" class="btn btn-secondary" onclick="toggleDarkMode()" style="font-size:11px;padding:5px 10px;">🌙 Dark</button>
+            <button id="installAdminAppBtn" data-pwa-install class="btn btn-success" style="display:none;font-size:11px;padding:5px 10px;align-items:center;">⬇️ App</button>
         </div>
         <h2 class="no-print" style="margin:0;flex-grow:1;text-align:center;color:#ea4335;">Admin Panel 🔐</h2>
         <div id="lastUpdatedBadge" class="clickable-badge" onclick="manualSync()" title="Click to Sync"
@@ -837,6 +842,17 @@
         </div>
     </div>
 
+
+    <!-- Phase 15: Admin mobile quick navigation -->
+    <nav class="phase15-mobile-nav phase15-admin-nav no-print" aria-label="Admin mobile quick navigation">
+        <button type="button" onclick="window.scrollTo({top:0,behavior:'smooth'})"><span>🏠</span><small>Home</small></button>
+        <button type="button" onclick="openDueCenter('overdue')"><span>⏰</span><small>Due</small></button>
+        <button type="button" onclick="openAdvancedSearch()"><span>🔎</span><small>Search</small></button>
+        <button type="button" onclick="openCollectionCalendar()"><span>🗓️</span><small>Calendar</small></button>
+        <button type="button" onclick="openReportsCenter()"><span>📈</span><small>Reports</small></button>
+    </nav>
+
+    <script src="pwa.js"></script>
     <script src="admin_script.js"></script>
 </body>
 </html>

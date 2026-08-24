@@ -1487,3 +1487,42 @@ body.dark-mode .settlement-card,body.dark-mode .settlement-panel{background:#111
 .dark-mode .reports-card,.dark-mode .reports-panel{background:#172033;color:#e5e7eb}.dark-mode .reports-header{border-color:#334155}.dark-mode .reports-header h3,.dark-mode .reports-summary strong,.dark-mode .reports-panel-head h4,.dark-mode .reports-table td strong,.dark-mode .reports-aging-row b{color:#f8fafc}.dark-mode .reports-header small,.dark-mode .reports-filters label span,.dark-mode .reports-summary small,.dark-mode .reports-summary span,.dark-mode .reports-panel-head small,.dark-mode .reports-trend-col small,.dark-mode .reports-table th,.dark-mode .reports-aging-row small{color:#94a3b8}.dark-mode .reports-filters,.dark-mode .reports-summary>div,.dark-mode .reports-loading,.dark-mode .reports-empty{background:#111827;border-color:#334155}.dark-mode .reports-filters input,.dark-mode .reports-filters select,.dark-mode .reports-period,.dark-mode .reports-row-btn{background:#1f2937;color:#e5e7eb;border-color:#475569}.dark-mode .reports-period.active{background:#2563eb;border-color:#2563eb}.dark-mode .reports-panel,.dark-mode .reports-table th,.dark-mode .reports-table td,.dark-mode .reports-trend,.dark-mode .reports-methods{border-color:#334155}.dark-mode .reports-table th{background:#111827}.dark-mode .reports-table td,.dark-mode .reports-aging-row strong{color:#cbd5e1}.dark-mode .reports-status-group span{background:#263247;color:#cbd5e1}.dark-mode .reports-status-group b{color:#f8fafc}.dark-mode .reports-aging-track{background:#263247}.dark-mode .reports-note{background:#172554;border-color:#1e40af;color:#bfdbfe}.dark-mode .reports-methods>span{background:#143224;color:#86efac}
 @media(max-width:980px){.reports-summary{grid-template-columns:repeat(3,1fr)}.reports-filters{grid-template-columns:repeat(3,1fr)}.reports-grid-two{grid-template-columns:1fr}}
 @media(max-width:640px){.reports-overlay{padding:0}.reports-card{margin:0;min-height:100vh;border-radius:0;padding:13px}.reports-header{flex-direction:column}.reports-head-actions{width:100%;justify-content:stretch}.reports-head-actions .btn{flex:1}.reports-summary{grid-template-columns:1fr 1fr}.reports-filters{grid-template-columns:1fr 1fr}.reports-filters .wide{grid-column:1/-1}.reports-filter-actions{justify-content:stretch}.reports-filter-actions .btn{flex:1}.reports-trend{height:165px}.reports-trend-bars{height:120px}.reports-aging-row{grid-template-columns:1fr auto}.reports-aging-track{grid-column:1/-1;grid-row:2}.reports-aging-row b{grid-column:2;grid-row:1}.reports-summary strong{font-size:17px}}
+
+/* ==========================================
+   PHASE 15 — PWA & MOBILE EXPERIENCE
+   ========================================== */
+.phase15-mobile-nav{display:none}
+.pwa-standalone .header-container{padding-top:max(0px,env(safe-area-inset-top))}
+@media(max-width:720px){
+  body.has-mobile-app-nav{padding-bottom:calc(82px + env(safe-area-inset-bottom))}
+  .phase15-mobile-nav{
+    position:fixed;display:grid;grid-template-columns:repeat(5,1fr);left:8px;right:8px;
+    bottom:calc(8px + env(safe-area-inset-bottom));z-index:18000;min-height:58px;
+    border:1px solid rgba(148,163,184,.35);border-radius:16px;padding:5px;
+    background:rgba(255,255,255,.94);box-shadow:0 12px 36px rgba(15,23,42,.22);
+    backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px)
+  }
+  .phase15-mobile-nav button{
+    border:0;background:transparent;color:#334155;border-radius:11px;min-width:0;padding:5px 2px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;cursor:pointer;
+    font:600 10px/1.1 system-ui,-apple-system,Segoe UI,sans-serif;-webkit-tap-highlight-color:transparent
+  }
+  .phase15-mobile-nav button:active{background:#e2e8f0;transform:scale(.97)}
+  .phase15-mobile-nav button span{font-size:20px;line-height:22px}
+  .phase15-mobile-nav button small{font-size:9px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  body.dark-mode .phase15-mobile-nav{background:rgba(15,23,42,.95);border-color:#334155;box-shadow:0 12px 36px rgba(0,0,0,.42)}
+  body.dark-mode .phase15-mobile-nav button{color:#e2e8f0}
+  body.dark-mode .phase15-mobile-nav button:active{background:#334155}
+  .header-container{gap:5px}
+  .header-container h2{font-size:17px!important;line-height:1.15}
+  #installAppBtn,#installAdminAppBtn{white-space:nowrap}
+}
+@media(max-width:390px){
+  .phase15-mobile-nav{left:5px;right:5px;padding:4px;min-height:55px}
+  .phase15-mobile-nav button span{font-size:18px}
+  .phase15-mobile-nav button small{font-size:8px}
+}
+@media print{
+  .phase15-mobile-nav,#pwaConnectionBar,#pwaUpdateToast{display:none!important}
+  body.has-mobile-app-nav{padding-bottom:0!important}
+}

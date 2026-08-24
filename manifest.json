@@ -1,21 +1,35 @@
 {
+  "id": "/",
   "name": "Abhishek Management Tool",
-  "short_name": "Loan Manager",
-  "description": "Loan and EMI Management Tool",
-  "start_url": "./index.html",
+  "short_name": "AbhiTools",
+  "description": "Secure loan, EMI, borrower and collection management tool.",
+  "lang": "hi-IN",
+  "start_url": "/index.html",
+  "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
   "background_color": "#f0f2f5",
   "theme_color": "#1a73e8",
+  "categories": ["finance", "business", "productivity"],
   "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
     {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
+      "name": "Admin Login",
+      "short_name": "Admin",
+      "description": "Open secure admin login",
+      "url": "/advanced_admin_login_panel.html",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "name": "Public Accounts",
+      "short_name": "Accounts",
+      "description": "Open public loan account view",
+      "url": "/index.html",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ]
 }

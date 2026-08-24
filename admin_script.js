@@ -46,12 +46,7 @@ async function adminFetch(url, options = {}) {
     return response;
 }
 
-// Service Worker hatao
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let r of registrations) r.unregister();
-    });
-}
+// Phase 15 PWA lifecycle/install handling lives in pwa.js.
 
 // ==========================================
 // GLOBAL VARIABLES

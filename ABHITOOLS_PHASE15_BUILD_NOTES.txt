@@ -1,0 +1,39 @@
+ABHITOOLS PHASE 15 — PWA & MOBILE EXPERIENCE
+==============================================
+
+Added:
+- Real installable PWA service worker (static shell only).
+- Secure offline fallback page.
+- API/auth/financial responses are explicitly NEVER cached by the service worker.
+- Android/Chromium install prompt support.
+- iPhone/iPad Add-to-Home-Screen guidance.
+- App update detection + user-controlled Update prompt.
+- Online/offline connection banner.
+- PWA manifest upgraded with app id, scope, shortcuts and portrait mode.
+- Mobile-safe viewport and iOS standalone metadata.
+- Public mobile quick navigation: Home, Month, Sync, Contact, Admin.
+- Admin mobile quick navigation: Home, Due, Search, Calendar, Reports.
+- Admin install button.
+- Safe-area support for phones with notches/home indicators.
+- Dark-mode support for mobile nav.
+
+Security / architecture:
+- No new Supabase migration.
+- No new Vercel environment variables.
+- No new serverless API function.
+- Vercel Hobby function count remains 12.
+- service-worker.js never caches /api/* responses.
+- Offline mode never exposes cached borrower/payment/admin financial data.
+
+GitHub update files:
+- index.html
+- admin.html
+- advanced_admin_login_panel.html
+- public_script.js
+- admin_script.js
+- style.css
+- manifest.json
+- pwa.js (new)
+- service-worker.js (new)
+- offline.html (new)
+- ABHITOOLS_PHASE15_BUILD_NOTES.txt

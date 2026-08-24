@@ -2,20 +2,24 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Abhishek Management Tool</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1a73e8">
     <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="AbhiTools">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="has-mobile-app-nav">
 
     <!-- Header -->
     <div class="header-container no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
         <div>
             <button id="darkModeBtn" class="btn btn-secondary" onclick="toggleDarkMode()" style="font-size:11px;padding:5px 10px;">🌙 Dark</button>
-            <button id="installAppBtn" class="btn btn-success" style="display:none;font-size:11px;padding:5px 10px;margin-left:5px;">⬇️ Install</button>
+            <button id="installAppBtn" data-pwa-install class="btn btn-success" style="display:none;font-size:11px;padding:5px 10px;margin-left:5px;">⬇️ Install</button>
         </div>
         <h2 class="no-print" style="margin:0;flex-grow:1;text-align:center;">Abhishek Management</h2>
         <div id="lastUpdatedBadge" class="clickable-badge" onclick="manualSync()" title="Click to Sync"
@@ -140,6 +144,17 @@
         </div>
     </div>
 
+
+    <!-- Phase 15: Mobile quick navigation -->
+    <nav class="phase15-mobile-nav no-print" aria-label="Mobile quick navigation">
+        <button type="button" onclick="switchTab('folder');window.scrollTo({top:0,behavior:'smooth'})"><span>🏠</span><small>Home</small></button>
+        <button type="button" onclick="switchTab('month');window.scrollTo({top:0,behavior:'smooth'})"><span>📅</span><small>Month</small></button>
+        <button type="button" onclick="manualSync()"><span>🔄</span><small>Sync</small></button>
+        <button type="button" onclick="showContactPage()"><span>🎧</span><small>Contact</small></button>
+        <button type="button" onclick="window.location.href='advanced_admin_login_panel.html'"><span>🔐</span><small>Admin</small></button>
+    </nav>
+
+    <script src="pwa.js"></script>
     <script src="public_script.js"></script>
 </body>
 </html>
