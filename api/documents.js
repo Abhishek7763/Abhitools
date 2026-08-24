@@ -73,7 +73,7 @@ export default async function handler(req, res) {
             const borrowerId = String(req.query?.borrower_id || '').trim();
             if (!UUID_RE.test(borrowerId)) return res.status(400).json({ error: 'Valid borrower id required' });
             const { data } = await supabaseRequest(
-                `documents?borrower_id=eq.${encodeURIComponent(borrowerId)}&select=id,borrower_id,loan_id,doc_type,file_name,file_url,uploaded_at&order=uploaded_at.desc`
+                `documents?borrower_id=eq.${encodeURIComponent(borrowerId)}&deleted_at=is.null&select=id,borrower_id,loan_id,doc_type,file_name,file_url,uploaded_at&order=uploaded_at.desc`
             );
             return res.status(200).json(data || []);
         }
@@ -82,7 +82,7 @@ export default async function handler(req, res) {
             const id = String(req.query?.id || '').trim();
             if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Valid document id required' });
             const { data } = await supabaseRequest(
-                `documents?id=eq.${encodeURIComponent(id)}&select=id,doc_type,file_name,file_url`
+                `documents?id=eq.${encodeURIComponent(id)}&deleted_at=is.null&select=id,doc_type,file_name,file_url`
             );
             const document = data?.[0];
             if (!document) return res.status(404).json({ error: 'Document not found' });
@@ -101,24 +101,8 @@ export default async function handler(req, res) {
         if (req.method === 'DELETE' && action === 'delete') {
             const id = String(req.body?.id || '').trim();
             if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Valid document id required' });
-            const { data } = await supabaseRequest(
-                `documents?id=eq.${encodeURIComponent(id)}&select=id,borrower_id,loan_id,doc_type,file_name,file_url`
-            );
-            const document = data?.[0];
-            if (!document) return res.status(404).json({ error: 'Document not found' });
-
-            const storageRef = parseStorageRef(document.file_url);
-            if (storageRef?.bucket === 'documents') {
-                await removeStorageObject(storageRef.bucket, storageRef.path);
-            }
-            await supabaseRequest(`documents?id=eq.${encodeURIComponent(id)}`, 'DELETE');
-            await supabaseRequest('activity_log', 'POST', {
-                action: 'DELETE_DOCUMENT',
-                table_name: 'documents',
-                record_id: id,
-                description: `Document deleted: ${document.doc_type || 'document'} / ${document.file_name || ''}`
-            });
-            return res.status(200).json({ success: true });
+            const { data } = await supabaseRequest('rpc/abhi_recycle_document', 'POST', { p_document_id: id });
+            return res.status(200).json(Array.isArray(data) ? (data[0] || { success: true }) : (data || { success: true }));
         }
 
         res.setHeader('Allow', 'GET, DELETE');

@@ -69,6 +69,11 @@ let dueCenterData = null;
 let currentDueBucket = 'overdue';
 let currentProfileBorrowerId = null;
 let currentProfileData = null;
+let currentWhatsAppPaymentId = null;
+let advancedDashboardData = null;
+let collectionCalendarData = null;
+let calendarMonthKey = null;
+let calendarSelectedDate = null;
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -380,7 +385,7 @@ function renderDueBucket(bucket = currentDueBucket) {
             </div>
             <div class="due-item-side">
                 <strong>${dueMoney(item.remaining)}</strong>
-                ${item.emi_id ? `<button class="btn btn-success" onclick="closeDueCenter(); openPaymentModal('${item.emi_id}')">💰 Pay</button>` : ''}
+                ${item.emi_id ? `<button class="btn btn-success" onclick="closeDueCenter(); openPaymentModal('${item.emi_id}')">💰 Pay</button><button class="btn btn-view" onclick="openWhatsAppCenter({emiId:'${item.emi_id}',template:'${bucket === 'overdue' ? 'overdue' : 'due'}'})">💬</button>` : ''}
             </div>
         </div>`;
     }).join('');
@@ -437,9 +442,13 @@ function renderLoanList(nameFilter) {
             if (e.status === 'overdue' || emiIsPastDue(e)) overdueSum += remaining;
         });
 
-        const remaining = Math.max(emiSum - paidSum, 0);
-        const borderColor = overdueSum > 0 ? '#ea4335' : (remaining === 0 && emiSum > 0 ? '#34a853' : '#fbbc05');
-        const statusBadge = loan.status === 'closed' ? '🔒 Closed' : loan.status === 'defaulted' ? '⚠️ Defaulted' : '✅ Active';
+        const rawRemaining = Math.max(emiSum - paidSum, 0);
+        const activeSettlement = activeLoanSettlement(loan);
+        const waivedAmount = activeSettlement ? Math.max(0, Number(activeSettlement.waived_amount) || 0) : 0;
+        const remaining = activeSettlement ? Math.max(rawRemaining - waivedAmount, 0) : rawRemaining;
+        if (activeSettlement) overdueSum = 0;
+        const borderColor = loan.status === 'closed' ? '#34a853' : (overdueSum > 0 ? '#ea4335' : (remaining === 0 && emiSum > 0 ? '#34a853' : '#fbbc05'));
+        const statusBadge = loan.status === 'closed' ? '🔒 Settled / Closed' : loan.status === 'defaulted' ? '⚠️ Defaulted' : '✅ Active';
 
         const card = document.createElement('div');
         card.className = 'card';
@@ -447,7 +456,6 @@ function renderLoanList(nameFilter) {
 
         const borrower = loan.borrowers || {};
         const whatsappNum = borrower.whatsapp || borrower.phone || '';
-        const whatsappMsg = encodeURIComponent(`Namaskar ${borrower.name}, aapki EMI due hai. Loan ID: ${loan.loan_code}. Kripya jald payment karein. - Abhishek`);
 
         card.innerHTML = `
             <div>
@@ -464,13 +472,14 @@ function renderLoanList(nameFilter) {
                 <div style="display:flex;justify-content:space-between;margin-bottom:10px;font-size:13px;gap:8px;flex-wrap:wrap;">
                     <span style="color:#34a853;font-weight:600;">✅ Collected: ₹${paidSum.toLocaleString('en-IN')}</span>
                     <span style="color:#ea4335;font-weight:600;">⏳ Remaining: ₹${remaining.toLocaleString('en-IN')}</span>
+                    ${waivedAmount > 0 ? `<span style="color:#7c3aed;font-weight:600;">🤝 Waived: ₹${waivedAmount.toLocaleString('en-IN')}</span>` : ''}
                 </div>
                 ${overdueSum > 0 ? `<p style="color:#ea4335;font-size:12px;font-weight:600;">🔴 Overdue Remaining: ₹${overdueSum.toLocaleString('en-IN')}</p>` : ''}
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;" class="no-print">
-                    <button class="btn btn-warning" onclick="editLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">✏️ Edit</button>
-                    <button class="btn btn-danger" onclick="deleteLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">🗑️ Delete</button>
-                    <button class="btn btn-secondary" onclick="closeLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">🔒 Close</button>
-                    ${whatsappNum ? `<a href="https://wa.me/91${escapeHtml(whatsappNum)}?text=${whatsappMsg}" target="_blank" class="btn btn-success" style="font-size:12px;padding:6px 10px;text-decoration:none;">💬 WhatsApp</a>` : ''}
+                    ${loan.status !== 'closed' ? `<button class="btn btn-warning" onclick="editLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">✏️ Edit</button>` : ''}
+                    <button class="btn btn-danger" onclick="deleteLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">♻️ Recycle</button>
+                    <button class="btn ${loan.status === 'closed' ? 'btn-view' : 'btn-secondary'}" onclick="openSettlementCenter('${loan.id}')" style="font-size:12px;padding:6px 10px;">${loan.status === 'closed' ? '🔒 Settlement' : '🤝 Settle / Close'}</button>
+                    ${whatsappNum ? `<button class="btn btn-success" onclick="openWhatsAppCenter({borrowerId:'${escapeHtml(loan.borrower_id || borrower.id || '')}',loanId:'${escapeHtml(loan.id)}',template:'due'})" style="font-size:12px;padding:6px 10px;">💬 Message</button>` : ''}
                 </div>
             </div>
         `;
@@ -610,12 +619,13 @@ async function loadPaymentHistory() {
         }
         html += payments.map(p => {
             const editable = p.source === 'manual';
+            const sourceLabel = p.source === 'settlement' ? ' • Settlement closing payment' : (!editable ? ' • Opening balance' : '');
             return `<div class="payment-history-item ${editable ? '' : 'baseline'}">
                 <div class="payment-history-meta">
                     <strong>₹${Number(p.amount || 0).toLocaleString('en-IN')} • ${escapeHtml(p.paid_date || '')}</strong>
-                    <small>${escapeHtml(p.method || 'Payment')}${p.notes ? ' • ' + escapeHtml(p.notes) : ''}${!editable ? ' • Opening balance' : ''}</small>
+                    <small>${escapeHtml(p.method || 'Payment')}${p.notes ? ' • ' + escapeHtml(p.notes) : ''}${sourceLabel}</small>
                 </div>
-                ${editable ? `<div class="payment-history-actions"><button class="btn btn-warning" onclick="editPayment('${p.id}')">✏️</button><button class="btn btn-danger" onclick="deletePayment('${p.id}')">↩️ Undo</button></div>` : ''}
+                ${editable ? `<div class="payment-history-actions"><button class="btn btn-view" onclick="printPaymentReceipt('${p.id}')" title="Print / Save PDF">🧾</button><button class="btn btn-success" onclick="openPaymentWhatsApp('${p.id}')" title="Payment received WhatsApp message">💬</button><button class="btn btn-warning" onclick="editPayment('${p.id}')">✏️</button><button class="btn btn-danger" onclick="deletePayment('${p.id}')">↩️ Undo</button></div>` : ''}
             </div>`;
         }).join('');
         if (history) history.innerHTML = html || '<div class="payment-empty">Abhi koi payment entry nahi hai.</div>';
@@ -883,7 +893,8 @@ function renderBorrowerProfile(data) {
     if (grid) grid.innerHTML = [
         ['💰 Principal', profileMoney(s.principalTotal)],
         ['✅ Collected', profileMoney(s.paidTotal)],
-        ['⏳ EMI Remaining', profileMoney(s.remainingTotal)],
+        ['⏳ Account Remaining', profileMoney(s.remainingTotal)],
+        ['🤝 Waived', profileMoney(s.waivedTotal)],
         ['🔴 Overdue', profileMoney(s.overdueAmount)],
         ['📄 Loans', `${Number(s.totalLoans || 0)}`],
         ['📎 Documents', `${Number(s.documentCount || 0)}`]
@@ -906,8 +917,7 @@ function renderBorrowerProfile(data) {
         const phone = String(b.phone || '').replace(/[^0-9+]/g, '');
         const rawWa = String(b.whatsapp || b.phone || '').replace(/\D/g, '');
         const wa = rawWa.length === 10 ? `91${rawWa}` : rawWa;
-        const msg = encodeURIComponent(`Namaste ${b.name || ''}, aapke loan account ke sambandh me sampark kar raha hoon. - Abhishek`);
-        contact.innerHTML = `${phone ? `<a class="btn btn-view" href="tel:${escapeHtml(phone)}">📞 Call</a>` : ''}${wa ? `<a class="btn btn-success" target="_blank" href="https://wa.me/${escapeHtml(wa)}?text=${msg}">💬 WhatsApp</a>` : ''}` || '<span class="profile-muted">Contact number not set.</span>';
+        contact.innerHTML = `${phone ? `<a class="btn btn-view" href="tel:${escapeHtml(phone)}">📞 Call</a>` : ''}${wa ? `<button class="btn btn-success" onclick="openWhatsAppCenter({borrowerId:'${escapeHtml(b.id)}'})">💬 WhatsApp Center</button>` : ''}` || '<span class="profile-muted">Contact number not set.</span>';
     }
 
     const loanList = document.getElementById('profileLoanHistory');
@@ -924,7 +934,11 @@ function renderBorrowerProfile(data) {
                 scheduled += amount; paid += p;
                 if (e.status === 'overdue') overdue += r;
             }
-            const remaining = Math.max(scheduled-paid,0);
+            const rawRemaining = Math.max(scheduled-paid,0);
+            const profileSettlement = activeLoanSettlement(loan);
+            const waived = profileSettlement ? Math.max(0, Number(profileSettlement.waived_amount)||0) : 0;
+            const remaining = profileSettlement ? Math.max(rawRemaining-waived,0) : rawRemaining;
+            if (profileSettlement) overdue = 0;
             const statusClass = loan.status === 'closed' ? 'closed' : loan.status === 'defaulted' ? 'defaulted' : 'active';
             const emiHtml = emis.length ? emis.map(e => {
                 const amount = Number(e.amount || 0);
@@ -934,8 +948,8 @@ function renderBorrowerProfile(data) {
                 return `<div class="profile-emi-row"><span><strong>EMI #${Number(e.installment_number || 0)}</strong><small>${escapeHtml(dateLabel)} • ${escapeHtml(e.status || 'pending')}</small></span><span><strong>${profileMoney(r)}</strong><button class="btn btn-success" onclick="openProfilePayment('${e.id}')">${p > 0 ? '🧾' : '💰'}</button></span></div>`;
             }).join('') : '<div class="profile-muted">No EMI schedule.</div>';
             return `<div class="profile-loan-card ${statusClass}">
-                <div class="profile-loan-head"><div><strong>${escapeHtml(loan.loan_code || '')}</strong><small>${loan.loan_year || 'Year not set'} • ${escapeHtml(loan.status || 'active')}</small></div><strong>${profileMoney(loan.amount)}</strong></div>
-                <div class="profile-loan-metrics"><span>Scheduled <b>${profileMoney(scheduled)}</b></span><span>Paid <b>${profileMoney(paid)}</b></span><span>Remaining <b>${profileMoney(remaining)}</b></span>${overdue ? `<span class="danger">Overdue <b>${profileMoney(overdue)}</b></span>` : ''}</div>
+                <div class="profile-loan-head"><div><strong>${escapeHtml(loan.loan_code || '')}</strong><small>${loan.loan_year || 'Year not set'} • ${escapeHtml(loan.status || 'active')}</small></div><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end;"><strong>${profileMoney(loan.amount)}</strong><button class="btn btn-view no-print" style="width:auto;margin:0;padding:5px 7px;font-size:10px;" onclick="printLoanAccountStatement('${loan.id}')">🧾 Statement</button><button class="btn btn-success no-print" style="width:auto;margin:0;padding:5px 7px;font-size:10px;" onclick="openWhatsAppCenter({borrowerId:'${escapeHtml(b.id)}',loanId:'${loan.id}',template:'due'})">💬 Message</button><button class="btn btn-secondary no-print" style="width:auto;margin:0;padding:5px 7px;font-size:10px;" onclick="openSettlementCenter('${loan.id}')">${loan.status === 'closed' ? '🔒 Settlement' : '🤝 Settle'}</button></div></div>
+                <div class="profile-loan-metrics"><span>Scheduled <b>${profileMoney(scheduled)}</b></span><span>Paid <b>${profileMoney(paid)}</b></span><span>Remaining <b>${profileMoney(remaining)}</b></span>${waived ? `<span>Waived <b>${profileMoney(waived)}</b></span>` : ''}${overdue ? `<span class="danger">Overdue <b>${profileMoney(overdue)}</b></span>` : ''}</div>
                 <div class="profile-emi-list">${emiHtml}</div>
             </div>`;
         }).join('');
@@ -1069,17 +1083,17 @@ async function openProfileDocument(documentId) {
 }
 
 async function deleteProfileDocument(documentId) {
-    if (!confirm('Is document ko permanently delete karna hai?')) return;
+    if (!confirm('Is document ko Recycle Bin me move karna hai? File abhi permanently delete nahi hogi.')) return;
     const borrowerId = currentProfileBorrowerId;
-    setProfileUploadStatus('Document delete ho raha hai...', 'info');
+    setProfileUploadStatus('Document Recycle Bin me move ho raha hai...', 'info');
     try {
         await adminFetch('/api/documents?action=delete', {
             method:'DELETE', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ id: documentId })
         });
-        setProfileUploadStatus('✅ Document delete ho gaya.', 'success');
+        setProfileUploadStatus('✅ Document Recycle Bin me move ho gaya.', 'success');
         if (borrowerId) await openBorrowerProfile(borrowerId);
     } catch (err) {
-        setProfileUploadStatus(`❌ ${err.message || 'Document delete failed'}`, 'error');
+        setProfileUploadStatus(`❌ ${err.message || 'Document recycle failed'}`, 'error');
     }
 }
 
@@ -1100,6 +1114,379 @@ function addLoanFromProfile() {
 function openProfilePayment(emiId) {
     closeBorrowerProfile();
     openPaymentModal(emiId);
+}
+
+
+
+// ==========================================
+// PHASE 7 - WHATSAPP & CONTACT TOOLS
+// ==========================================
+function normalizeWhatsAppNumber(value) {
+    let digits = String(value || '').replace(/\D/g, '');
+    if (!digits) return '';
+    if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1);
+    if (digits.length === 10) digits = `91${digits}`;
+    if (digits.length < 8 || digits.length > 15) return '';
+    return digits;
+}
+
+function waMoney(value) {
+    return `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
+}
+
+function waDateLabel(emi) {
+    if (!emi) return 'date not set';
+    if (emi.due_date) {
+        const d = new Date(`${String(emi.due_date).slice(0,10)}T00:00:00Z`);
+        if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' });
+    }
+    const base = `${emi.due_day || ''} ${emi.due_month || ''}`.trim();
+    return `${base || 'Due date'}${emi.due_year ? ` ${emi.due_year}` : ' • Year not set'}`;
+}
+
+function waBorrowerForLoan(loan) {
+    if (!loan) return null;
+    return borrowers.find(b => b.id === loan.borrower_id || b.id === loan.borrowers?.id)
+        || (loan.borrowers ? { ...loan.borrowers, id: loan.borrower_id || loan.borrowers.id } : null);
+}
+
+function getWhatsAppContext() {
+    const borrowerId = document.getElementById('waBorrowerSelect')?.value || '';
+    const loanId = document.getElementById('waLoanSelect')?.value || '';
+    const emiId = document.getElementById('waEmiSelect')?.value || '';
+    const borrower = borrowers.find(b => b.id === borrowerId) || currentProfileData?.borrower || null;
+    const loan = loans.find(l => l.id === loanId) || (currentProfileData?.loans || []).find(l => l.id === loanId) || null;
+    const emi = (loan?.emis || []).find(e => e.id === emiId) || null;
+    const payment = currentWhatsAppPaymentId ? currentPaymentHistory.find(p => p.id === currentWhatsAppPaymentId) : null;
+    return { borrower, loan, emi, payment };
+}
+
+function populateWaBorrowers(selectedId = '') {
+    const select = document.getElementById('waBorrowerSelect');
+    if (!select) return;
+    select.innerHTML = '<option value="">-- Borrower select --</option>' + borrowers.map(b =>
+        `<option value="${escapeHtml(b.id)}" ${b.id === selectedId ? 'selected' : ''}>${escapeHtml(b.name || 'Unknown')}</option>`
+    ).join('');
+}
+
+function populateWaLoans(selectedId = '') {
+    const borrowerId = document.getElementById('waBorrowerSelect')?.value || '';
+    const select = document.getElementById('waLoanSelect');
+    if (!select) return;
+    const items = loans.filter(l => l.borrower_id === borrowerId || l.borrowers?.id === borrowerId);
+    select.innerHTML = '<option value="">-- Loan optional --</option>' + items.map(l =>
+        `<option value="${escapeHtml(l.id)}" ${l.id === selectedId ? 'selected' : ''}>${escapeHtml(l.loan_code || 'Loan')} • ${waMoney(l.amount)}</option>`
+    ).join('');
+}
+
+function populateWaEmis(selectedId = '') {
+    const loanId = document.getElementById('waLoanSelect')?.value || '';
+    const select = document.getElementById('waEmiSelect');
+    if (!select) return;
+    const loan = loans.find(l => l.id === loanId) || (currentProfileData?.loans || []).find(l => l.id === loanId);
+    const emis = [...(loan?.emis || [])].sort((a,b) => Number(a.installment_number||0)-Number(b.installment_number||0));
+    select.innerHTML = '<option value="">-- EMI optional --</option>' + emis.map(e => {
+        const remaining = Math.max((Number(e.amount)||0) - (Number(e.paid_amount)||0), 0);
+        return `<option value="${escapeHtml(e.id)}" ${e.id === selectedId ? 'selected' : ''}>EMI #${Number(e.installment_number||0)} • ${escapeHtml(waDateLabel(e))} • ${waMoney(remaining)}</option>`;
+    }).join('');
+}
+
+function updateWaContactPreview() {
+    const input = document.getElementById('waPhoneInput');
+    const preview = document.getElementById('waContactPreview');
+    const chars = document.getElementById('waMessageChars');
+    const message = document.getElementById('waMessageText');
+    const normalized = normalizeWhatsAppNumber(input?.value || '');
+    if (preview) preview.textContent = normalized ? `+${normalized}` : 'Invalid / not set';
+    if (chars && message) chars.textContent = `${message.value.length} / 2000`;
+}
+
+function updateWhatsAppContextSummary() {
+    const box = document.getElementById('waContextSummary');
+    if (!box) return;
+    const { borrower, loan, emi, payment } = getWhatsAppContext();
+    const parts = [];
+    if (borrower) parts.push(`<span>👤 ${escapeHtml(borrower.name || '')}</span>`);
+    if (loan) parts.push(`<span>💳 ${escapeHtml(loan.loan_code || '')}</span>`);
+    if (emi) parts.push(`<span>📅 EMI #${Number(emi.installment_number||0)} • ${escapeHtml(waDateLabel(emi))}</span>`);
+    if (payment) parts.push(`<span>✅ Payment ${waMoney(payment.amount)}</span>`);
+    box.innerHTML = parts.length ? parts.join('') : '<span>Borrower/loan select karke message context set karein.</span>';
+}
+
+function buildWhatsAppTemplate(type, ctx) {
+    const borrower = ctx.borrower || {};
+    const loan = ctx.loan || {};
+    const emi = ctx.emi || {};
+    const payment = ctx.payment || {};
+    const name = borrower.name || 'Sir/Madam';
+    const loanCode = loan.loan_code || '—';
+    const scheduled = Math.max(0, Number(emi.amount) || 0);
+    const paid = Math.max(0, Math.min(Number(emi.paid_amount) || 0, scheduled));
+    const remaining = Math.max(scheduled - paid, 0);
+    const emiNo = Number(emi.installment_number || 0);
+    const date = waDateLabel(emi);
+    const loanTotals = phase6LoanTotals(loan);
+
+    if (type === 'custom') return `Namaskar ${name},\n\n`;
+    if (type === 'overdue') {
+        return `Namaskar ${name},\n\naapki EMI${emiNo ? ` #${emiNo}` : ''} overdue hai.\nLoan ID: ${loanCode}\nDue date: ${date}\nPending amount: ${waMoney(remaining || scheduled)}\n\nKripya payment jaldi complete karein. Agar payment already ho chuka hai to is message ko ignore karein.\n\n- Abhishek Management`;
+    }
+    if (type === 'payment') {
+        const amount = Number(payment.amount) || paid;
+        const paymentDate = payment.paid_date || payment.payment_date || emi.paid_date || new Date().toISOString().slice(0,10);
+        return `Namaskar ${name},\n\naapka ${waMoney(amount)} payment receive ho gaya hai. ✅\nLoan ID: ${loanCode}${emiNo ? `\nEMI: #${emiNo}` : ''}\nPayment date: ${phase6Date(paymentDate)}\nEMI remaining: ${waMoney(remaining)}\n\nDhanyavaad.\n- Abhishek Management`;
+    }
+    if (type === 'closing') {
+        return `Namaskar ${name},\n\nLoan ID ${loanCode} ka account ${loan.status === 'closed' || loanTotals.remaining <= 0 ? 'complete/closed' : 'closing review ke liye ready'} hai.\nPrincipal: ${waMoney(loan.amount)}\nCollected: ${waMoney(loanTotals.paid)}\nRemaining EMI balance: ${waMoney(loanTotals.remaining)}\n\nAapke cooperation ke liye dhanyavaad.\n- Abhishek Management`;
+    }
+    return `Namaskar ${name},\n\naapki EMI${emiNo ? ` #${emiNo}` : ''} ${date} ko due hai.\nLoan ID: ${loanCode}\nDue amount: ${waMoney(remaining || scheduled)}\n\nKripya due date tak payment complete karein. Agar payment already ho chuka hai to is message ko ignore karein.\n\n- Abhishek Management`;
+}
+
+function generateWhatsAppMessage() {
+    const text = document.getElementById('waMessageText');
+    const template = document.getElementById('waTemplateSelect')?.value || 'due';
+    if (!text) return;
+    text.value = buildWhatsAppTemplate(template, getWhatsAppContext());
+    updateWhatsAppContextSummary();
+    updateWaContactPreview();
+}
+
+function handleWaBorrowerChange() {
+    currentWhatsAppPaymentId = null;
+    const borrower = borrowers.find(b => b.id === document.getElementById('waBorrowerSelect')?.value);
+    const phone = document.getElementById('waPhoneInput');
+    if (phone) phone.value = borrower?.whatsapp || borrower?.phone || '';
+    populateWaLoans('');
+    populateWaEmis('');
+    generateWhatsAppMessage();
+}
+
+function handleWaLoanChange() {
+    currentWhatsAppPaymentId = null;
+    populateWaEmis('');
+    generateWhatsAppMessage();
+}
+
+function handleWaEmiChange() {
+    currentWhatsAppPaymentId = null;
+    generateWhatsAppMessage();
+}
+
+function openWhatsAppCenter(options = {}) {
+    const modal = document.getElementById('whatsappCenterModal');
+    if (!modal) return;
+    currentWhatsAppPaymentId = options.paymentId || null;
+
+    let borrowerId = options.borrowerId || '';
+    let loanId = options.loanId || '';
+    let emiId = options.emiId || '';
+    if (emiId) {
+        const ctx = findEmiContext(emiId);
+        if (ctx) {
+            loanId = ctx.loan.id;
+            borrowerId = ctx.loan.borrower_id || ctx.loan.borrowers?.id || '';
+        }
+    }
+    if (loanId && !borrowerId) {
+        const loan = loans.find(l => l.id === loanId) || (currentProfileData?.loans || []).find(l => l.id === loanId);
+        borrowerId = loan?.borrower_id || loan?.borrowers?.id || currentProfileData?.borrower?.id || '';
+    }
+    if (!borrowerId && currentProfileData?.borrower?.id) borrowerId = currentProfileData.borrower.id;
+
+    populateWaBorrowers(borrowerId);
+    populateWaLoans(loanId);
+    populateWaEmis(emiId);
+
+    const borrower = borrowers.find(b => b.id === borrowerId) || currentProfileData?.borrower;
+    const phone = document.getElementById('waPhoneInput');
+    if (phone) phone.value = borrower?.whatsapp || borrower?.phone || '';
+    const template = document.getElementById('waTemplateSelect');
+    if (template) template.value = ['due','overdue','payment','closing','custom'].includes(options.template) ? options.template : 'due';
+
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    generateWhatsAppMessage();
+    setTimeout(() => document.getElementById('waMessageText')?.focus(), 80);
+}
+
+function openPaymentWhatsApp(paymentId) {
+    openWhatsAppCenter({ emiId: currentPaymentEmiId, paymentId, template:'payment' });
+}
+
+function closeWhatsAppCenter() {
+    const modal = document.getElementById('whatsappCenterModal');
+    if (modal) modal.style.display = 'none';
+    currentWhatsAppPaymentId = null;
+    document.body.style.overflow = '';
+}
+
+function handleWhatsAppOverlayClick(event) {
+    if (event.target?.id === 'whatsappCenterModal') closeWhatsAppCenter();
+}
+
+async function copyWhatsAppMessage() {
+    const text = document.getElementById('waMessageText')?.value || '';
+    if (!text.trim()) return alert('Message empty hai.');
+    try {
+        await navigator.clipboard.writeText(text);
+        alert('✅ Message copy ho gaya.');
+    } catch {
+        const box = document.getElementById('waMessageText');
+        box?.select();
+        document.execCommand?.('copy');
+        alert('✅ Message copy ho gaya.');
+    }
+}
+
+function launchWhatsAppMessage() {
+    const input = document.getElementById('waPhoneInput')?.value || '';
+    const number = normalizeWhatsAppNumber(input);
+    const text = document.getElementById('waMessageText')?.value || '';
+    if (!number) return alert('Valid WhatsApp number required hai.');
+    if (!text.trim()) return alert('Message empty hai.');
+    const url = `https://wa.me/${encodeURIComponent(number)}?text=${encodeURIComponent(text)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+
+document.addEventListener('input', event => {
+    if (event.target?.id === 'waMessageText') updateWaContactPreview();
+});
+
+// ==========================================
+// PHASE 6 - LOAN STATEMENTS & PAYMENT RECEIPTS
+// ==========================================
+function phase6Date(value) {
+    const raw = String(value || '').slice(0, 10);
+    if (!raw) return 'Not set';
+    const d = new Date(`${raw}T00:00:00`);
+    if (Number.isNaN(d.getTime())) return escapeHtml(raw);
+    return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
+}
+
+function phase6GeneratedAt() {
+    return new Date().toLocaleString('en-IN', {
+        timeZone: 'Asia/Kolkata', day:'2-digit', month:'short', year:'numeric',
+        hour:'2-digit', minute:'2-digit', hour12:true
+    });
+}
+
+function phase6Money(value) {
+    return `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
+}
+
+function activeLoanSettlement(loan) {
+    return (loan?.loan_settlements || []).find(s => !s.reopened_at) || null;
+}
+
+function phase6LoanTotals(loan) {
+    let scheduled = 0, paid = 0, overdue = 0;
+    for (const e of (loan?.emis || [])) {
+        const amount = Math.max(0, Number(e.amount) || 0);
+        const collected = Math.max(0, Math.min(Number(e.paid_amount) || 0, amount));
+        const remaining = Math.max(amount - collected, 0);
+        scheduled += amount;
+        paid += collected;
+        if (e.status === 'overdue') overdue += remaining;
+    }
+    const rawRemaining = Math.max(scheduled-paid, 0);
+    const settlement = activeLoanSettlement(loan);
+    const waived = settlement ? Math.max(0, Number(settlement.waived_amount) || 0) : 0;
+    const remaining = settlement ? Math.max(rawRemaining - waived, 0) : rawRemaining;
+    if (settlement) overdue = 0;
+    return { scheduled, paid, rawRemaining, waived, remaining, overdue, settlement };
+}
+
+function phase6PrintDocument(title, bodyHtml) {
+    const win = window.open('', '_blank');
+    if (!win) {
+        alert('Print window block ho gayi. Browser me pop-ups allow karke dobara try karein.');
+        return;
+    }
+    const safeTitle = escapeHtml(title || 'AbhiTools Statement');
+    win.document.open();
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${safeTitle}</title><style>
+        *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#111827;margin:0;background:#eef2f7;padding:24px}
+        .sheet{max-width:920px;margin:0 auto;background:#fff;padding:30px;border-radius:14px;box-shadow:0 12px 38px rgba(15,23,42,.12)}
+        .brand{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;border-bottom:3px solid #1d4ed8;padding-bottom:14px;margin-bottom:18px}
+        .brand h1{font-size:24px;margin:0;color:#1d4ed8}.brand p{margin:5px 0 0;color:#64748b}.doc-title{text-align:right}.doc-title strong{font-size:18px;display:block}.doc-title small{color:#64748b}
+        .party{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:15px 0}.box{border:1px solid #dbe4f0;border-radius:9px;padding:11px}.box small{display:block;color:#64748b;margin-bottom:4px}.box strong{word-break:break-word}
+        .summary{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin:16px 0}.metric{padding:11px;border:1px solid #dbe4f0;border-radius:9px;background:#f8fafc}.metric small,.metric strong{display:block}.metric small{color:#64748b;margin-bottom:4px}.metric strong{font-size:17px}
+        h2{font-size:16px;margin:22px 0 8px;color:#0f172a} table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #dbe4f0;padding:8px;text-align:left;vertical-align:top}th{background:#f1f5f9}.right{text-align:right}.status{font-weight:700;text-transform:capitalize}.note{font-size:11px;color:#64748b;line-height:1.45;margin-top:14px}.footer{border-top:1px solid #dbe4f0;margin-top:24px;padding-top:10px;font-size:10px;color:#64748b;display:flex;justify-content:space-between;gap:15px}
+        .receipt-amount{font-size:32px;font-weight:800;color:#15803d;margin:14px 0}.receipt-id{font-family:monospace;font-size:11px;color:#475569}
+        @media(max-width:650px){body{padding:0;background:#fff}.sheet{padding:16px;box-shadow:none;border-radius:0}.party,.summary{grid-template-columns:1fr 1fr}.brand{flex-direction:column}.doc-title{text-align:left}table{font-size:10px}th,td{padding:5px}}
+        @media print{body{background:#fff;padding:0}.sheet{max-width:none;box-shadow:none;border-radius:0;padding:10mm}.no-print{display:none!important}@page{size:A4;margin:8mm}}
+    </style></head><body><main class="sheet">${bodyHtml}<div class="footer"><span>AbhiTools • Abhishek Management</span><span>Generated ${escapeHtml(phase6GeneratedAt())}</span></div></main><script>setTimeout(()=>window.print(),350);<\/script></body></html>`);
+    win.document.close();
+}
+
+function phase6EmiRows(loan) {
+    const emis = [...(loan?.emis || [])].sort((a,b) => Number(a.installment_number||0)-Number(b.installment_number||0));
+    if (!emis.length) return '<tr><td colspan="7">No EMI schedule.</td></tr>';
+    return emis.map(e => {
+        const amount = Math.max(0, Number(e.amount)||0);
+        const paid = Math.max(0, Math.min(Number(e.paid_amount)||0, amount));
+        const remaining = Math.max(amount-paid,0);
+        const due = e.due_date ? phase6Date(e.due_date) : `${escapeHtml(e.due_day || '')} ${escapeHtml(e.due_month || '')}${e.due_year ? ' ' + escapeHtml(e.due_year) : ' • Year not set'}`;
+        return `<tr><td>#${Number(e.installment_number||0)}</td><td>${due}</td><td class="right">${phase6Money(amount)}</td><td class="right">${phase6Money(paid)}</td><td class="right">${phase6Money(remaining)}</td><td class="status">${escapeHtml(e.status || 'pending')}</td><td>${e.paid_date ? phase6Date(e.paid_date) : '—'}</td></tr>`;
+    }).join('');
+}
+
+function printBorrowerAccountStatement() {
+    const data = currentProfileData;
+    const b = data?.borrower;
+    if (!b) { alert('Borrower profile load karke statement banayein.'); return; }
+    const s = data.summary || {};
+    const loanRows = (data.loans || []).map(loan => {
+        const t = phase6LoanTotals(loan);
+        return `<tr><td>${escapeHtml(loan.loan_code || '')}</td><td>${loan.loan_year || 'Year not set'}</td><td class="status">${escapeHtml(loan.status || 'active')}</td><td class="right">${phase6Money(loan.amount)}</td><td class="right">${phase6Money(t.scheduled)}</td><td class="right">${phase6Money(t.paid)}</td><td class="right">${phase6Money(t.remaining)}</td></tr>`;
+    }).join('') || '<tr><td colspan="7">No loans.</td></tr>';
+    const emiSections = (data.loans || []).map(loan => `<h2>${escapeHtml(loan.loan_code || 'Loan')} • EMI Schedule</h2><table><thead><tr><th>EMI</th><th>Due</th><th class="right">Scheduled</th><th class="right">Paid</th><th class="right">Remaining</th><th>Status</th><th>Last Paid</th></tr></thead><tbody>${phase6EmiRows(loan)}</tbody></table>`).join('');
+    phase6PrintDocument(`${b.name || 'Borrower'} Account Statement`, `
+        <div class="brand"><div><h1>Abhishek Management</h1><p>Loan Account Management Statement</p></div><div class="doc-title"><strong>Borrower Account Statement</strong><small>Account Ref: ${escapeHtml(String(b.id || '').slice(0,8).toUpperCase())}</small></div></div>
+        <div class="party"><div class="box"><small>Borrower</small><strong>${escapeHtml(b.name || '')}</strong></div><div class="box"><small>Phone</small><strong>${escapeHtml(b.phone || b.whatsapp || 'Not set')}</strong></div><div class="box"><small>Father's Name</small><strong>${escapeHtml(b.father_name || 'Not set')}</strong></div><div class="box"><small>Address</small><strong>${escapeHtml(b.address || 'Not set')}</strong></div></div>
+        <div class="summary"><div class="metric"><small>Principal</small><strong>${phase6Money(s.principalTotal)}</strong></div><div class="metric"><small>Collected</small><strong>${phase6Money(s.paidTotal)}</strong></div><div class="metric"><small>EMI Remaining</small><strong>${phase6Money(s.remainingTotal)}</strong></div><div class="metric"><small>Overdue</small><strong>${phase6Money(s.overdueAmount)}</strong></div></div>
+        <h2>Loan Summary</h2><table><thead><tr><th>Loan ID</th><th>Year</th><th>Status</th><th class="right">Principal</th><th class="right">EMI Total</th><th class="right">Collected</th><th class="right">Remaining</th></tr></thead><tbody>${loanRows}</tbody></table>
+        ${emiSections}
+        <p class="note">This statement is generated from records stored in AbhiTools. Legacy EMI entries with an unknown year are shown as “Year not set” rather than assigning an assumed date. Use the browser print dialog to print or Save as PDF.</p>
+    `);
+}
+
+function printLoanAccountStatement(loanId) {
+    const data = currentProfileData;
+    const b = data?.borrower || {};
+    const loan = (data?.loans || []).find(l => l.id === loanId) || loans.find(l => l.id === loanId);
+    if (!loan) { alert('Loan statement data nahi mila.'); return; }
+    const borrower = b.name ? b : (borrowers.find(x => x.id === loan.borrower_id) || loan.borrowers || {});
+    const t = phase6LoanTotals(loan);
+    phase6PrintDocument(`${loan.loan_code || 'Loan'} Statement`, `
+        <div class="brand"><div><h1>Abhishek Management</h1><p>Loan Account Statement</p></div><div class="doc-title"><strong>Loan Statement</strong><small>${escapeHtml(loan.loan_code || '')}</small></div></div>
+        <div class="party"><div class="box"><small>Borrower</small><strong>${escapeHtml(borrower.name || 'Unknown')}</strong></div><div class="box"><small>Phone</small><strong>${escapeHtml(borrower.phone || borrower.whatsapp || 'Not set')}</strong></div><div class="box"><small>Loan Year</small><strong>${loan.loan_year || 'Year not set'}</strong></div><div class="box"><small>Loan Status</small><strong>${escapeHtml(loan.status || 'active')}</strong></div></div>
+        <div class="summary"><div class="metric"><small>Principal</small><strong>${phase6Money(loan.amount)}</strong></div><div class="metric"><small>Scheduled EMI</small><strong>${phase6Money(t.scheduled)}</strong></div><div class="metric"><small>Collected</small><strong>${phase6Money(t.paid)}</strong></div><div class="metric"><small>Account Remaining</small><strong>${phase6Money(t.remaining)}</strong></div></div>
+        ${t.settlement ? `<h2>Settlement / Closing</h2><div class="party"><div class="box"><small>Closing Date</small><strong>${phase6Date(t.settlement.settlement_date)}</strong></div><div class="box"><small>Final Payment</small><strong>${phase6Money(t.settlement.final_payment_amount)}</strong></div><div class="box"><small>Waived / Adjusted</small><strong>${phase6Money(t.settlement.waived_amount)}</strong></div><div class="box"><small>Method</small><strong>${escapeHtml(t.settlement.method || 'Not set')}</strong></div></div>` : ''}
+        <h2>EMI Schedule & Payment Status</h2><table><thead><tr><th>EMI</th><th>Due</th><th class="right">Scheduled</th><th class="right">Paid</th><th class="right">Remaining</th><th>Status</th><th>Last Paid</th></tr></thead><tbody>${phase6EmiRows(loan)}</tbody></table>
+        ${loan.notes ? `<h2>Loan Notes</h2><div class="box">${escapeHtml(loan.notes)}</div>` : ''}
+        <p class="note">Overdue total: <strong>${phase6Money(t.overdue)}</strong>. Browser print dialog se is statement ko print ya Save as PDF kiya ja sakta hai.</p>
+    `);
+}
+
+function printPaymentReceipt(paymentId) {
+    const payment = currentPaymentHistory.find(p => p.id === paymentId && p.source === 'manual');
+    const ctx = findEmiContext(currentPaymentEmiId);
+    if (!payment || !ctx) { alert('Payment receipt data nahi mila.'); return; }
+    const emi = ctx.emi;
+    const loan = ctx.loan;
+    const scheduled = Math.max(0, Number(emi.amount)||0);
+    const totalPaid = Math.max(0, Math.min(Number(emi.paid_amount)||0, scheduled));
+    const remaining = Math.max(scheduled-totalPaid,0);
+    const receiptNo = `ABHI-${String(payment.id || '').replaceAll('-','').slice(0,10).toUpperCase()}`;
+    phase6PrintDocument(`${receiptNo} Payment Receipt`, `
+        <div class="brand"><div><h1>Abhishek Management</h1><p>EMI Payment Receipt</p></div><div class="doc-title"><strong>Payment Receipt</strong><small class="receipt-id">${escapeHtml(receiptNo)}</small></div></div>
+        <div class="party"><div class="box"><small>Received From</small><strong>${escapeHtml(loan.borrowers?.name || 'Borrower')}</strong></div><div class="box"><small>Loan ID</small><strong>${escapeHtml(loan.loan_code || '')}</strong></div><div class="box"><small>EMI</small><strong>#${Number(emi.installment_number||0)} • ${escapeHtml(emi.due_month || '')}${emi.due_year ? ' ' + escapeHtml(emi.due_year) : ' • Year not set'}</strong></div><div class="box"><small>Payment Date</small><strong>${phase6Date(payment.paid_date || payment.payment_date)}</strong></div></div>
+        <div class="receipt-amount">${phase6Money(payment.amount)}</div>
+        <div class="party"><div class="box"><small>Payment Method</small><strong>${escapeHtml(payment.method || 'Not set')}</strong></div><div class="box"><small>Payment Notes</small><strong>${escapeHtml(payment.notes || '—')}</strong></div><div class="box"><small>EMI Scheduled</small><strong>${phase6Money(scheduled)}</strong></div><div class="box"><small>EMI Remaining After Current Records</small><strong>${phase6Money(remaining)}</strong></div></div>
+        <p class="note">Payment reference: ${escapeHtml(payment.id)}. This receipt reflects the payment entry recorded in AbhiTools. Corrections or reversals in the payment ledger change the account balance accordingly.</p>
+    `);
 }
 
 
@@ -1224,7 +1611,7 @@ async function editLoan(loanId) {
 }
 
 async function deleteLoan(loanId) {
-    if (!confirm('Kya aap sach mein ye loan delete karna chahte hain?')) return;
+    if (!confirm('Is loan ko Recycle Bin me move karna hai? EMI, payment aur settlement history recoverable rahegi.')) return;
     try {
         await adminFetch('/api/loans?action=delete', {
             method: 'DELETE',
@@ -1232,25 +1619,16 @@ async function deleteLoan(loanId) {
             body: JSON.stringify({ loan_id: loanId })
         });
         await loadAllData();
-        if (currentOpenFolder) openFolder(currentOpenFolder);
+        if (currentOpenFolder && loans.some(l => l.borrowers?.name?.toUpperCase() === currentOpenFolder.toUpperCase())) openFolder(currentOpenFolder);
         else goBackToFolders();
     } catch (err) {
-        alert('Loan delete nahi hua. Try again.');
+        alert(err.message || 'Loan Recycle Bin me move nahi hua.');
     }
 }
 
 async function closeLoan(loanId) {
-    if (!confirm('Kya aap ye loan close karna chahte hain?')) return;
-    try {
-        await adminFetch('/api/loans?action=update', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ loan_id: loanId, status: 'closed' })
-        });
-        await loadAllData();
-    } catch (err) {
-        alert('Loan close nahi hua. Try again.');
-    }
+    // Backward-compatible alias: Phase 11 uses the audited Settlement Center.
+    return openSettlementCenter(loanId);
 }
 
 // ==========================================
@@ -1564,6 +1942,7 @@ function renderImportPreview(preview) {
             <div class="import-stat"><strong>${Number(c.loans || 0)}</strong>Loans</div>
             <div class="import-stat"><strong>${Number(c.emis || 0)}</strong>EMIs</div>
             <div class="import-stat"><strong>${Number(c.documents || 0)}</strong>Documents</div>
+            <div class="import-stat"><strong>${Number(c.settlements || 0)}</strong>Settlements</div>
             <div class="import-stat"><strong>${Number(c.payments || 0)}</strong>Payments</div>
         </div>
         <div class="import-warning">
@@ -1626,4 +2005,1109 @@ async function applySmartImport() {
     }
 }
 
+
+// ==========================================
+// PHASE 8 - ADVANCED DASHBOARD
+// ==========================================
+function advMoney(value) {
+    return `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
+}
+
+function openAdvancedDashboard() {
+    const modal = document.getElementById('advancedDashboardModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    refreshAdvancedDashboard();
+}
+
+function closeAdvancedDashboard() {
+    const modal = document.getElementById('advancedDashboardModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleAdvancedDashboardOverlayClick(event) {
+    if (event?.target?.id === 'advancedDashboardModal') closeAdvancedDashboard();
+}
+
+function advSetText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+function advStatusBars(items, total) {
+    const denominator = Math.max(Number(total) || 0, 1);
+    return items.map(item => {
+        const count = Math.max(0, Number(item.count) || 0);
+        const percent = Math.max(0, Math.min(100, (count / denominator) * 100));
+        return `<div class="adv-status-row" data-kind="${escapeHtml(item.kind)}">
+            <span>${escapeHtml(item.label)}</span>
+            <div class="adv-status-track"><div class="adv-status-fill" style="width:${percent.toFixed(1)}%"></div></div>
+            <strong>${count}</strong>
+        </div>`;
+    }).join('');
+}
+
+function advMiniTile(label, value, extra = '') {
+    return `<div class="adv-mini-tile"><small>${escapeHtml(label)}</small><strong>${escapeHtml(value)}</strong>${extra ? `<div class="profile-muted">${escapeHtml(extra)}</div>` : ''}</div>`;
+}
+
+function renderAdvancedDashboard(data) {
+    advancedDashboardData = data;
+    const money = data?.money || {};
+    const loanStats = data?.loans || {};
+    const emiStats = data?.emis || {};
+    const legacy = data?.legacy || {};
+    const due = dueCenterData?.summary || {};
+
+    advSetText('advancedDashboardDate', `Business date: ${data?.businessDate || '-'} • ${data?.timezone || 'Asia/Kolkata'}`);
+    advSetText('advTotalLent', advMoney(money.totalLent));
+    advSetText('advTotalLoans', `${Number(loanStats.total || 0)} total loans`);
+    advSetText('advCollected', advMoney(money.collectedTotal));
+    advSetText('advRecoveryRate', `${Number(money.recoveryRate || 0).toLocaleString('en-IN')}% scheduled recovery`);
+    advSetText('advOutstanding', advMoney(money.outstandingTotal));
+    advSetText('advOverdue', advMoney(money.overdueAmount));
+    advSetText('advOverdueEmis', `${Number(emiStats.overdue || 0)} overdue EMI`);
+    advSetText('advTodayCollected', advMoney(money.todayCollected));
+    advSetText('advTodayDue', `${advMoney(due?.today?.amount || 0)} due today`);
+    advSetText('advMonthCollected', advMoney(money.monthCollected));
+    advSetText('advMonthDue', `${advMoney(due?.month?.amount || 0)} due this month`);
+    advSetText('advActivePrincipal', `${advMoney(money.activePrincipal)} active principal`);
+    advSetText('advLegacyEmis', `${Number(legacy.yearNotSetCount || 0)} year-not-set EMI`);
+
+    const loanBars = document.getElementById('advLoanStatusBars');
+    if (loanBars) loanBars.innerHTML = advStatusBars([
+        { kind:'active', label:'Active', count:loanStats.active },
+        { kind:'closed', label:'Closed', count:loanStats.closed },
+        { kind:'defaulted', label:'Defaulted', count:loanStats.defaulted }
+    ], loanStats.total);
+
+    const emiBars = document.getElementById('advEmiStatusBars');
+    if (emiBars) emiBars.innerHTML = advStatusBars([
+        { kind:'pending', label:'Pending', count:emiStats.pending },
+        { kind:'partial', label:'Partial', count:emiStats.partial },
+        { kind:'paid', label:'Paid', count:emiStats.paid },
+        { kind:'overdue', label:'Overdue', count:emiStats.overdue }
+    ], emiStats.total);
+
+    const trend = Array.isArray(data?.collectionTrend) ? data.collectionTrend : [];
+    const maxTrend = Math.max(...trend.map(x => Number(x.amount) || 0), 1);
+    const trendBox = document.getElementById('advCollectionTrend');
+    if (trendBox) {
+        trendBox.innerHTML = trend.map(item => {
+            const amount = Math.max(0, Number(item.amount) || 0);
+            const height = amount > 0 ? Math.max(5, Math.round((amount / maxTrend) * 100)) : 2;
+            return `<div class="adv-trend-col">
+                <div class="adv-trend-value">${escapeHtml(advMoney(amount))}</div>
+                <div class="adv-trend-bar-wrap"><div class="adv-trend-bar" style="height:${height}%"></div></div>
+                <div class="adv-trend-label">${escapeHtml(item.label || '')}</div>
+            </div>`;
+        }).join('') || '<div class="profile-muted">Collection history abhi available nahi hai.</div>';
+    }
+
+    const dueBox = document.getElementById('advDueSnapshot');
+    if (dueBox) dueBox.innerHTML = [
+        advMiniTile('Overdue', advMoney(due?.overdue?.amount || 0), `${Number(due?.overdue?.count || 0)} EMI`),
+        advMiniTile('Today', advMoney(due?.today?.amount || 0), `${Number(due?.today?.count || 0)} EMI`),
+        advMiniTile('Tomorrow', advMoney(due?.tomorrow?.amount || 0), `${Number(due?.tomorrow?.count || 0)} EMI`),
+        advMiniTile('Next 7 Days', advMoney(due?.next7?.amount || 0), `${Number(due?.next7?.count || 0)} EMI`)
+    ].join('');
+
+    const movementBox = document.getElementById('advMonthlyMovement');
+    if (movementBox) movementBox.innerHTML = [
+        advMiniTile('Lent This Month', advMoney(money.thisMonthLent)),
+        advMiniTile('Collected This Month', advMoney(money.monthCollected)),
+        advMiniTile('Scheduled EMI Total', advMoney(money.scheduledTotal)),
+        advMiniTile('Year Not Set', advMoney(legacy.yearNotSetAmount || 0), `${Number(legacy.yearNotSetCount || 0)} EMI`)
+    ].join('');
+}
+
+async function refreshAdvancedDashboard() {
+    const loading = document.getElementById('advancedDashboardLoading');
+    const content = document.getElementById('advancedDashboardContent');
+    if (loading) {
+        loading.style.display = 'block';
+        loading.textContent = 'Dashboard calculate ho raha hai...';
+    }
+    if (content) content.style.display = 'none';
+
+    try {
+        const [dashboardRes, dueData] = await Promise.all([
+            adminFetch('/api/dashboard'),
+            refreshDueData()
+        ]);
+        const data = await dashboardRes.json();
+        dueCenterData = dueData;
+        renderAdvancedDashboard(data);
+        updateDashboard();
+        if (loading) loading.style.display = 'none';
+        if (content) content.style.display = 'block';
+    } catch (err) {
+        console.error('Advanced dashboard failed:', err);
+        if (loading) {
+            loading.style.display = 'block';
+            loading.textContent = `Dashboard load nahi hua: ${err.message}`;
+        }
+    }
+}
+
+
+
+// ==========================================
+// PHASE 9 - COLLECTION CALENDAR
+// ==========================================
+function calendarMoney(value) {
+    return `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
+}
+
+function calendarBusinessDate() {
+    if (collectionCalendarData?.businessDate) return collectionCalendarData.businessDate;
+    if (dueCenterData?.businessDate) return dueCenterData.businessDate;
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    const map = Object.fromEntries(parts.map(p => [p.type, p.value]));
+    return `${map.year}-${map.month}-${map.day}`;
+}
+
+function calendarMonthTitle(monthKey) {
+    if (!/^\d{4}-\d{2}$/.test(String(monthKey || ''))) return 'Month';
+    const [year, month] = monthKey.split('-').map(Number);
+    return new Intl.DateTimeFormat('en-IN', { month:'long', year:'numeric', timeZone:'UTC' })
+        .format(new Date(Date.UTC(year, month - 1, 1)));
+}
+
+function shiftMonthKey(monthKey, offset) {
+    const [year, month] = String(monthKey).split('-').map(Number);
+    const d = new Date(Date.UTC(year, (month - 1) + Number(offset || 0), 1));
+    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2,'0')}`;
+}
+
+function openCollectionCalendar(month = '') {
+    const modal = document.getElementById('collectionCalendarModal');
+    if (!modal) return;
+    calendarMonthKey = /^\d{4}-\d{2}$/.test(month) ? month : calendarBusinessDate().slice(0, 7);
+    calendarSelectedDate = null;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    refreshCollectionCalendar();
+}
+
+function closeCollectionCalendar() {
+    const modal = document.getElementById('collectionCalendarModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleCalendarOverlayClick(event) {
+    if (event?.target?.id === 'collectionCalendarModal') closeCollectionCalendar();
+}
+
+function shiftCalendarMonth(offset) {
+    calendarMonthKey = shiftMonthKey(calendarMonthKey || calendarBusinessDate().slice(0,7), offset);
+    calendarSelectedDate = null;
+    refreshCollectionCalendar();
+}
+
+function goCalendarToday() {
+    calendarMonthKey = calendarBusinessDate().slice(0,7);
+    calendarSelectedDate = calendarBusinessDate();
+    refreshCollectionCalendar();
+}
+
+function calendarStatusMeta(status) {
+    const map = {
+        paid: ['✅','Paid'],
+        partial: ['🟠','Partial'],
+        overdue: ['🔴','Overdue'],
+        'partial-overdue': ['🔴','Partial • Overdue'],
+        pending: ['⏳','Pending']
+    };
+    return map[status] || map.pending;
+}
+
+function renderCollectionCalendar() {
+    const data = collectionCalendarData || {};
+    const summary = data.summary || {};
+    const days = data.days || {};
+    const monthKey = data.month || calendarMonthKey;
+    calendarMonthKey = monthKey;
+
+    const label = document.getElementById('calendarMonthLabel');
+    if (label) label.textContent = calendarMonthTitle(monthKey);
+    const bd = document.getElementById('calendarBusinessDate');
+    if (bd) bd.textContent = `Business date: ${data.businessDate || '-'} • ${data.timezone || 'Asia/Kolkata'} • Month label par tap = Today`;
+    const set = (id, value) => { const el=document.getElementById(id); if (el) el.textContent=value; };
+    set('calendarScheduled', calendarMoney(summary.scheduled));
+    set('calendarCollected', calendarMoney(summary.collected));
+    set('calendarRemaining', calendarMoney(summary.remaining));
+    set('calendarOverdue', calendarMoney(summary.overdueRemaining));
+    set('calendarDueCount', `${Number(summary.dueCount || 0)} EMI`);
+    set('calendarPaymentCount', `${Number(summary.paymentCount || 0)} payments`);
+    set('calendarLegacyCount', `${Number(summary.yearNotSetCount || 0)} year-not-set • ${calendarMoney(summary.yearNotSetAmount || 0)}`);
+
+    const grid = document.getElementById('calendarGrid');
+    if (!grid) return;
+    const [year, month] = monthKey.split('-').map(Number);
+    const firstWeekday = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+    const dayCount = new Date(Date.UTC(year, month, 0)).getUTCDate();
+    let html = '';
+    for (let i=0; i<firstWeekday; i++) html += '<div class="calendar-cell calendar-cell-empty" aria-hidden="true"></div>';
+    for (let dayNo=1; dayNo<=dayCount; dayNo++) {
+        const iso = `${monthKey}-${String(dayNo).padStart(2,'0')}`;
+        const day = days[iso] || { totals:{} };
+        const t = day.totals || {};
+        const hasDue = Number(t.dueCount || 0) > 0;
+        const hasPayment = Number(t.paymentCount || 0) > 0;
+        const hasOverdue = Number(t.overdueRemaining || 0) > 0;
+        const classes = [
+            'calendar-cell',
+            iso === data.businessDate ? 'today' : '',
+            iso === calendarSelectedDate ? 'selected' : '',
+            hasDue ? 'has-due' : '',
+            hasPayment ? 'has-payment' : '',
+            hasOverdue ? 'has-overdue' : ''
+        ].filter(Boolean).join(' ');
+        html += `<button class="${classes}" onclick="selectCalendarDate('${iso}')">
+            <span class="calendar-day-number">${dayNo}</span>
+            <span class="calendar-cell-lines">
+                ${hasDue ? `<small class="calendar-due-line">${Number(t.remaining || 0) > 0 ? `Due ${calendarMoney(t.remaining || 0)}` : 'EMI settled'}</small>` : ''}
+                ${hasPayment ? `<small class="calendar-paid-line">Paid ${calendarMoney(t.collected || 0)}</small>` : ''}
+                ${hasOverdue ? `<small class="calendar-overdue-line">Overdue ${calendarMoney(t.overdueRemaining || 0)}</small>` : ''}
+            </span>
+        </button>`;
+    }
+    grid.innerHTML = html;
+
+    if (calendarSelectedDate && calendarSelectedDate.startsWith(monthKey)) {
+        renderCalendarDayDetails(calendarSelectedDate);
+    } else {
+        const details = document.getElementById('calendarDayDetails');
+        if (details) details.innerHTML = '<div class="profile-muted">Calendar me kisi date par tap karein.</div>';
+        set('calendarSelectedDate', 'Select a date');
+        set('calendarSelectedSummary', 'Day-wise EMI and collection details');
+    }
+}
+
+function selectCalendarDate(date) {
+    calendarSelectedDate = date || null;
+    renderCollectionCalendar();
+}
+
+function renderCalendarDayDetails(date) {
+    const day = collectionCalendarData?.days?.[date] || { due:[], payments:[], totals:{} };
+    const due = day.due || [];
+    const payments = day.payments || [];
+    const t = day.totals || {};
+    const title = document.getElementById('calendarSelectedDate');
+    if (title) title.textContent = phase6Date(date);
+    const summary = document.getElementById('calendarSelectedSummary');
+    if (summary) summary.textContent = `${Number(t.dueCount || 0)} EMI • ${calendarMoney(t.remaining || 0)} remaining • ${calendarMoney(t.collected || 0)} collected`;
+    const details = document.getElementById('calendarDayDetails');
+    if (!details) return;
+
+    let html = '';
+    if (due.length) {
+        html += '<div class="calendar-detail-section"><h5>📅 EMI Due</h5>';
+        html += due.map(item => {
+            const [icon, state] = calendarStatusMeta(item.status);
+            const canPay = Number(item.remaining || 0) > 0 && item.loan_status !== 'closed';
+            return `<div class="calendar-detail-row ${String(item.status || '').includes('overdue') ? 'overdue' : ''}">
+                <div class="calendar-detail-main">
+                    <strong>${icon} ${escapeHtml(item.borrower_name || 'Unknown')} • EMI ${Number(item.installment_number || 0)}</strong>
+                    <small>${escapeHtml(item.loan_code || '')} • Scheduled ${calendarMoney(item.amount)} • Paid ${calendarMoney(item.paid_amount)} • Remaining ${calendarMoney(item.remaining)} • ${escapeHtml(state)}</small>
+                </div>
+                <div class="calendar-detail-actions">
+                    ${item.borrower_id ? `<button class="btn btn-view" onclick="calendarOpenBorrower('${item.borrower_id}')">👤</button>` : ''}
+                    ${canPay ? `<button class="btn btn-success" onclick="calendarOpenPayment('${item.emi_id}')">💰 Pay</button>` : `<button class="btn btn-secondary" onclick="calendarOpenPayment('${item.emi_id}')">🧾 History</button>`}
+                    ${item.borrower_id ? `<button class="btn btn-success" onclick="calendarOpenWhatsApp('${item.borrower_id}','${item.loan_id}','${item.emi_id}','${String(item.status || '').includes('overdue') ? 'overdue' : 'due'}')">💬</button>` : ''}
+                </div>
+            </div>`;
+        }).join('');
+        html += '</div>';
+    }
+
+    if (payments.length) {
+        html += '<div class="calendar-detail-section"><h5>💵 Payments Collected</h5>';
+        html += payments.map(item => `<div class="calendar-detail-row paid">
+            <div class="calendar-detail-main">
+                <strong>✅ ${escapeHtml(item.borrower_name || 'Unknown')} • ${calendarMoney(item.amount)}</strong>
+                <small>${escapeHtml(item.loan_code || '')}${item.installment_number ? ` • EMI ${Number(item.installment_number)}` : ''} • ${escapeHtml(item.method || 'Method not set')}${item.source === 'baseline' ? ' • Opening balance' : ''}</small>
+            </div>
+            <div class="calendar-detail-actions">
+                ${item.borrower_id ? `<button class="btn btn-view" onclick="calendarOpenBorrower('${item.borrower_id}')">👤</button>` : ''}
+                ${item.emi_id ? `<button class="btn btn-secondary" onclick="calendarOpenPayment('${item.emi_id}')">🧾 History</button>` : ''}
+            </div>
+        </div>`).join('');
+        html += '</div>';
+    }
+
+    if (!html) html = '<div class="profile-muted">Is date par koi EMI due ya payment entry nahi hai.</div>';
+    details.innerHTML = html;
+}
+
+function calendarOpenPayment(emiId) {
+    closeCollectionCalendar();
+    openPaymentModal(emiId);
+}
+
+function calendarOpenBorrower(borrowerId) {
+    closeCollectionCalendar();
+    openBorrowerProfile(borrowerId);
+}
+
+function calendarOpenWhatsApp(borrowerId, loanId, emiId, template) {
+    closeCollectionCalendar();
+    openWhatsAppCenter({ borrowerId, loanId, emiId, template });
+}
+
+async function refreshCollectionCalendar() {
+    const loading = document.getElementById('calendarLoading');
+    const content = document.getElementById('calendarContent');
+    if (!calendarMonthKey) calendarMonthKey = calendarBusinessDate().slice(0,7);
+    if (loading) { loading.style.display='block'; loading.textContent='Calendar load ho raha hai...'; }
+    if (content) content.style.display='none';
+    try {
+        const response = await adminFetch(`/api/calendar?month=${encodeURIComponent(calendarMonthKey)}`);
+        collectionCalendarData = await response.json();
+        if (!calendarSelectedDate && collectionCalendarData.month === collectionCalendarData.businessDate?.slice(0,7)) {
+            calendarSelectedDate = collectionCalendarData.businessDate;
+        }
+        renderCollectionCalendar();
+        if (loading) loading.style.display='none';
+        if (content) content.style.display='block';
+    } catch (err) {
+        console.error('Collection calendar failed:', err);
+        if (loading) { loading.style.display='block'; loading.textContent=`Calendar load nahi hua: ${err.message}`; }
+    }
+}
+
+
+// ==========================================
+// PHASE 10 - ADVANCED SEARCH & FILTERS
+// ==========================================
+let advancedSearchData = null;
+
+function openAdvancedSearch(preset = {}) {
+    const modal = document.getElementById('advancedSearchModal');
+    if (!modal) return;
+    const basicQuery = String(document.getElementById('searchInput')?.value || '').trim();
+    if (preset.query !== undefined) document.getElementById('advancedSearchQuery').value = String(preset.query || '');
+    else if (!document.getElementById('advancedSearchQuery').value && basicQuery) document.getElementById('advancedSearchQuery').value = basicQuery;
+    if (preset.type) document.getElementById('advancedSearchType').value = preset.type;
+    if (preset.loanStatus) document.getElementById('advancedSearchLoanStatus').value = preset.loanStatus;
+    if (preset.emiStatus) document.getElementById('advancedSearchEmiStatus').value = preset.emiStatus;
+    if (preset.due) document.getElementById('advancedSearchDue').value = preset.due;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('advancedSearchQuery')?.focus(), 50);
+    runAdvancedSearch();
+}
+
+function closeAdvancedSearch() {
+    const modal = document.getElementById('advancedSearchModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleAdvancedSearchOverlayClick(event) {
+    if (event?.target?.id === 'advancedSearchModal') closeAdvancedSearch();
+}
+
+function handleAdvancedSearchKey(event) {
+    if (event?.key === 'Enter') {
+        event.preventDefault();
+        runAdvancedSearch();
+    }
+}
+
+function resetAdvancedSearch() {
+    const values = {
+        advancedSearchQuery: '', advancedSearchType: 'all', advancedSearchLoanStatus: 'all',
+        advancedSearchEmiStatus: 'all', advancedSearchDue: 'all', advancedSearchMinAmount: '',
+        advancedSearchMaxAmount: '', advancedSearchSort: 'name'
+    };
+    for (const [id, value] of Object.entries(values)) {
+        const node = document.getElementById(id);
+        if (node) node.value = value;
+    }
+    runAdvancedSearch();
+}
+
+function advancedSearchParams() {
+    const params = new URLSearchParams();
+    const map = {
+        q: 'advancedSearchQuery', type: 'advancedSearchType', loanStatus: 'advancedSearchLoanStatus',
+        emiStatus: 'advancedSearchEmiStatus', due: 'advancedSearchDue', minAmount: 'advancedSearchMinAmount',
+        maxAmount: 'advancedSearchMaxAmount', sort: 'advancedSearchSort'
+    };
+    for (const [key, id] of Object.entries(map)) {
+        const value = String(document.getElementById(id)?.value ?? '').trim();
+        if (value !== '') params.set(key, value);
+    }
+    params.set('limit', '200');
+    return params;
+}
+
+function advancedSearchStatusMeta(status) {
+    const map = {
+        active: ['🟢','Active','success'], closed: ['✅','Closed','success'], defaulted: ['🔴','Defaulted','danger'],
+        pending: ['⏳','Pending','warning'], partial: ['🟠','Partial','warning'], paid: ['✅','Paid','success'], overdue: ['🔴','Overdue','danger']
+    };
+    return map[status] || ['•', String(status || 'Unknown'), 'neutral'];
+}
+
+function advancedSearchAvatar(name) {
+    return String(name || '?').trim().split(/\s+/).filter(Boolean).slice(0,2).map(x => x[0]?.toUpperCase() || '').join('') || '?';
+}
+
+function renderAdvancedSearchResult(item) {
+    if (item.type === 'borrower') {
+        const initials = advancedSearchAvatar(item.name);
+        return `<article class="search-pro-result borrower">
+            <div class="search-pro-result-icon">${item.photo_url ? `<img src="${escapeHtml(item.photo_url)}" alt="">` : escapeHtml(initials)}</div>
+            <div class="search-pro-result-main">
+                <div class="search-pro-result-top"><span class="search-pro-type">👤 Borrower</span><strong>${escapeHtml(item.name || 'Unknown')}</strong></div>
+                <div class="search-pro-result-meta">${item.phone ? `📞 ${escapeHtml(item.phone)} • ` : ''}${Number(item.total_loans || 0)} loans • ${Number(item.active_loans || 0)} active • ${Number(item.overdue_emis || 0)} overdue EMI</div>
+                <div class="search-pro-money"><span>Principal <b>${phase6Money(item.principal)}</b></span><span>Collected <b>${phase6Money(item.collected)}</b></span><span>Remaining <b>${phase6Money(item.remaining)}</b></span></div>
+            </div>
+            <div class="search-pro-actions">
+                <button class="btn btn-view" onclick="advancedSearchOpenBorrower('${item.borrower_id}')">👤 Profile</button>
+                <button class="btn btn-success" onclick="advancedSearchOpenWhatsApp('${item.borrower_id}')">💬 WhatsApp</button>
+            </div>
+        </article>`;
+    }
+
+    if (item.type === 'loan') {
+        const [icon, label, tone] = advancedSearchStatusMeta(item.status);
+        return `<article class="search-pro-result loan">
+            <div class="search-pro-result-icon">💳</div>
+            <div class="search-pro-result-main">
+                <div class="search-pro-result-top"><span class="search-pro-type">Loan</span><strong>${escapeHtml(item.loan_code || 'Loan')}</strong><span class="search-pro-status ${tone}">${icon} ${escapeHtml(label)}</span></div>
+                <div class="search-pro-result-meta">${escapeHtml(item.borrower_name || 'Unknown')} • ${item.loan_date ? phase6Date(item.loan_date) : (item.loan_year ? String(item.loan_year) : 'Year not set')} • ${Number(item.emi_count || 0)} EMI • ${Number(item.year_not_set || 0)} year-not-set</div>
+                <div class="search-pro-money"><span>Principal <b>${phase6Money(item.amount)}</b></span><span>Collected <b>${phase6Money(item.collected)}</b></span><span>Remaining <b>${phase6Money(item.remaining)}</b></span></div>
+            </div>
+            <div class="search-pro-actions">
+                <button class="btn btn-view" onclick="advancedSearchOpenBorrower('${item.borrower_id}')">👤</button>
+                <button class="btn btn-warning" onclick="advancedSearchEditLoan('${item.loan_id}')">✏️ Edit</button>
+                <button class="btn btn-secondary" onclick="advancedSearchLoanStatement('${item.loan_id}')">🧾 Statement</button>
+                <button class="btn btn-view" onclick="advancedSearchOpenSettlement('${item.loan_id}')">${item.status === 'closed' ? '🔒' : '🤝'}</button>
+                <button class="btn btn-success" onclick="advancedSearchOpenWhatsApp('${item.borrower_id}','${item.loan_id}')">💬</button>
+            </div>
+        </article>`;
+    }
+
+    const [icon, label, tone] = advancedSearchStatusMeta(item.status);
+    const dueText = item.year_not_set ? `${Number(item.due_day || 0)} ${escapeHtml(item.due_month || '')} • Year not set` : phase6Date(item.due_date);
+    return `<article class="search-pro-result emi">
+        <div class="search-pro-result-icon">📅</div>
+        <div class="search-pro-result-main">
+            <div class="search-pro-result-top"><span class="search-pro-type">EMI ${Number(item.installment_number || 0)}</span><strong>${escapeHtml(item.borrower_name || 'Unknown')}</strong><span class="search-pro-status ${tone}">${icon} ${escapeHtml(label)}</span></div>
+            <div class="search-pro-result-meta">${escapeHtml(item.loan_code || '')} • Due ${dueText} • Loan ${escapeHtml(item.loan_status || '')}</div>
+            <div class="search-pro-money"><span>Scheduled <b>${phase6Money(item.amount)}</b></span><span>Paid <b>${phase6Money(item.paid_amount)}</b></span><span>Remaining <b>${phase6Money(item.remaining)}</b></span></div>
+        </div>
+        <div class="search-pro-actions">
+            <button class="btn btn-view" onclick="advancedSearchOpenBorrower('${item.borrower_id}')">👤</button>
+            <button class="btn ${Number(item.remaining || 0) > 0 ? 'btn-success' : 'btn-secondary'}" onclick="advancedSearchOpenPayment('${item.emi_id}')">${Number(item.remaining || 0) > 0 ? '💰 Pay' : '🧾 History'}</button>
+            <button class="btn btn-success" onclick="advancedSearchOpenWhatsApp('${item.borrower_id}','${item.loan_id}','${item.emi_id}','${item.status === 'overdue' ? 'overdue' : 'due'}')">💬</button>
+        </div>
+    </article>`;
+}
+
+function renderAdvancedSearch(data) {
+    const summary = data?.summary || {};
+    const meta = document.getElementById('advancedSearchMeta');
+    if (meta) meta.textContent = `Business date: ${data?.businessDate || '-'} • ${data?.timezone || 'Asia/Kolkata'}`;
+    const summaryEl = document.getElementById('advancedSearchSummary');
+    if (summaryEl) {
+        const limitedNote = Number(summary.shown || 0) < Number(summary.total || 0) ? ` • first ${Number(summary.shown || 0)} shown` : '';
+        summaryEl.innerHTML = `<strong>${Number(summary.total || 0)} results</strong>${limitedNote}<span>👤 ${Number(summary.borrower || 0)} borrowers</span><span>💳 ${Number(summary.loan || 0)} loans</span><span>📅 ${Number(summary.emi || 0)} EMIs</span>`;
+    }
+    const resultsEl = document.getElementById('advancedSearchResults');
+    if (!resultsEl) return;
+    const rows = data?.results || [];
+    resultsEl.innerHTML = rows.length
+        ? rows.map(renderAdvancedSearchResult).join('')
+        : '<div class="search-pro-empty">🔎 Koi matching record nahi mila. Search term ya filters reset karke try karein.</div>';
+}
+
+async function runAdvancedSearch() {
+    const loading = document.getElementById('advancedSearchLoading');
+    const results = document.getElementById('advancedSearchResults');
+    if (loading) loading.style.display = 'block';
+    if (results) results.classList.add('is-loading');
+    try {
+        const response = await adminFetch(`/api/search?${advancedSearchParams().toString()}`);
+        advancedSearchData = await response.json();
+        renderAdvancedSearch(advancedSearchData);
+    } catch (err) {
+        console.error('Advanced search failed:', err);
+        const summary = document.getElementById('advancedSearchSummary');
+        if (summary) summary.textContent = `Search failed: ${err.message}`;
+        if (results) results.innerHTML = '<div class="search-pro-empty danger">Search load nahi hua.</div>';
+    } finally {
+        if (loading) loading.style.display = 'none';
+        if (results) results.classList.remove('is-loading');
+    }
+}
+
+function advancedSearchOpenBorrower(borrowerId) {
+    closeAdvancedSearch();
+    openBorrowerProfile(borrowerId);
+}
+
+function advancedSearchOpenPayment(emiId) {
+    closeAdvancedSearch();
+    openPaymentModal(emiId);
+}
+
+function advancedSearchEditLoan(loanId) {
+    closeAdvancedSearch();
+    editLoan(loanId);
+}
+
+function advancedSearchLoanStatement(loanId) {
+    closeAdvancedSearch();
+    printLoanAccountStatement(loanId);
+}
+
+function advancedSearchOpenSettlement(loanId) {
+    closeAdvancedSearch();
+    openSettlementCenter(loanId);
+}
+
+function advancedSearchOpenWhatsApp(borrowerId, loanId = '', emiId = '', template = '') {
+    closeAdvancedSearch();
+    openWhatsAppCenter({ borrowerId, loanId, emiId, template });
+}
+
+
+
+// ==========================================
+// PHASE 11 — LOAN SETTLEMENT & CLOSING
+// ==========================================
+let currentSettlementData = null;
+let currentSettlementLoanId = null;
+
+function settlementBusinessDate() {
+    const parts = new Intl.DateTimeFormat('en-CA', { timeZone:'Asia/Kolkata', year:'numeric', month:'2-digit', day:'2-digit' }).formatToParts(new Date());
+    const map = Object.fromEntries(parts.map(x => [x.type,x.value]));
+    return `${map.year}-${map.month}-${map.day}`;
+}
+
+function settlementMoney(value) { return `₹${Math.max(0, Number(value)||0).toLocaleString('en-IN')}`; }
+
+async function openSettlementCenter(loanId) {
+    currentSettlementLoanId = loanId;
+    const modal = document.getElementById('settlementModal');
+    const loading = document.getElementById('settlementLoading');
+    const content = document.getElementById('settlementContent');
+    if (modal) modal.style.display = 'flex';
+    if (loading) loading.style.display = 'block';
+    if (content) content.style.display = 'none';
+    try {
+        const response = await adminFetch(`/api/settlements?loan_id=${encodeURIComponent(loanId)}`);
+        currentSettlementData = await response.json();
+        renderSettlementCenter(currentSettlementData);
+    } catch (err) {
+        if (loading) loading.textContent = err.message || 'Settlement details load nahi hui.';
+    }
+}
+
+function closeSettlementCenter() {
+    const modal = document.getElementById('settlementModal');
+    if (modal) modal.style.display = 'none';
+    currentSettlementData = null;
+    currentSettlementLoanId = null;
+}
+function handleSettlementOverlayClick(event) { if (event.target?.id === 'settlementModal') closeSettlementCenter(); }
+
+function renderSettlementCenter(data) {
+    const loan = data?.loan || {};
+    const summary = data?.summary || {};
+    const active = data?.active_settlement || null;
+    const history = data?.history || [];
+    document.getElementById('settlementTitle').textContent = `🤝 ${loan.loan_code || 'Loan'} Settlement`;
+    document.getElementById('settlementSubtitle').textContent = `${loan.borrowers?.name || 'Borrower'} • ${loan.status || 'active'}`;
+    document.getElementById('settlementScheduled').textContent = settlementMoney(summary.scheduled);
+    document.getElementById('settlementCollected').textContent = settlementMoney(summary.paid);
+    document.getElementById('settlementRawRemaining').textContent = settlementMoney(summary.raw_remaining);
+    document.getElementById('settlementAccountRemaining').textContent = settlementMoney(summary.account_remaining);
+    document.getElementById('settlementLoading').style.display = 'none';
+    document.getElementById('settlementContent').style.display = 'block';
+    const openSection = document.getElementById('settlementOpenSection');
+    const closedSection = document.getElementById('settlementClosedSection');
+    if (active) {
+        openSection.style.display = 'none';
+        closedSection.style.display = 'block';
+        document.getElementById('settlementClosedMeta').textContent = `${phase6Date(active.settlement_date)} • ${active.method || 'Method not set'}`;
+        document.getElementById('settlementClosedDetails').innerHTML = [
+            ['Remaining Before', settlementMoney(active.scheduled_remaining_before)],
+            ['Final Payment', settlementMoney(active.final_payment_amount)],
+            ['Waived / Adjusted', settlementMoney(active.waived_amount)],
+            ['Account Due', settlementMoney(summary.account_remaining)]
+        ].map(([a,b]) => `<div><small>${a}</small><strong>${b}</strong></div>`).join('') + (active.notes ? `<div style="grid-column:1/-1"><small>Closing Note</small><strong>${escapeHtml(active.notes)}</strong></div>` : '');
+    } else {
+        openSection.style.display = 'block';
+        closedSection.style.display = 'none';
+        document.getElementById('settlementDate').value = settlementBusinessDate();
+        document.getElementById('settlementFinalPayment').value = summary.raw_remaining || 0;
+        document.getElementById('settlementFinalPayment').max = summary.raw_remaining || 0;
+        document.getElementById('settlementNotes').value = '';
+        document.getElementById('settlementConfirmText').value = '';
+        updateSettlementPreview();
+    }
+    document.getElementById('settlementHistory').innerHTML = history.length ? history.map(st => `<div class="settlement-history-item ${st.reopened_at ? 'reopened' : ''}"><div><strong>${st.reopened_at ? '↩️ Reopened settlement' : '🔒 Closed settlement'} • ${phase6Date(st.settlement_date)}</strong><small>Final ${settlementMoney(st.final_payment_amount)} • Waived ${settlementMoney(st.waived_amount)}${st.notes ? ' • '+escapeHtml(st.notes) : ''}</small>${st.reopened_at ? `<small>Reopened: ${escapeHtml(String(st.reopened_at).slice(0,10))}${st.reopen_note ? ' • '+escapeHtml(st.reopen_note) : ''}</small>` : ''}</div><strong>${st.reopened_at ? 'History' : 'Active'}</strong></div>`).join('') : '<div class="profile-muted">Abhi koi settlement history nahi hai.</div>';
+}
+
+function updateSettlementPreview() {
+    const raw = Math.max(0, Number(currentSettlementData?.summary?.raw_remaining) || 0);
+    const input = document.getElementById('settlementFinalPayment');
+    let finalAmount = Math.max(0, Number(input?.value) || 0);
+    if (finalAmount > raw) finalAmount = raw;
+    if (input && Number(input.value) > raw) input.value = raw;
+    const waived = Math.max(raw-finalAmount,0);
+    document.getElementById('settlementPreviewPayment').textContent = settlementMoney(finalAmount);
+    document.getElementById('settlementPreviewWaived').textContent = settlementMoney(waived);
+}
+
+async function submitLoanSettlement() {
+    const raw = Math.max(0, Number(currentSettlementData?.summary?.raw_remaining) || 0);
+    const finalAmount = Math.max(0, Number(document.getElementById('settlementFinalPayment')?.value) || 0);
+    const confirmText = String(document.getElementById('settlementConfirmText')?.value || '').trim().toUpperCase();
+    if (finalAmount > raw) return alert('Final payment remaining amount se zyada nahi ho sakta.');
+    if (confirmText !== 'SETTLE') return alert('Confirm field me SETTLE type karein.');
+    const waived = Math.max(raw-finalAmount,0);
+    if (!confirm(`Loan close hoga. Final payment ${settlementMoney(finalAmount)} aur waiver/adjustment ${settlementMoney(waived)} record hoga. Continue?`)) return;
+    const btn = document.getElementById('settlementSubmitBtn');
+    if (btn) btn.disabled = true;
+    try {
+        await adminFetch('/api/settlements?action=settle', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+            loan_id: currentSettlementLoanId,
+            final_payment_amount: finalAmount,
+            settlement_date: document.getElementById('settlementDate')?.value,
+            method: document.getElementById('settlementMethod')?.value,
+            notes: document.getElementById('settlementNotes')?.value,
+            confirm:'SETTLE'
+        })});
+        await loadAllData();
+        await openSettlementCenter(currentSettlementLoanId);
+        if (currentProfileData?.borrower?.id) await openBorrowerProfile(currentProfileData.borrower.id);
+        if (currentOpenFolder) openFolder(currentOpenFolder);
+    } catch (err) { alert(err.message || 'Loan settlement nahi hua.'); }
+    finally { if (btn) btn.disabled = false; }
+}
+
+async function reopenLoanSettlement() {
+    const active = currentSettlementData?.active_settlement;
+    if (!active?.id) return;
+    const note = String(document.getElementById('settlementReopenNote')?.value || '').trim();
+    const confirmText = String(document.getElementById('settlementReopenConfirm')?.value || '').trim().toUpperCase();
+    if (note.length < 3) return alert('Reopen reason likhna zaruri hai.');
+    if (confirmText !== 'REOPEN') return alert('Confirm field me REOPEN type karein.');
+    if (!confirm('Settlement reopen karne par closing settlement payments reverse honge aur loan Active ho jayega. Continue?')) return;
+    try {
+        await adminFetch('/api/settlements?action=reopen', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ settlement_id:active.id,reopen_note:note,confirm:'REOPEN' }) });
+        await loadAllData();
+        await openSettlementCenter(currentSettlementLoanId);
+        if (currentProfileData?.borrower?.id) await openBorrowerProfile(currentProfileData.borrower.id);
+        if (currentOpenFolder) openFolder(currentOpenFolder);
+    } catch (err) { alert(err.message || 'Loan reopen nahi hua.'); }
+}
+
+function printSettlementCertificate() {
+    const data = currentSettlementData;
+    const loan = data?.loan || {};
+    const st = data?.active_settlement;
+    if (!st) return alert('Active settlement record nahi mila.');
+    const b = loan.borrowers || {};
+    const ref = `SET-${String(st.id || '').replaceAll('-','').slice(0,10).toUpperCase()}`;
+    phase6PrintDocument(`${loan.loan_code || 'Loan'} Closing Receipt`, `
+        <div class="brand"><div><h1>Abhishek Management</h1><p>Loan Settlement & Closing Record</p></div><div class="doc-title"><strong>Loan Closing Receipt</strong><small class="receipt-id">${escapeHtml(ref)}</small></div></div>
+        <div class="party"><div class="box"><small>Borrower</small><strong>${escapeHtml(b.name || 'Unknown')}</strong></div><div class="box"><small>Loan ID</small><strong>${escapeHtml(loan.loan_code || '')}</strong></div><div class="box"><small>Closing Date</small><strong>${phase6Date(st.settlement_date)}</strong></div><div class="box"><small>Method</small><strong>${escapeHtml(st.method || 'Not set')}</strong></div></div>
+        <div class="summary"><div class="metric"><small>Remaining Before</small><strong>${phase6Money(st.scheduled_remaining_before)}</strong></div><div class="metric"><small>Final Payment</small><strong>${phase6Money(st.final_payment_amount)}</strong></div><div class="metric"><small>Waived / Adjusted</small><strong>${phase6Money(st.waived_amount)}</strong></div><div class="metric"><small>Account Remaining</small><strong>₹0</strong></div></div>
+        ${st.notes ? `<h2>Settlement Note</h2><div class="box">${escapeHtml(st.notes)}</div>` : ''}
+        <p class="note">This receipt records the settlement/closing entry stored in AbhiTools. Reopening this settlement reverses settlement-generated closing payment entries and restores the loan to Active status while retaining this audit record.</p>`);
+}
+
+
 window.onload = initApp;
+
+// ==========================================
+// PHASE 12 - RECYCLE BIN & SAFE RESTORE
+// ==========================================
+let recycleBinItems = [];
+
+function recycleDate(value) {
+    if (!value) return '-';
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? String(value).slice(0, 16) : d.toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function recycleSummaryText(item) {
+    const s = item?.summary || {};
+    if (item?.entity_type === 'borrower') return `${Number(s.loans || 0)} loans • ${Number(s.documents || 0)} documents`;
+    if (item?.entity_type === 'loan') return `${Number(s.emis || 0)} EMIs • ${Number(s.documents || 0)} documents`;
+    if (item?.entity_type === 'document') return `${String(s.doc_type || 'document').toUpperCase()}`;
+    return '';
+}
+
+async function openRecycleBin() {
+    const modal = document.getElementById('recycleBinModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    await loadRecycleBin();
+}
+
+function closeRecycleBin() {
+    const modal = document.getElementById('recycleBinModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleRecycleOverlayClick(event) {
+    if (event.target?.id === 'recycleBinModal') closeRecycleBin();
+}
+
+async function loadRecycleBin() {
+    const loading = document.getElementById('recycleBinLoading');
+    const list = document.getElementById('recycleBinList');
+    const summary = document.getElementById('recycleBinSummary');
+    if (loading) loading.style.display = 'block';
+    if (list) list.innerHTML = '';
+    try {
+        const response = await adminFetch('/api/recycle?action=list');
+        recycleBinItems = await response.json();
+        const counts = recycleBinItems.reduce((acc, item) => { acc[item.entity_type] = (acc[item.entity_type] || 0) + 1; return acc; }, {});
+        if (summary) summary.innerHTML = `<span>${recycleBinItems.length} total</span><span>👤 ${counts.borrower || 0} borrowers</span><span>💳 ${counts.loan || 0} loans</span><span>📎 ${counts.document || 0} documents</span>`;
+        renderRecycleBin();
+    } catch (err) {
+        if (list) list.innerHTML = `<div class="recycle-empty">❌ ${escapeHtml(err.message || 'Recycle Bin load nahi hua.')}</div>`;
+    } finally {
+        if (loading) loading.style.display = 'none';
+    }
+}
+
+function renderRecycleBin() {
+    const list = document.getElementById('recycleBinList');
+    if (!list) return;
+    if (!recycleBinItems.length) {
+        list.innerHTML = '<div class="recycle-empty">✅ Recycle Bin empty hai.</div>';
+        return;
+    }
+    const icon = { borrower:'👤', loan:'💳', document:'📎' };
+    list.innerHTML = recycleBinItems.map(item => `<div class="recycle-item">
+        <div class="recycle-item-main">
+            <small class="recycle-item-type">${icon[item.entity_type] || '♻️'} ${escapeHtml(item.entity_type || 'item')}</small>
+            <strong>${escapeHtml(item.label || item.record_id || 'Deleted item')}</strong>
+            <small>${escapeHtml(recycleSummaryText(item))}</small>
+            <small>Moved: ${escapeHtml(recycleDate(item.deleted_at))}</small>
+        </div>
+        <div class="recycle-item-actions">
+            <button class="btn btn-success" onclick="restoreRecycleItem('${item.id}')">↩️ Restore</button>
+            <button class="btn btn-danger" onclick="purgeRecycleItem('${item.id}')">🔥 Permanent Delete</button>
+        </div>
+    </div>`).join('');
+}
+
+async function restoreRecycleItem(recycleId) {
+    const item = recycleBinItems.find(x => x.id === recycleId);
+    if (!item) return;
+    if (!confirm(`Restore ${item.entity_type} “${item.label || ''}”? Same IDs/history ke saath active data me wapas aayega.`)) return;
+    try {
+        await adminFetch('/api/recycle?action=restore', {
+            method:'POST', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ recycle_id:recycleId, confirm:true })
+        });
+        await loadAllData();
+        await loadRecycleBin();
+    } catch (err) {
+        alert(err.message || 'Restore nahi hua.');
+    }
+}
+
+async function purgeRecycleItem(recycleId) {
+    const item = recycleBinItems.find(x => x.id === recycleId);
+    if (!item) return;
+    if (!confirm(`PERMANENT DELETE: ${item.entity_type} “${item.label || ''}” aur uski dependent history/files permanently delete ho sakti hain. Continue?`)) return;
+    const typed = prompt('Permanent delete confirm karne ke liye PURGE type karein:');
+    if (String(typed || '').trim().toUpperCase() !== 'PURGE') return alert('Permanent delete cancel hua.');
+    try {
+        const response = await adminFetch('/api/recycle?action=purge', {
+            method:'DELETE', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ recycle_id:recycleId, confirm:'PURGE' })
+        });
+        const result = await response.json();
+        if (result.storage_cleanup_warning) alert('Database item permanently delete ho gaya. Kuch storage cleanup entries retry/later cleanup ke liye reh sakti hain.');
+        await loadAllData();
+        await loadRecycleBin();
+    } catch (err) {
+        alert(err.message || 'Permanent delete nahi hua.');
+    }
+}
+
+async function recycleCurrentBorrower() {
+    const borrowerId = currentProfileBorrowerId;
+    const name = currentProfileData?.borrower?.name || 'Borrower';
+    if (!borrowerId) return;
+    if (!confirm(`${name} ko Recycle Bin me move karna hai? Is borrower ke visible loans/documents bhi isi restore batch me temporarily hide honge.`)) return;
+    try {
+        await adminFetch('/api/borrowers?action=delete', {
+            method:'DELETE', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ id:borrowerId })
+        });
+        closeBorrowerProfile();
+        await loadAllData();
+        alert('Borrower Recycle Bin me move ho gaya. Restore kabhi bhi Recycle Bin se kar sakte hain.');
+    } catch (err) {
+        alert(err.message || 'Borrower recycle nahi hua.');
+    }
+}
+
+// ==========================================
+// PHASE 13 — ACTIVITY HISTORY & AUDIT TIMELINE
+// ==========================================
+let activityHistoryState = {
+    period: '30d', page: 1, limit: 30, pages: 1, total: 0,
+    actions: [], entities: [], items: []
+};
+
+function auditEsc(value) { return escapeHtml(String(value ?? '')); }
+function auditMoney(value) { return '₹' + Number(value || 0).toLocaleString('en-IN'); }
+function auditDateTime(value) {
+    if (!value) return 'Unknown time';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString('en-IN', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit', hour12:true });
+}
+function auditCategoryLabel(category) {
+    return ({payment:'Payment',borrower:'Borrower',loan:'Loan',document:'Document',recycle:'Recycle',safety:'Safety',system:'System'})[category] || 'Activity';
+}
+
+async function openActivityHistory() {
+    const modal = document.getElementById('activityHistoryModal');
+    if (!modal) return;
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    activityHistoryState.page = 1;
+    await loadActivityHistory();
+}
+
+function closeActivityHistory() {
+    const modal = document.getElementById('activityHistoryModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+}
+
+function handleActivityOverlayClick(event) {
+    if (event.target?.id === 'activityHistoryModal') closeActivityHistory();
+}
+
+function handleActivitySearchKey(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        applyActivityFilters();
+    }
+}
+
+function setActivityPeriod(period, button) {
+    activityHistoryState.period = period;
+    activityHistoryState.page = 1;
+    document.querySelectorAll('.audit-period').forEach(el => el.classList.remove('active'));
+    if (button) button.classList.add('active');
+    document.getElementById('auditFrom').value = '';
+    document.getElementById('auditTo').value = '';
+    loadActivityHistory();
+}
+
+function currentActivityParams(includePage = true) {
+    const params = new URLSearchParams();
+    params.set('period', activityHistoryState.period || '30d');
+    const q = document.getElementById('auditSearch')?.value?.trim();
+    const category = document.getElementById('auditCategory')?.value || 'all';
+    const action = document.getElementById('auditAction')?.value || 'all';
+    const entity = document.getElementById('auditEntity')?.value || 'all';
+    const from = document.getElementById('auditFrom')?.value || '';
+    const to = document.getElementById('auditTo')?.value || '';
+    if (q) params.set('q', q);
+    params.set('category', category);
+    params.set('action', action);
+    params.set('entity', entity);
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (includePage) {
+        params.set('page', String(activityHistoryState.page || 1));
+        params.set('limit', String(activityHistoryState.limit || 30));
+    }
+    return params;
+}
+
+function applyActivityFilters() {
+    activityHistoryState.page = 1;
+    loadActivityHistory();
+}
+
+function resetActivityFilters() {
+    document.getElementById('auditSearch').value = '';
+    document.getElementById('auditCategory').value = 'all';
+    document.getElementById('auditAction').value = 'all';
+    document.getElementById('auditEntity').value = 'all';
+    document.getElementById('auditFrom').value = '';
+    document.getElementById('auditTo').value = '';
+    activityHistoryState.period = '30d';
+    activityHistoryState.page = 1;
+    document.querySelectorAll('.audit-period').forEach(el => el.classList.toggle('active', el.dataset.period === '30d'));
+    loadActivityHistory();
+}
+
+async function refreshActivityHistory() {
+    await loadActivityHistory();
+}
+
+function updateAuditSelectOptions(selectId, values, current, fallbackLabel) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+    const normalized = Array.isArray(values) ? values : [];
+    select.innerHTML = `<option value="all">${auditEsc(fallbackLabel)}</option>` + normalized.map(v => `<option value="${auditEsc(v)}">${auditEsc(v)}</option>`).join('');
+    select.value = normalized.includes(current) ? current : 'all';
+}
+
+async function loadActivityHistory() {
+    const loading = document.getElementById('activityHistoryLoading');
+    const timeline = document.getElementById('activityTimeline');
+    const empty = document.getElementById('activityHistoryEmpty');
+    if (loading) loading.style.display = 'block';
+    if (timeline) timeline.innerHTML = '';
+    if (empty) empty.style.display = 'none';
+    try {
+        const currentAction = document.getElementById('auditAction')?.value || 'all';
+        const currentEntity = document.getElementById('auditEntity')?.value || 'all';
+        const response = await adminFetch(`/api/activity?${currentActivityParams(true).toString()}`);
+        const data = await response.json();
+        activityHistoryState.items = data.items || [];
+        activityHistoryState.actions = data.filters?.actions || [];
+        activityHistoryState.entities = data.filters?.entities || [];
+        activityHistoryState.pages = Number(data.pagination?.pages || 1);
+        activityHistoryState.total = Number(data.pagination?.total || 0);
+        activityHistoryState.page = Number(data.pagination?.page || 1);
+
+        updateAuditSelectOptions('auditAction', activityHistoryState.actions, currentAction, 'All Actions');
+        updateAuditSelectOptions('auditEntity', activityHistoryState.entities, currentEntity, 'All Entities');
+
+        const summary = data.summary || {};
+        document.getElementById('auditTotal').textContent = Number(summary.total || 0).toLocaleString('en-IN');
+        document.getElementById('audit24h').textContent = Number(summary.last24h || 0).toLocaleString('en-IN');
+        document.getElementById('audit7d').textContent = Number(summary.last7d || 0).toLocaleString('en-IN');
+        document.getElementById('auditPayments').textContent = Number(summary.payments || 0).toLocaleString('en-IN');
+        document.getElementById('auditSafety').textContent = Number(summary.safety || 0).toLocaleString('en-IN');
+        document.getElementById('activityHistoryMeta').textContent = `${auditEsc(data.businessDate || '')} • ${auditEsc(data.timezone || 'Asia/Kolkata')} • ${Number(data.pagination?.total || 0)} filtered events`;
+        document.getElementById('auditPageInfo').textContent = `Page ${activityHistoryState.page} / ${activityHistoryState.pages}`;
+        document.getElementById('auditPrevBtn').disabled = activityHistoryState.page <= 1;
+        document.getElementById('auditNextBtn').disabled = activityHistoryState.page >= activityHistoryState.pages;
+        renderActivityTimeline(activityHistoryState.items);
+    } catch (err) {
+        if (timeline) timeline.innerHTML = `<div class="audit-empty">❌ ${auditEsc(err.message || 'Activity history load nahi hui.')}</div>`;
+    } finally {
+        if (loading) loading.style.display = 'none';
+    }
+}
+
+function activityContextHtml(event) {
+    const c = event.context || {};
+    const chips = [];
+    if (c.borrower_name) chips.push(`<span>👤 ${auditEsc(c.borrower_name)}</span>`);
+    if (c.loan_code) chips.push(`<span>💳 ${auditEsc(c.loan_code)}</span>`);
+    if (c.installment_number) chips.push(`<span>EMI ${auditEsc(c.installment_number)}</span>`);
+    if (c.payment_amount !== null && c.payment_amount !== undefined) chips.push(`<span>💰 ${auditMoney(c.payment_amount)}</span>`);
+    if (c.document_name) chips.push(`<span>📎 ${auditEsc(c.document_name)}</span>`);
+    if (c.recycle_label) chips.push(`<span>♻️ ${auditEsc(c.recycle_label)}</span>`);
+    return chips.length ? `<div class="audit-context">${chips.join('')}</div>` : '';
+}
+
+function activityActionsHtml(event) {
+    const c = event.context || {};
+    const buttons = [];
+    if (c.borrower_id) buttons.push(`<button class="audit-link" onclick="openActivityBorrower('${auditEsc(c.borrower_id)}')">👤 Profile</button>`);
+    if (c.loan_id) buttons.push(`<button class="audit-link" onclick="openActivityLoan('${auditEsc(c.loan_id)}')">💳 Loan</button>`);
+    if (c.emi_id) buttons.push(`<button class="audit-link" onclick="openActivityEmi('${auditEsc(c.emi_id)}')">💰 EMI</button>`);
+    if (c.recycle_id && !String(event.action || '').includes('PURGE')) buttons.push(`<button class="audit-link" onclick="openActivityRecycle()">♻️ Recycle Bin</button>`);
+    return buttons.length ? `<div class="audit-item-actions">${buttons.join('')}</div>` : '';
+}
+
+function renderActivityTimeline(items) {
+    const timeline = document.getElementById('activityTimeline');
+    const empty = document.getElementById('activityHistoryEmpty');
+    if (!timeline) return;
+    if (!items?.length) {
+        timeline.innerHTML = '';
+        if (empty) empty.style.display = 'block';
+        return;
+    }
+    if (empty) empty.style.display = 'none';
+    let lastDay = '';
+    const out = [];
+    for (const event of items) {
+        const day = String(event.created_at || '').slice(0, 10);
+        if (day !== lastDay) {
+            const dayLabel = event.created_at ? new Date(event.created_at).toLocaleDateString('en-IN', { weekday:'short', day:'2-digit', month:'short', year:'numeric' }) : 'Unknown date';
+            out.push(`<div class="audit-day-divider"><span>${auditEsc(dayLabel)}</span></div>`);
+            lastDay = day;
+        }
+        out.push(`<article class="audit-item category-${auditEsc(event.category || 'system')}">
+            <div class="audit-icon">${auditEsc(event.icon || '🕘')}</div>
+            <div class="audit-body">
+                <div class="audit-item-head"><div><strong>${auditEsc(event.label || event.action || 'Activity')}</strong><span class="audit-category">${auditEsc(auditCategoryLabel(event.category))}</span></div><time>${auditEsc(auditDateTime(event.created_at))}</time></div>
+                <p>${auditEsc(event.description || 'No description')}</p>
+                ${activityContextHtml(event)}
+                <div class="audit-record"><code>${auditEsc(event.action || '')}</code>${event.table_name ? `<span>${auditEsc(event.table_name)}</span>` : ''}${event.record_id ? `<small title="Record ID">${auditEsc(event.record_id)}</small>` : ''}</div>
+                ${activityActionsHtml(event)}
+            </div>
+        </article>`);
+    }
+    timeline.innerHTML = out.join('');
+}
+
+function changeActivityPage(delta) {
+    const next = activityHistoryState.page + delta;
+    if (next < 1 || next > activityHistoryState.pages) return;
+    activityHistoryState.page = next;
+    loadActivityHistory();
+    document.querySelector('.audit-card')?.scrollTo({ top:0, behavior:'smooth' });
+}
+
+async function exportActivityHistoryCsv() {
+    try {
+        const params = currentActivityParams(false);
+        params.set('format', 'csv');
+        const response = await adminFetch(`/api/activity?${params.toString()}`);
+        const blob = await response.blob();
+        const disposition = response.headers.get('content-disposition') || '';
+        const match = disposition.match(/filename="?([^";]+)"?/i);
+        const filename = match?.[1] || `AbhiTools_Audit_History_${new Date().toISOString().slice(0,10)}.csv`;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+        alert(err.message || 'Audit CSV export nahi hua.');
+    }
+}
+
+async function openActivityBorrower(borrowerId) {
+    closeActivityHistory();
+    await openBorrowerProfile(borrowerId);
+}
+
+function openActivityLoan(loanId) {
+    closeActivityHistory();
+    printLoanAccountStatement(loanId);
+}
+
+async function openActivityEmi(emiId) {
+    closeActivityHistory();
+    await openPaymentModal(emiId);
+}
+
+function openActivityRecycle() {
+    closeActivityHistory();
+    openRecycleBin();
+}

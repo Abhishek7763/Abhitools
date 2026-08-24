@@ -61,10 +61,10 @@ export default async function handler(req, res) {
         if (loanId && !UUID_RE.test(loanId)) return res.status(400).json({ error: 'Valid loan id required' });
         if (bucket === 'documents' && !DOC_TYPES.has(docType)) return res.status(400).json({ error: 'Invalid document type' });
 
-        const { data: borrowerRows } = await supabaseRequest(`borrowers?id=eq.${encodeURIComponent(borrowerId)}&select=id`);
+        const { data: borrowerRows } = await supabaseRequest(`borrowers?id=eq.${encodeURIComponent(borrowerId)}&deleted_at=is.null&select=id`);
         if (!borrowerRows?.length) return res.status(404).json({ error: 'Borrower not found' });
         if (loanId) {
-            const { data: loanRows } = await supabaseRequest(`loans?id=eq.${encodeURIComponent(loanId)}&borrower_id=eq.${encodeURIComponent(borrowerId)}&select=id`);
+            const { data: loanRows } = await supabaseRequest(`loans?id=eq.${encodeURIComponent(loanId)}&borrower_id=eq.${encodeURIComponent(borrowerId)}&deleted_at=is.null&select=id`);
             if (!loanRows?.length) return res.status(400).json({ error: 'Loan does not belong to borrower' });
         }
 

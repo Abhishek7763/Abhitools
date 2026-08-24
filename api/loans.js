@@ -111,9 +111,9 @@ export default async function handler(req, res) {
         // Public read-only endpoint: preserve the existing public dashboard, but expose no phone/address/IDs.
         if (req.method === 'GET' && !action) {
             const select = isAdmin
-                ? '*,borrowers(id,name,phone,whatsapp,address,photo_url),emis(*)&order=created_at.desc'
+                ? '*,borrowers(id,name,phone,whatsapp,address,photo_url),emis(*),loan_settlements(*)&order=created_at.desc'
                 : 'id,loan_code,amount,status,loan_year,borrowers(name),emis(installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount)&order=created_at.desc';
-            const { data } = await supabaseRequest(`loans?select=${select}`);
+            const { data } = await supabaseRequest(`loans?deleted_at=is.null&select=${select}`);
             return res.status(200).json(data || []);
         }
 
@@ -121,7 +121,7 @@ export default async function handler(req, res) {
 
         if (req.method === 'GET' && action === 'dashboard') {
             const [loansRes, overdueRes] = await Promise.all([
-                supabaseRequest('loans?select=*,borrowers(name),emis(*)&status=eq.active'),
+                supabaseRequest('loans?deleted_at=is.null&select=*,borrowers(name),emis(*)&status=eq.active'),
                 supabaseRequest('emis?select=*&status=eq.overdue')
             ]);
             return res.status(200).json({ loans: loansRes.data || [], overdue: overdueRes.data || [] });
@@ -160,6 +160,10 @@ export default async function handler(req, res) {
         if (req.method === 'PUT' && action === 'update') {
             const { loan_id, amount, interest_rate, notes, status, emis } = req.body || {};
             if (!loan_id) return res.status(400).json({ error: 'loan_id required' });
+            const { data: visibleLoanRows } = await supabaseRequest(`loans?id=eq.${encodeURIComponent(loan_id)}&deleted_at=is.null&select=id&limit=1`);
+            if (!visibleLoanRows?.length) return res.status(404).json({ error: 'Loan not found or is in Recycle Bin' });
+            const { data: activeSettlementRows } = await supabaseRequest(`loan_settlements?loan_id=eq.${encodeURIComponent(loan_id)}&reopened_at=is.null&select=id&limit=1`);
+            if (activeSettlementRows?.length) return res.status(409).json({ error: 'Settled loan is locked. Reopen the settlement before editing the loan.' });
 
             const patch = {};
             if (amount !== undefined && amount !== '') {
@@ -171,11 +175,12 @@ export default async function handler(req, res) {
             if (notes !== undefined) patch.notes = String(notes || '').trim() || null;
             if (status !== undefined) {
                 if (!['active','closed','defaulted'].includes(status)) return res.status(400).json({ error: 'Invalid loan status' });
+                if (status === 'closed') return res.status(409).json({ error: 'Use Loan Settlement Center to close a loan' });
                 patch.status = status;
             }
             // Validate/sync the schedule first so a rejected EMI change does not partially update loan fields.
             if (Array.isArray(emis)) await syncExistingEmis(loan_id, emis);
-            if (Object.keys(patch).length) await supabaseRequest(`loans?id=eq.${encodeURIComponent(loan_id)}`, 'PATCH', patch);
+            if (Object.keys(patch).length) await supabaseRequest(`loans?id=eq.${encodeURIComponent(loan_id)}&deleted_at=is.null`, 'PATCH', patch);
 
             await supabaseRequest('activity_log', 'POST', {
                 action: 'UPDATE_LOAN', table_name: 'loans', record_id: loan_id,
@@ -185,14 +190,10 @@ export default async function handler(req, res) {
         }
 
         if (req.method === 'DELETE' && action === 'delete') {
-            const loan_id = req.body?.loan_id;
-            if (!loan_id) return res.status(400).json({ error: 'loan_id required' });
-            await supabaseRequest(`loans?id=eq.${encodeURIComponent(loan_id)}`, 'DELETE');
-            await supabaseRequest('activity_log', 'POST', {
-                action: 'DELETE_LOAN', table_name: 'loans', record_id: loan_id,
-                description: 'Loan deleted'
-            });
-            return res.status(200).json({ success: true });
+            const loan_id = String(req.body?.loan_id || '').trim();
+            if (!UUID_RE.test(loan_id)) return res.status(400).json({ error: 'Valid loan_id required' });
+            const { data } = await supabaseRequest('rpc/abhi_recycle_loan', 'POST', { p_loan_id: loan_id });
+            return res.status(200).json(Array.isArray(data) ? (data[0] || { success: true }) : (data || { success: true }));
         }
 
         // Manual Pending/Overdue correction is still available for unpaid legacy EMIs.
@@ -202,9 +203,11 @@ export default async function handler(req, res) {
             if (!emi_id || !['pending','overdue'].includes(status)) {
                 return res.status(400).json({ error: 'Use payment entry to mark an EMI paid' });
             }
-            const { data } = await supabaseRequest(`emis?id=eq.${encodeURIComponent(emi_id)}&select=id,paid_amount`);
+            const { data } = await supabaseRequest(`emis?id=eq.${encodeURIComponent(emi_id)}&select=id,loan_id,paid_amount`);
             const emi = data?.[0];
             if (!emi) return res.status(404).json({ error: 'EMI not found' });
+            const { data: liveLoanRows } = await supabaseRequest(`loans?id=eq.${encodeURIComponent(emi.loan_id)}&deleted_at=is.null&select=id&limit=1`);
+            if (!liveLoanRows?.length) return res.status(409).json({ error: 'EMI belongs to a recycled loan' });
             const paid = Number.parseInt(emi.paid_amount, 10) || 0;
             if (paid > 0 && status === 'pending') {
                 return res.status(409).json({ error: 'EMI with payments cannot be manually reset; correct the payment history instead' });

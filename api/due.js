@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         const thisMonth = monthKey(businessDate);
 
         const { data } = await supabaseRequest(
-            'loans?status=eq.active&select=id,loan_code,status,borrowers(name),emis(id,installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount)&order=created_at.desc'
+            'loans?deleted_at=is.null&status=eq.active&select=id,loan_code,status,borrowers(name),emis(id,installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount)&order=created_at.desc'
         );
 
         const isAdmin = isValidAdminSession(req);

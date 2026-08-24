@@ -18,6 +18,21 @@ function cleanText(value, max = 500) {
     return text || null;
 }
 
+
+async function ensureVisibleEmi(emiId) {
+    const { data: emiRows } = await supabaseRequest(`emis?id=eq.${encodeURIComponent(emiId)}&select=id,loan_id`);
+    const emi = emiRows?.[0];
+    if (!emi) return null;
+    const { data: loanRows } = await supabaseRequest(`loans?id=eq.${encodeURIComponent(emi.loan_id)}&deleted_at=is.null&select=id`);
+    return loanRows?.length ? emi : null;
+}
+
+async function ensureVisiblePayment(paymentId) {
+    const { data: rows } = await supabaseRequest(`emi_payments?id=eq.${encodeURIComponent(paymentId)}&select=id,emi_id`);
+    const payment = rows?.[0];
+    if (!payment) return null;
+    return (await ensureVisibleEmi(payment.emi_id)) ? payment : null;
+}
 function cleanDate(value) {
     const text = String(value || '').slice(0, 10);
     if (!DATE_RE.test(text)) return null;
@@ -34,9 +49,10 @@ export default async function handler(req, res) {
             const emiId = validUuid(req.query?.emi_id);
             if (!emiId) return res.status(400).json({ error: 'Valid emi_id required' });
 
+            if (!await ensureVisibleEmi(emiId)) return res.status(404).json({ error: 'EMI not found or loan is in Recycle Bin' });
             const [emiRes, paymentRes] = await Promise.all([
                 supabaseRequest(`emis?id=eq.${encodeURIComponent(emiId)}&select=id,loan_id,installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount,notes`),
-                supabaseRequest(`emi_payments?emi_id=eq.${encodeURIComponent(emiId)}&reversed_at=is.null&select=id,emi_id,amount,payment_date,method,notes,source,created_at,updated_at,reversed_at&order=payment_date.desc,created_at.desc`)
+                supabaseRequest(`emi_payments?emi_id=eq.${encodeURIComponent(emiId)}&reversed_at=is.null&select=id,emi_id,amount,payment_date,method,notes,source,settlement_id,created_at,updated_at,reversed_at&order=payment_date.desc,created_at.desc`)
             ]);
             const emi = emiRes.data?.[0];
             if (!emi) return res.status(404).json({ error: 'EMI not found' });
@@ -62,6 +78,7 @@ export default async function handler(req, res) {
             const amount = positiveInt(req.body?.amount);
             const paidDate = cleanDate(req.body?.paid_date) || new Date().toISOString().slice(0, 10);
             if (!emiId || !amount) return res.status(400).json({ error: 'Valid emi_id and amount required' });
+            if (!await ensureVisibleEmi(emiId)) return res.status(404).json({ error: 'EMI not found or loan is in Recycle Bin' });
 
             const { data } = await supabaseRequest('rpc/abhi_add_emi_payment', 'POST', {
                 p_emi_id: emiId,
@@ -78,6 +95,7 @@ export default async function handler(req, res) {
             const amount = positiveInt(req.body?.amount);
             const paidDate = cleanDate(req.body?.paid_date) || new Date().toISOString().slice(0, 10);
             if (!paymentId || !amount) return res.status(400).json({ error: 'Valid payment_id and amount required' });
+            if (!await ensureVisiblePayment(paymentId)) return res.status(404).json({ error: 'Payment not found or loan is in Recycle Bin' });
 
             const { data } = await supabaseRequest('rpc/abhi_update_emi_payment', 'POST', {
                 p_payment_id: paymentId,
@@ -92,6 +110,7 @@ export default async function handler(req, res) {
         if (req.method === 'DELETE') {
             const paymentId = validUuid(req.body?.payment_id);
             if (!paymentId) return res.status(400).json({ error: 'Valid payment_id required' });
+            if (!await ensureVisiblePayment(paymentId)) return res.status(404).json({ error: 'Payment not found or loan is in Recycle Bin' });
             if (req.body?.confirm !== true) return res.status(400).json({ error: 'Delete confirmation required' });
 
             const { data } = await supabaseRequest('rpc/abhi_reverse_emi_payment', 'POST', {

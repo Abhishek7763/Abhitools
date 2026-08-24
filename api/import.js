@@ -15,6 +15,11 @@ function positiveInt(value) {
     return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function nonnegativeInt(value) {
+    const n = Number.parseInt(value, 10);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
 function optionalYear(value) {
     if (value === null || value === undefined || value === '') return null;
     const n = Number.parseInt(value, 10);
@@ -45,9 +50,10 @@ function baseResult(format) {
         loans: [],
         emis: [],
         documents: [],
+        settlements: [],
         payments: [],
         issues: [],
-        skipped: { borrowers: 0, loans: 0, emis: 0, documents: 0, payments: 0 }
+        skipped: { borrowers: 0, loans: 0, emis: 0, documents: 0, settlements: 0, payments: 0 }
     };
 }
 
@@ -193,6 +199,7 @@ function normalizeStructured(input, format) {
     const loans = Array.isArray(root?.loans) ? root.loans : [];
     const flatEmis = Array.isArray(root?.emis) ? root.emis : [];
     const documents = Array.isArray(root?.documents) ? root.documents : [];
+    const settlements = Array.isArray(root?.loan_settlements) ? root.loan_settlements : [];
     const payments = Array.isArray(root?.emi_payments) ? root.emi_payments : [];
 
     const borrowerKeyById = new Map();
@@ -238,6 +245,34 @@ function normalizeStructured(input, format) {
         });
     }
 
+    const settlementKeyById = new Map();
+    settlements.forEach((st, index) => {
+        const loanKey = loanKeyById.get(String(st?.loan_id || ''));
+        const remaining = nonnegativeInt(st?.scheduled_remaining_before);
+        const finalPayment = nonnegativeInt(st?.final_payment_amount);
+        const waived = nonnegativeInt(st?.waived_amount);
+        const settlementDate = validIsoDate(st?.settlement_date);
+        if (!loanKey || remaining === null || finalPayment === null || waived === null || finalPayment + waived !== remaining || !settlementDate) {
+            result.skipped.settlements++;
+            return;
+        }
+        const sourceKey = String(st?.id || `settlement:${index}`);
+        settlementKeyById.set(String(st?.id || sourceKey), sourceKey);
+        result.settlements.push({
+            source_key: sourceKey,
+            loan_key: loanKey,
+            settlement_date: settlementDate,
+            scheduled_remaining_before: remaining,
+            final_payment_amount: finalPayment,
+            waived_amount: waived,
+            method: text(st?.method, 60),
+            notes: text(st?.notes, 1000),
+            created_at: st?.created_at || new Date().toISOString(),
+            reopened_at: st?.reopened_at || null,
+            reopen_note: text(st?.reopen_note, 1000)
+        });
+    });
+
     payments.forEach((p) => {
         const ref = emiRefById.get(String(p?.emi_id || ''));
         const amount = positiveInt(p?.amount);
@@ -253,7 +288,8 @@ function normalizeStructured(input, format) {
             payment_date: paidDate,
             method: text(p?.method, 60),
             notes: text(p?.notes, 500),
-            source: ['manual','baseline'].includes(p?.source) ? p.source : 'manual',
+            source: ['manual','baseline','settlement'].includes(p?.source) ? p.source : 'manual',
+            settlement_key: settlementKeyById.get(String(p?.settlement_id || '')) || null,
             reversed_at: p?.reversed_at || null
         });
     });
@@ -319,11 +355,17 @@ function dedupeNormalized(result) {
     const before = result.emis.length;
     result.emis = result.emis.filter(e => keptLoanKeys.has(e.loan_key));
     result.skipped.emis += before - result.emis.length;
+    const settlementBefore = result.settlements.length;
+    result.settlements = result.settlements.filter(st => keptLoanKeys.has(st.loan_key));
+    result.skipped.settlements += settlementBefore - result.settlements.length;
+    const keptSettlementKeys = new Set(result.settlements.map(st => st.source_key));
+    result.payments.forEach(p => { if (p.settlement_key && !keptSettlementKeys.has(p.settlement_key)) p.settlement_key = null; });
+
     const paymentBefore = result.payments.length;
     result.payments = result.payments.filter(p => keptLoanKeys.has(p.loan_key));
     result.skipped.payments += paymentBefore - result.payments.length;
 
-    if (result.borrowers.length + result.loans.length + result.emis.length + result.payments.length > MAX_RECORDS) {
+    if (result.borrowers.length + result.loans.length + result.emis.length + result.settlements.length + result.payments.length > MAX_RECORDS) {
         throw Object.assign(new Error(`Import is too large. Maximum ${MAX_RECORDS} normalized records.`), { status: 413 });
     }
     return result;
@@ -331,7 +373,7 @@ function dedupeNormalized(result) {
 
 async function buildPreview(result) {
     const [existingBorrowers, existingLoans] = await Promise.all([
-        supabaseRequest('borrowers?select=name'),
+        supabaseRequest('borrowers?deleted_at=is.null&select=name'),
         supabaseRequest('loans?select=loan_code')
     ]);
     const existingNames = new Set((existingBorrowers.data || []).map(b => String(b.name || '').trim().toUpperCase()));
@@ -346,6 +388,7 @@ async function buildPreview(result) {
             loans: result.loans.length,
             emis: result.emis.length,
             documents: result.documents.length,
+            settlements: result.settlements.length,
             payments: result.payments.length
         },
         skipped: result.skipped,
@@ -366,6 +409,7 @@ function normalizedPayload(result) {
         loans: result.loans,
         emis: result.emis,
         documents: result.documents,
+        settlements: result.settlements,
         payments: result.payments
     };
 }
@@ -380,7 +424,42 @@ async function restoreSnapshotAfterImportFailure(snapshotId) {
     }
 }
 
-async function importPaymentHistory(normalized, existingCodesBefore, mode, snapshotId) {
+async function importSettlementHistory(normalized, existingCodesBefore, mode, snapshotId) {
+    const map = new Map();
+    if (!normalized.settlements?.length) return { map, inserted: 0, skipped: 0 };
+    try {
+        const loanRes = await supabaseRequest('loans?select=id,loan_code');
+        const targetLoanByCode = new Map((loanRes.data || []).map(l => [String(l.loan_code), l.id]));
+        const loanCodeByKey = new Map(normalized.loans.map(l => [l.source_key, l.loan_code]));
+        let inserted = 0, skipped = 0;
+        for (const st of normalized.settlements) {
+            const loanCode = loanCodeByKey.get(st.loan_key);
+            if (!loanCode || (mode === 'merge' && existingCodesBefore.has(loanCode))) { skipped++; continue; }
+            const loanId = targetLoanByCode.get(loanCode);
+            if (!loanId) { skipped++; continue; }
+            const { data } = await supabaseRequest('loan_settlements', 'POST', {
+                loan_id: loanId,
+                settlement_date: st.settlement_date,
+                scheduled_remaining_before: st.scheduled_remaining_before,
+                final_payment_amount: st.final_payment_amount,
+                waived_amount: st.waived_amount,
+                method: st.method,
+                notes: st.notes,
+                created_at: st.created_at,
+                reopened_at: st.reopened_at,
+                reopen_note: st.reopen_note
+            });
+            const row = data?.[0];
+            if (row?.id) { map.set(st.source_key, row.id); inserted++; } else skipped++;
+        }
+        return { map, inserted, skipped };
+    } catch (err) {
+        await restoreSnapshotAfterImportFailure(snapshotId);
+        throw err;
+    }
+}
+
+async function importPaymentHistory(normalized, existingCodesBefore, mode, snapshotId, settlementMap = new Map()) {
     if (!normalized.payments?.length) return { inserted: 0, skipped: 0 };
     try {
         const [loanRes, emiRes] = await Promise.all([
@@ -407,6 +486,7 @@ async function importPaymentHistory(normalized, existingCodesBefore, mode, snaps
                 method: payment.method,
                 notes: payment.notes,
                 source: payment.source || 'manual',
+                settlement_id: payment.settlement_key ? (settlementMap.get(payment.settlement_key) || null) : null,
                 reversed_at: payment.reversed_at || null
             });
             touchedEmis.add(targetEmiId);
@@ -441,6 +521,10 @@ export default async function handler(req, res) {
         if (action === 'preview') return res.status(200).json(preview);
 
         if (action === 'apply') {
+            const { data: recycleRows } = await supabaseRequest('recycle_bin?restored_at=is.null&purged_at=is.null&select=id&limit=1');
+            if (recycleRows?.length) {
+                return res.status(409).json({ error: 'Recycle Bin me items hain. Smart Import se pehle unhe Restore ya Permanently Delete karein.' });
+            }
             const mode = String(req.body?.mode || 'merge').toLowerCase();
             if (!['merge','replace'].includes(mode)) return res.status(400).json({ error: 'Mode must be merge or replace' });
             if (mode === 'replace' && req.body?.confirmReplace !== true) {
@@ -457,8 +541,9 @@ export default async function handler(req, res) {
                 p_label: label
             });
             const result = Array.isArray(data) ? data[0] : data;
-            const paymentResult = await importPaymentHistory(normalized, existingCodesBefore, mode, result?.backup_snapshot_id);
-            return res.status(200).json({ success: true, preview, result: { ...(result || {}), payment_history_inserted: paymentResult.inserted, payment_history_skipped: paymentResult.skipped } });
+            const settlementResult = await importSettlementHistory(normalized, existingCodesBefore, mode, result?.backup_snapshot_id);
+            const paymentResult = await importPaymentHistory(normalized, existingCodesBefore, mode, result?.backup_snapshot_id, settlementResult.map);
+            return res.status(200).json({ success: true, preview, result: { ...(result || {}), settlement_history_inserted: settlementResult.inserted, settlement_history_skipped: settlementResult.skipped, payment_history_inserted: paymentResult.inserted, payment_history_skipped: paymentResult.skipped } });
         }
 
         return res.status(404).json({ error: 'Import action not found' });

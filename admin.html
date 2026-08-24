@@ -66,7 +66,13 @@
         <button class="btn btn-warning" onclick="downloadFullBackup()">💾 Full Backup</button>
         <button class="btn btn-view" onclick="openBorrowerDirectory()">👥 Borrower Profiles</button>
         <button class="btn btn-view" onclick="openDueCenter('overdue')">⏰ Due Center</button>
+        <button class="btn btn-view" onclick="openAdvancedDashboard()">📊 Advanced Dashboard</button>
+        <button class="btn btn-view" onclick="openCollectionCalendar()">🗓️ Collection Calendar</button>
+        <button class="btn btn-view" onclick="openAdvancedSearch()">🔎 Advanced Search</button>
+        <button class="btn btn-success" onclick="openWhatsAppCenter()">💬 WhatsApp Center</button>
         <button class="btn btn-view" onclick="openDataSafetyCenter('import')">📥 Import / Restore</button>
+        <button class="btn btn-secondary" onclick="openRecycleBin()">♻️ Recycle Bin</button>
+        <button class="btn btn-view" onclick="openActivityHistory()">🕘 Activity History</button>
         <button class="btn btn-danger" onclick="logoutAdmin()">🚪 Logout</button>
     </div>
 
@@ -380,7 +386,11 @@
                 <div class="profile-section">
                     <div class="profile-section-head">
                         <h4>👤 Personal Details</h4>
-                        <button class="btn btn-warning" onclick="editCurrentBorrowerProfile()">✏️ Edit Details</button>
+                        <div style="display:flex;gap:7px;flex-wrap:wrap;">
+                            <button class="btn btn-view" onclick="printBorrowerAccountStatement()">🧾 Statement</button>
+                            <button class="btn btn-warning" onclick="editCurrentBorrowerProfile()">✏️ Edit Details</button>
+                            <button class="btn btn-danger" onclick="recycleCurrentBorrower()">🗑️ Recycle</button>
+                        </div>
                     </div>
                     <div id="profilePersonalDetails" class="profile-details-grid"></div>
                     <div id="profileContactActions" class="profile-actions"></div>
@@ -417,6 +427,340 @@
                     <div id="profileDocumentsPreview" class="profile-docs-preview"></div>
                     <small class="profile-muted">Documents private bucket me rahenge. View link temporary signed access se khulega. Max file size 8 MB.</small>
                 </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Phase 7: WhatsApp & Contact Center -->
+    <div id="whatsappCenterModal" class="wa-overlay no-print" style="display:none;" onclick="handleWhatsAppOverlayClick(event)">
+        <div class="wa-card" role="dialog" aria-modal="true" aria-labelledby="whatsappCenterTitle">
+            <div class="wa-header">
+                <div>
+                    <h3 id="whatsappCenterTitle">💬 WhatsApp Message Center</h3>
+                    <small>Message pehle edit karein, phir WhatsApp me open karein. Koi paid API nahi.</small>
+                </div>
+                <button class="btn btn-danger wa-close" onclick="closeWhatsAppCenter()" aria-label="Close">✕</button>
+            </div>
+
+            <div class="wa-grid">
+                <div class="form-group">
+                    <label>Borrower</label>
+                    <select id="waBorrowerSelect" onchange="handleWaBorrowerChange()"></select>
+                </div>
+                <div class="form-group">
+                    <label>Loan</label>
+                    <select id="waLoanSelect" onchange="handleWaLoanChange()"></select>
+                </div>
+                <div class="form-group">
+                    <label>EMI</label>
+                    <select id="waEmiSelect" onchange="handleWaEmiChange()"></select>
+                </div>
+                <div class="form-group">
+                    <label>Template</label>
+                    <select id="waTemplateSelect" onchange="generateWhatsAppMessage()">
+                        <option value="due">🔔 EMI Due Reminder</option>
+                        <option value="overdue">🔴 Overdue Reminder</option>
+                        <option value="payment">✅ Payment Received</option>
+                        <option value="closing">🔒 Loan Closing</option>
+                        <option value="custom">✍️ Custom Message</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="wa-contact-line">
+                <div><small>WhatsApp Number</small><strong id="waContactPreview">Not set</strong></div>
+                <input id="waPhoneInput" type="tel" inputmode="tel" placeholder="e.g. 9301270671" oninput="updateWaContactPreview()">
+            </div>
+
+            <div id="waContextSummary" class="wa-context-summary"></div>
+
+            <div class="form-group wa-message-field">
+                <label for="waMessageText">Message — send karne se pehle edit kar sakte hain</label>
+                <textarea id="waMessageText" rows="9" maxlength="2000" placeholder="Message yahan generate hoga..."></textarea>
+                <div class="wa-message-meta"><span id="waMessageChars">0 / 2000</span><span>WhatsApp manually open hoga; automatic sending nahi hogi.</span></div>
+            </div>
+
+            <div class="wa-actions">
+                <button class="btn btn-secondary" onclick="generateWhatsAppMessage()">✨ Regenerate</button>
+                <button class="btn btn-view" onclick="copyWhatsAppMessage()">📋 Copy</button>
+                <button class="btn btn-success" onclick="launchWhatsAppMessage()">💬 Open WhatsApp</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Phase 8: Advanced Dashboard -->
+    <div id="advancedDashboardModal" class="adv-dashboard-overlay no-print" style="display:none;" onclick="handleAdvancedDashboardOverlayClick(event)">
+        <div class="adv-dashboard-card" role="dialog" aria-modal="true" aria-labelledby="advancedDashboardTitle">
+            <div class="adv-dashboard-header">
+                <div>
+                    <h3 id="advancedDashboardTitle">📊 Advanced Dashboard</h3>
+                    <small id="advancedDashboardDate">Financial overview • Asia/Kolkata</small>
+                </div>
+                <div class="adv-dashboard-header-actions">
+                    <button class="btn btn-secondary" onclick="refreshAdvancedDashboard()">🔄 Refresh</button>
+                    <button class="btn btn-danger" onclick="closeAdvancedDashboard()" aria-label="Close">✕</button>
+                </div>
+            </div>
+
+            <div id="advancedDashboardLoading" class="adv-dashboard-loading">Dashboard calculate ho raha hai...</div>
+            <div id="advancedDashboardContent" style="display:none;">
+                <div class="adv-money-grid">
+                    <div class="adv-money-card"><small>Total Lent</small><strong id="advTotalLent">₹0</strong><span id="advTotalLoans">0 loans</span></div>
+                    <div class="adv-money-card success"><small>Total Collected</small><strong id="advCollected">₹0</strong><span id="advRecoveryRate">0% recovery</span></div>
+                    <div class="adv-money-card warning"><small>Outstanding</small><strong id="advOutstanding">₹0</strong><span>Open/defaulted loans</span></div>
+                    <div class="adv-money-card danger"><small>Overdue</small><strong id="advOverdue">₹0</strong><span id="advOverdueEmis">0 EMI</span></div>
+                    <div class="adv-money-card"><small>Collected Today</small><strong id="advTodayCollected">₹0</strong><span id="advTodayDue">₹0 due today</span></div>
+                    <div class="adv-money-card"><small>This Month Collected</small><strong id="advMonthCollected">₹0</strong><span id="advMonthDue">₹0 due this month</span></div>
+                </div>
+
+                <div class="adv-dashboard-two-col">
+                    <section class="adv-panel">
+                        <div class="adv-panel-head"><h4>💳 Loan Status</h4><small id="advActivePrincipal">₹0 active principal</small></div>
+                        <div id="advLoanStatusBars" class="adv-status-bars"></div>
+                    </section>
+                    <section class="adv-panel">
+                        <div class="adv-panel-head"><h4>📅 EMI Status</h4><small id="advLegacyEmis">0 year-not-set</small></div>
+                        <div id="advEmiStatusBars" class="adv-status-bars"></div>
+                    </section>
+                </div>
+
+                <section class="adv-panel">
+                    <div class="adv-panel-head"><h4>📈 Collection Trend — Last 6 Months</h4><small>Only non-reversed payment ledger entries</small></div>
+                    <div id="advCollectionTrend" class="adv-trend-chart"></div>
+                </section>
+
+                <div class="adv-dashboard-two-col">
+                    <section class="adv-panel">
+                        <div class="adv-panel-head"><h4>⏰ Due Snapshot</h4><button class="adv-link-btn" onclick="closeAdvancedDashboard();openDueCenter('overdue')">Open Due Center →</button></div>
+                        <div id="advDueSnapshot" class="adv-mini-grid"></div>
+                    </section>
+                    <section class="adv-panel">
+                        <div class="adv-panel-head"><h4>🧮 Monthly Movement</h4></div>
+                        <div id="advMonthlyMovement" class="adv-mini-grid"></div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Phase 9: Collection Calendar -->
+    <div id="collectionCalendarModal" class="calendar-overlay no-print" style="display:none;" onclick="handleCalendarOverlayClick(event)">
+        <div class="calendar-card" role="dialog" aria-modal="true" aria-labelledby="collectionCalendarTitle">
+            <div class="calendar-header">
+                <div>
+                    <h3 id="collectionCalendarTitle">🗓️ Collection Calendar</h3>
+                    <small id="calendarBusinessDate">Month-wise due & collection • Asia/Kolkata</small>
+                </div>
+                <div class="calendar-header-actions">
+                    <button class="btn btn-secondary" onclick="shiftCalendarMonth(-1)" aria-label="Previous month">←</button>
+                    <button class="calendar-month-label" id="calendarMonthLabel" onclick="goCalendarToday()">Month</button>
+                    <button class="btn btn-secondary" onclick="shiftCalendarMonth(1)" aria-label="Next month">→</button>
+                    <button class="btn btn-secondary" onclick="refreshCollectionCalendar()">🔄</button>
+                    <button class="btn btn-danger" onclick="closeCollectionCalendar()" aria-label="Close">✕</button>
+                </div>
+            </div>
+
+            <div id="calendarLoading" class="calendar-loading">Calendar load ho raha hai...</div>
+            <div id="calendarContent" style="display:none;">
+                <div class="calendar-summary-grid">
+                    <div class="calendar-summary-card"><small>Scheduled</small><strong id="calendarScheduled">₹0</strong><span id="calendarDueCount">0 EMI</span></div>
+                    <div class="calendar-summary-card success"><small>Collected</small><strong id="calendarCollected">₹0</strong><span id="calendarPaymentCount">0 payments</span></div>
+                    <div class="calendar-summary-card warning"><small>Remaining</small><strong id="calendarRemaining">₹0</strong><span>Selected month</span></div>
+                    <div class="calendar-summary-card danger"><small>Overdue Remaining</small><strong id="calendarOverdue">₹0</strong><span id="calendarLegacyCount">0 year-not-set</span></div>
+                </div>
+
+                <div class="calendar-weekdays" aria-hidden="true">
+                    <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+                </div>
+                <div id="calendarGrid" class="calendar-grid"></div>
+
+                <section class="calendar-day-panel">
+                    <div class="calendar-day-panel-head">
+                        <div>
+                            <h4 id="calendarSelectedDate">Select a date</h4>
+                            <small id="calendarSelectedSummary">Day-wise EMI and collection details</small>
+                        </div>
+                        <button class="btn btn-secondary" onclick="selectCalendarDate(null)">Clear</button>
+                    </div>
+                    <div id="calendarDayDetails" class="calendar-day-details">
+                        <div class="profile-muted">Calendar me kisi date par tap karein.</div>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Phase 10: Advanced Search & Filters -->
+    <div id="advancedSearchModal" class="search-pro-overlay no-print" style="display:none;" onclick="handleAdvancedSearchOverlayClick(event)">
+        <div class="search-pro-card" role="dialog" aria-modal="true" aria-labelledby="advancedSearchTitle">
+            <div class="search-pro-header">
+                <div>
+                    <h3 id="advancedSearchTitle">🔎 Advanced Search & Filters</h3>
+                    <small id="advancedSearchMeta">Borrower, Loan, EMI • secure admin search</small>
+                </div>
+                <div class="search-pro-header-actions">
+                    <button class="btn btn-secondary" onclick="resetAdvancedSearch()">↺ Reset</button>
+                    <button class="btn btn-danger" onclick="closeAdvancedSearch()" aria-label="Close">✕</button>
+                </div>
+            </div>
+
+            <div class="search-pro-query-row">
+                <input id="advancedSearchQuery" class="search-pro-input" type="search" maxlength="100" placeholder="Name, phone, Loan ID, EMI, address, Aadhaar/PAN..." onkeydown="handleAdvancedSearchKey(event)">
+                <button class="btn btn-view" onclick="runAdvancedSearch()">🔍 Search</button>
+            </div>
+
+            <div class="search-pro-filters">
+                <label><span>Result Type</span>
+                    <select id="advancedSearchType">
+                        <option value="all">All</option><option value="borrower">Borrowers</option><option value="loan">Loans</option><option value="emi">EMIs</option>
+                    </select>
+                </label>
+                <label><span>Loan Status</span>
+                    <select id="advancedSearchLoanStatus">
+                        <option value="all">All</option><option value="active">Active</option><option value="closed">Closed</option><option value="defaulted">Defaulted</option>
+                    </select>
+                </label>
+                <label><span>EMI Status</span>
+                    <select id="advancedSearchEmiStatus">
+                        <option value="all">All</option><option value="pending">Pending</option><option value="partial">Partial</option><option value="paid">Paid</option><option value="overdue">Overdue</option><option value="year-not-set">Year not set</option>
+                    </select>
+                </label>
+                <label><span>Due Window</span>
+                    <select id="advancedSearchDue">
+                        <option value="all">All dates</option><option value="overdue">Overdue</option><option value="today">Today</option><option value="next7">Next 7 days</option><option value="this-month">This month</option><option value="year-not-set">Year not set</option>
+                    </select>
+                </label>
+                <label><span>Minimum ₹</span><input id="advancedSearchMinAmount" type="number" min="0" step="1" placeholder="0"></label>
+                <label><span>Maximum ₹</span><input id="advancedSearchMaxAmount" type="number" min="0" step="1" placeholder="Any"></label>
+                <label><span>Sort</span>
+                    <select id="advancedSearchSort">
+                        <option value="name">Name / ID</option><option value="amount-high">Amount high → low</option><option value="amount-low">Amount low → high</option><option value="due-soon">Due date</option><option value="newest">Newest</option>
+                    </select>
+                </label>
+            </div>
+            <div class="search-pro-filter-note">Amount filter: Borrower = total principal • Loan = principal • EMI = remaining amount.</div>
+
+            <div id="advancedSearchLoading" class="search-pro-loading" style="display:none;">Search ho raha hai...</div>
+            <div id="advancedSearchSummary" class="search-pro-summary">Search ya filters choose karke results dekhein.</div>
+            <div id="advancedSearchResults" class="search-pro-results">
+                <div class="profile-muted">Advanced search ready.</div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Phase 11: Loan Settlement & Closing Center -->
+    <div id="settlementModal" class="settlement-overlay no-print" style="display:none;" onclick="handleSettlementOverlayClick(event)">
+        <div class="settlement-card" role="dialog" aria-modal="true" aria-labelledby="settlementTitle">
+            <div class="settlement-header">
+                <div><h3 id="settlementTitle">🤝 Loan Settlement & Closing</h3><small id="settlementSubtitle">Safe closing with audit history</small></div>
+                <button class="btn btn-danger" onclick="closeSettlementCenter()" aria-label="Close">✕</button>
+            </div>
+            <div id="settlementLoading" class="settlement-loading">Settlement details load ho rahi hain...</div>
+            <div id="settlementContent" style="display:none;">
+                <div class="settlement-summary-grid">
+                    <div><small>Scheduled EMI</small><strong id="settlementScheduled">₹0</strong></div>
+                    <div><small>Collected</small><strong id="settlementCollected">₹0</strong></div>
+                    <div class="warning"><small>Raw Remaining</small><strong id="settlementRawRemaining">₹0</strong></div>
+                    <div class="success"><small>Account Remaining</small><strong id="settlementAccountRemaining">₹0</strong></div>
+                </div>
+
+                <section id="settlementOpenSection" class="settlement-panel">
+                    <div class="settlement-panel-head"><div><h4>🔒 Settle & Close Loan</h4><small>Final payment jitna borrower ab dega; baki amount waiver/adjustment banega.</small></div></div>
+                    <div class="settlement-form-grid">
+                        <label><span>Closing Date</span><input id="settlementDate" type="date"></label>
+                        <label><span>Final Payment ₹</span><input id="settlementFinalPayment" type="number" min="0" step="1" oninput="updateSettlementPreview()"></label>
+                        <label><span>Payment Method</span><select id="settlementMethod"><option>Cash</option><option>UPI</option><option>Bank Transfer</option><option>Other</option></select></label>
+                        <label class="wide"><span>Closing / Settlement Note</span><textarea id="settlementNotes" rows="2" maxlength="1000" placeholder="Settlement reason, discussion, adjustment details..."></textarea></label>
+                    </div>
+                    <div class="settlement-preview"><span>Final payment <strong id="settlementPreviewPayment">₹0</strong></span><span>Waived / adjusted <strong id="settlementPreviewWaived">₹0</strong></span><span>After closing <strong>₹0 due</strong></span></div>
+                    <div class="settlement-confirm"><label>Confirm karne ke liye <b>SETTLE</b> type karein <input id="settlementConfirmText" autocomplete="off" placeholder="SETTLE"></label></div>
+                    <button id="settlementSubmitBtn" class="btn btn-danger" onclick="submitLoanSettlement()">🤝 Settle & Close Loan</button>
+                </section>
+
+                <section id="settlementClosedSection" class="settlement-panel closed" style="display:none;">
+                    <div class="settlement-panel-head"><div><h4>✅ Loan Settled / Closed</h4><small id="settlementClosedMeta">Closing record</small></div><button class="btn btn-view" onclick="printSettlementCertificate()">🧾 Closing Receipt</button></div>
+                    <div id="settlementClosedDetails" class="settlement-closed-details"></div>
+                    <div class="settlement-reopen-box">
+                        <h5>↩️ Reopen Settlement</h5><p>Reopen karne par settlement ke automatic closing payments reverse honge aur loan Active ho jayega.</p>
+                        <textarea id="settlementReopenNote" rows="2" maxlength="1000" placeholder="Reopen reason required..."></textarea>
+                        <input id="settlementReopenConfirm" autocomplete="off" placeholder="Type REOPEN">
+                        <button class="btn btn-warning" onclick="reopenLoanSettlement()">↩️ Reopen Loan</button>
+                    </div>
+                </section>
+
+                <section class="settlement-panel"><div class="settlement-panel-head"><div><h4>🕘 Settlement History</h4><small>Closed and reopened records remain auditable.</small></div></div><div id="settlementHistory" class="settlement-history"></div></section>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Phase 12: Recycle Bin & Safe Restore -->
+    <div id="recycleBinModal" class="recycle-overlay no-print" style="display:none;" onclick="handleRecycleOverlayClick(event)">
+        <div class="recycle-card" role="dialog" aria-modal="true" aria-labelledby="recycleBinTitle">
+            <div class="recycle-header">
+                <div><h3 id="recycleBinTitle">♻️ Recycle Bin</h3><small>Recover borrowers, loans and documents before permanent deletion.</small></div>
+                <div class="recycle-head-actions"><button class="btn btn-secondary" onclick="loadRecycleBin()">🔄 Refresh</button><button class="btn btn-danger" onclick="closeRecycleBin()" aria-label="Close">✕</button></div>
+            </div>
+            <div class="recycle-warning">Items yahan recoverable rehte hain. <b>Permanent Delete</b> sirf PURGE confirmation ke baad hota hai aur undo nahi hoga.</div>
+            <div id="recycleBinLoading" class="recycle-loading">Recycle Bin load ho raha hai...</div>
+            <div id="recycleBinSummary" class="recycle-summary"></div>
+            <div id="recycleBinList" class="recycle-list"></div>
+        </div>
+    </div>
+
+
+    <!-- Phase 13: Activity History & Audit Timeline -->
+    <div id="activityHistoryModal" class="audit-overlay no-print" style="display:none;" onclick="handleActivityOverlayClick(event)">
+        <div class="audit-card" role="dialog" aria-modal="true" aria-labelledby="activityHistoryTitle">
+            <div class="audit-header">
+                <div><h3 id="activityHistoryTitle">🕘 Activity History & Audit Timeline</h3><small id="activityHistoryMeta">Secure admin audit trail • Asia/Kolkata</small></div>
+                <div class="audit-head-actions">
+                    <button class="btn btn-secondary" onclick="refreshActivityHistory()">🔄 Refresh</button>
+                    <button class="btn btn-success" onclick="exportActivityHistoryCsv()">⬇️ CSV</button>
+                    <button class="btn btn-danger" onclick="closeActivityHistory()" aria-label="Close">✕</button>
+                </div>
+            </div>
+
+            <div class="audit-summary" id="activityHistorySummary">
+                <div><small>Filtered Events</small><strong id="auditTotal">0</strong></div>
+                <div><small>Last 24h</small><strong id="audit24h">0</strong></div>
+                <div><small>Last 7 Days</small><strong id="audit7d">0</strong></div>
+                <div><small>Payments</small><strong id="auditPayments">0</strong></div>
+                <div><small>Safety / Recycle</small><strong id="auditSafety">0</strong></div>
+            </div>
+
+            <div class="audit-periods">
+                <button class="audit-period active" data-period="30d" onclick="setActivityPeriod('30d',this)">30 Days</button>
+                <button class="audit-period" data-period="today" onclick="setActivityPeriod('today',this)">Today</button>
+                <button class="audit-period" data-period="7d" onclick="setActivityPeriod('7d',this)">7 Days</button>
+                <button class="audit-period" data-period="90d" onclick="setActivityPeriod('90d',this)">90 Days</button>
+                <button class="audit-period" data-period="all" onclick="setActivityPeriod('all',this)">All</button>
+            </div>
+
+            <div class="audit-filters">
+                <label class="wide"><span>Search</span><input id="auditSearch" type="search" maxlength="120" placeholder="Borrower, Loan ID, action, description..." onkeydown="handleActivitySearchKey(event)"></label>
+                <label><span>Category</span><select id="auditCategory" onchange="applyActivityFilters()"><option value="all">All Categories</option><option value="payment">💰 Payments</option><option value="borrower">👤 Borrowers</option><option value="loan">💳 Loans / Settlements</option><option value="document">📎 Documents</option><option value="recycle">♻️ Recycle</option><option value="safety">🛡️ Backup / Import</option><option value="system">⚙️ System</option></select></label>
+                <label><span>Action</span><select id="auditAction" onchange="applyActivityFilters()"><option value="all">All Actions</option></select></label>
+                <label><span>Entity</span><select id="auditEntity" onchange="applyActivityFilters()"><option value="all">All Entities</option></select></label>
+                <label><span>From</span><input id="auditFrom" type="date" onchange="applyActivityFilters()"></label>
+                <label><span>To</span><input id="auditTo" type="date" onchange="applyActivityFilters()"></label>
+                <div class="audit-filter-actions"><button class="btn btn-view" onclick="applyActivityFilters()">🔍 Apply</button><button class="btn btn-secondary" onclick="resetActivityFilters()">↺ Reset</button></div>
+            </div>
+
+            <div id="activityHistoryLoading" class="audit-loading">Audit history load ho rahi hai...</div>
+            <div id="activityTimeline" class="audit-timeline"></div>
+            <div id="activityHistoryEmpty" class="audit-empty" style="display:none;">Is filter me koi activity nahi mili.</div>
+            <div class="audit-pagination">
+                <button id="auditPrevBtn" class="btn btn-secondary" onclick="changeActivityPage(-1)">← Previous</button>
+                <span id="auditPageInfo">Page 1 / 1</span>
+                <button id="auditNextBtn" class="btn btn-secondary" onclick="changeActivityPage(1)">Next →</button>
             </div>
         </div>
     </div>

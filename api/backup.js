@@ -8,25 +8,29 @@ function cleanLabel(value, fallback = null) {
 }
 
 async function fullBackupPayload() {
-    const [borrowersRes, loansRes, emisRes, paymentsRes, documentsRes] = await Promise.all([
+    const [borrowersRes, loansRes, emisRes, settlementsRes, paymentsRes, documentsRes, recycleRes] = await Promise.all([
         supabaseRequest('borrowers?select=*&order=created_at.asc'),
         supabaseRequest('loans?select=*&order=created_at.asc'),
         supabaseRequest('emis?select=*&order=loan_id.asc,installment_number.asc'),
+        supabaseRequest('loan_settlements?select=*&order=settlement_date.asc,created_at.asc'),
         supabaseRequest('emi_payments?select=*&order=payment_date.asc,created_at.asc'),
-        supabaseRequest('documents?select=*&order=uploaded_at.asc')
+        supabaseRequest('documents?select=*&order=uploaded_at.asc'),
+        supabaseRequest('recycle_bin?select=*&order=deleted_at.asc')
     ]);
 
     return {
         format: 'abhitools-backup',
-        version: 3,
+        version: 5,
         created_at: new Date().toISOString(),
-        note: 'Full AbhiTools data backup including EMI payment history. Document records contain metadata/paths; storage file bytes are not embedded.',
+        note: 'Full AbhiTools data backup including EMI payment and loan settlement history. Document records contain metadata/paths; storage file bytes are not embedded. Recycle Bin state is included.',
         data: {
             borrowers: borrowersRes.data || [],
             loans: loansRes.data || [],
             emis: emisRes.data || [],
+            loan_settlements: settlementsRes.data || [],
             emi_payments: paymentsRes.data || [],
-            documents: documentsRes.data || []
+            documents: documentsRes.data || [],
+            recycle_bin: recycleRes.data || []
         }
     };
 }
