@@ -3014,7 +3014,7 @@ async function markReminderContacted(emiId) {
 
 function openReminderLegacySearch() {
     closeReminderCenter();
-    openAdvancedSearch({ type:'emi', due:'year-not-set' });
+    openDataQualityCenter('dates');
 }
 
 
@@ -3674,4 +3674,270 @@ function printReportsCenter() {
         <h2>Borrower Performance</h2><table><thead><tr><th>Borrower</th><th>Loans</th><th class="right">Principal</th><th class="right">Collected</th><th class="right">Outstanding</th><th class="right">Overdue</th></tr></thead><tbody>${borrowerRows}</tbody></table>
         <p class="note">Recovery rate: ${Number(s.recoveryRate||0)}%. Settlement payment: ${reportsMoney(s.periodSettlementPayment)}. Waived: ${reportsMoney(s.periodWaivedAmount)}. Legacy year-not-set EMI: ${Number(s.yearNotSetCount||0)} (${reportsMoney(s.yearNotSetAmount)} remaining). Unknown legacy dates are never guessed.</p>
     `);
+}
+
+// ==========================================
+// PHASE 18 — DATA QUALITY & LEGACY CLEANUP
+// ==========================================
+let dataQualityData = null;
+let dataQualitySelectedLoanId = null;
+
+function dqMoney(value) {
+    return `₹${Number(value || 0).toLocaleString('en-IN')}`;
+}
+
+function openDataQualityCenter(initialFilter = 'all') {
+    const modal = document.getElementById('dataQualityModal');
+    if (!modal) return;
+    const search = document.getElementById('dqSearch');
+    const filter = document.getElementById('dqFilter');
+    if (search) search.value = '';
+    if (filter) filter.value = initialFilter || 'all';
+    closeDataQualityReview();
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    loadDataQualityCenter();
+}
+
+function closeDataQualityCenter() {
+    const modal = document.getElementById('dataQualityModal');
+    if (modal) modal.style.display = 'none';
+    document.body.style.overflow = '';
+    dataQualitySelectedLoanId = null;
+}
+
+function handleDataQualityOverlayClick(event) {
+    if (event?.target?.id === 'dataQualityModal') closeDataQualityCenter();
+}
+
+function closeDataQualityReview() {
+    const panel = document.getElementById('dqReviewPanel');
+    if (panel) panel.style.display = 'none';
+    dataQualitySelectedLoanId = null;
+}
+
+function setDataQualityFilter(value) {
+    const filter = document.getElementById('dqFilter');
+    if (filter) filter.value = value || 'all';
+    renderDataQualityList();
+}
+
+function dqSetText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+}
+
+async function loadDataQualityCenter() {
+    const loading = document.getElementById('dqLoading');
+    if (loading) { loading.style.display = 'block'; loading.textContent = 'Data quality audit load ho raha hai...'; }
+    try {
+        const response = await adminFetch('/api/dashboard?mode=data-quality');
+        const data = await response.json();
+        dataQualityData = data;
+        const s = data?.summary || {};
+        dqSetText('dqMissingEmis', Number(s.missing_emi_dates || 0));
+        dqSetText('dqAffectedLoans', Number(s.affected_loans || 0));
+        dqSetText('dqMissingLoanYear', Number(s.missing_loan_year || 0));
+        dqSetText('dqMissingLoanDate', Number(s.missing_loan_date || 0));
+        dqSetText('dqSequenceGaps', Number(s.loans_with_sequence_gaps || 0));
+        dqSetText('dqInvalidSource', Number(s.invalid_source_dates || 0));
+        dqSetText('dataQualityMeta', `${Number(s.affected_loans || 0)} affected loans • ${Number(s.missing_emi_dates || 0)} EMI dates need review • No guessing`);
+        renderDataQualityList();
+        if (loading) loading.style.display = 'none';
+    } catch (err) {
+        if (loading) { loading.style.display = 'block'; loading.textContent = `❌ ${err.message || 'Data quality audit load nahi hua.'}`; }
+    }
+}
+
+function dataQualityFilteredItems() {
+    let rows = Array.isArray(dataQualityData?.items) ? [...dataQualityData.items] : [];
+    const q = String(document.getElementById('dqSearch')?.value || '').trim().toLowerCase();
+    const filter = String(document.getElementById('dqFilter')?.value || 'all');
+    if (filter === 'dates') rows = rows.filter(x => Number(x.missing_due_count || 0) > 0);
+    if (filter === 'loan-meta') rows = rows.filter(x => !x.loan_year || !x.loan_date);
+    if (filter === 'gaps') rows = rows.filter(x => Array.isArray(x.installment_gaps) && x.installment_gaps.length);
+    if (filter === 'invalid') rows = rows.filter(x => Number(x.invalid_source_count || 0) > 0);
+    if (q) rows = rows.filter(x => `${x.borrower_name || ''} ${x.loan_code || ''}`.toLowerCase().includes(q));
+    return rows;
+}
+
+function renderDataQualityList() {
+    const list = document.getElementById('dqList');
+    if (!list) return;
+    const rows = dataQualityFilteredItems();
+    if (!rows.length) {
+        list.innerHTML = '<div class="dq-empty">✅ Is filter me koi data-quality issue nahi mila.</div>';
+        return;
+    }
+    list.innerHTML = rows.map(item => {
+        const tags = [];
+        if (item.missing_due_count) tags.push(`<span class="warn">${Number(item.missing_due_count)} EMI date missing</span>`);
+        if (!item.loan_year) tags.push('<span>Loan year missing</span>');
+        if (!item.loan_date) tags.push('<span>Loan date missing</span>');
+        if (item.installment_gaps?.length) tags.push(`<span class="gap">Installment gap: ${item.installment_gaps.map(Number).join(', ')}</span>`);
+        if (item.invalid_source_count) tags.push(`<span class="danger">${Number(item.invalid_source_count)} invalid day/month</span>`);
+        return `<article class="dq-item ${item.invalid_source_count ? 'blocked' : ''}">
+            <div class="dq-item-main"><div class="dq-item-title"><strong>${escapeHtml(item.borrower_name || 'Unknown')}</strong><b>${escapeHtml(item.loan_code || 'Loan')}</b></div>
+            <div class="dq-item-meta">${dqMoney(item.amount)} • ${escapeHtml(item.status || 'active')} • ${item.emis?.length || 0} EMI rows</div>
+            <div class="dq-tags">${tags.join('')}</div></div>
+            <button class="btn ${item.invalid_source_count ? 'btn-warning' : 'btn-view'}" onclick="openDataQualityReview('${item.id}')">${item.invalid_source_count ? '⚠️ Review Blocker' : '🧩 Review & Fix'}</button>
+        </article>`;
+    }).join('');
+}
+
+function dqSelectedLoan() {
+    return (dataQualityData?.items || []).find(x => x.id === dataQualitySelectedLoanId) || null;
+}
+
+function openDataQualityReview(loanId) {
+    const item = (dataQualityData?.items || []).find(x => x.id === loanId);
+    if (!item) return;
+    dataQualitySelectedLoanId = loanId;
+    const panel = document.getElementById('dqReviewPanel');
+    if (!panel) return;
+    dqSetText('dqReviewTitle', `${item.borrower_name || 'Unknown'} • ${item.loan_code || 'Loan'}`);
+    dqSetText('dqReviewMeta', `${Number(item.missing_due_count || 0)} missing EMI date(s) • Existing month/day locked`);
+
+    const loanYear = document.getElementById('dqLoanYear');
+    const loanDate = document.getElementById('dqLoanDate');
+    const firstYear = document.getElementById('dqFirstYear');
+    const note = document.getElementById('dqNote');
+    if (loanYear) { loanYear.value = item.loan_year || ''; loanYear.disabled = Boolean(item.loan_year); }
+    if (loanDate) { loanDate.value = item.loan_date || ''; loanDate.disabled = Boolean(item.loan_date); }
+    if (firstYear) firstYear.value = '';
+    if (note) note.value = '';
+
+    const alerts = [];
+    if (item.installment_gaps?.length) alerts.push(`<div class="dq-alert gap"><b>Sequence gap detected:</b> EMI #${item.installment_gaps.map(Number).join(', #')} record(s) database me nahi hain. Phase 18 inhe create nahi karega.</div>`);
+    if (item.invalid_source_count) alerts.push(`<div class="dq-alert danger"><b>Apply blocked:</b> ${Number(item.invalid_source_count)} legacy EMI row me invalid day/month hai. Pehle source schedule ko manually correct karna hoga.</div>`);
+    if (!item.loan_year || !item.loan_date) alerts.push('<div class="dq-alert info">Loan year/date optional hain. Sirf tab bharein jab aapke paas verified information ho. Blank chhodna allowed hai.</div>');
+    document.getElementById('dqReviewAlerts').innerHTML = alerts.join('');
+
+    const body = document.getElementById('dqEmiBody');
+    body.innerHTML = (item.emis || []).map(e => {
+        if (!e.missing_date) {
+            return `<tr><td>#${Number(e.installment_number || 0)}</td><td>${Number(e.due_day || 0)} ${escapeHtml(e.due_month || '')}</td><td>${dqMoney(e.amount)}</td><td>${e.due_year || '-'}</td><td>${escapeHtml(String(e.due_date || '-').slice(0,10))}</td><td><span class="dq-ok">Existing</span></td></tr>`;
+        }
+        const preset = e.due_year || (e.due_date ? String(e.due_date).slice(0,4) : '');
+        const disabled = !e.source_date_valid ? 'disabled' : '';
+        return `<tr class="dq-missing-row" data-emi-id="${e.id}" data-month="${escapeHtml(e.due_month || '')}" data-day="${Number(e.due_day || 0)}">
+            <td>#${Number(e.installment_number || 0)}</td><td>${Number(e.due_day || 0)} ${escapeHtml(e.due_month || '')}</td><td>${dqMoney(e.amount)}</td>
+            <td><input class="dq-year-input" type="number" min="2000" max="2200" value="${escapeHtml(preset)}" ${disabled} oninput="updateDataQualityPreview()"></td>
+            <td><span class="dq-date-preview">${e.source_date_valid ? '—' : 'Invalid source'}</span></td>
+            <td>${e.source_date_valid ? '<span class="dq-needs">Needs review</span>' : '<span class="dq-bad">Blocked</span>'}</td>
+        </tr>`;
+    }).join('');
+
+    const applyBtn = document.getElementById('dqApplyBtn');
+    if (applyBtn) applyBtn.disabled = Boolean(item.invalid_source_count);
+    panel.style.display = 'block';
+    updateDataQualityPreview();
+    panel.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function dqIsoFor(day, month, year) {
+    const m = monthOrder.indexOf(String(month || '').toUpperCase()) + 1;
+    const d = Number(day);
+    const y = Number(year);
+    if (!m || !Number.isInteger(d) || d < 1 || !Number.isInteger(y) || y < 2000 || y > 2200) return null;
+    const date = new Date(Date.UTC(y, m - 1, d));
+    if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return null;
+    return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+function fillDataQualitySequence() {
+    const item = dqSelectedLoan();
+    if (!item) return;
+    let year = Number.parseInt(document.getElementById('dqFirstYear')?.value, 10);
+    if (!Number.isInteger(year) || year < 2000 || year > 2200) return alert('Pehle first visible EMI ka verified year enter karein.');
+    const rows = [...document.querySelectorAll('#dqEmiBody tr.dq-missing-row')];
+    if (!rows.length) return alert('Is loan me EMI date gap nahi hai.');
+    let previousMonth = null;
+    for (const row of rows) {
+        const currentMonth = monthOrder.indexOf(String(row.dataset.month || '').toUpperCase());
+        if (currentMonth < 0) continue;
+        if (previousMonth !== null && currentMonth < previousMonth) year += 1;
+        const input = row.querySelector('.dq-year-input');
+        if (input && !input.disabled) input.value = year;
+        previousMonth = currentMonth;
+    }
+    updateDataQualityPreview();
+}
+
+function updateDataQualityPreview() {
+    const item = dqSelectedLoan();
+    if (!item) return;
+    const rows = [...document.querySelectorAll('#dqEmiBody tr.dq-missing-row')];
+    let valid = true;
+    let reviewed = 0;
+    for (const row of rows) {
+        const input = row.querySelector('.dq-year-input');
+        const preview = row.querySelector('.dq-date-preview');
+        if (!input || input.disabled) { valid = false; continue; }
+        const iso = dqIsoFor(Number(row.dataset.day), row.dataset.month, Number(input.value));
+        if (preview) preview.textContent = iso || 'Invalid / missing year';
+        input.classList.toggle('invalid', !iso);
+        if (!iso) valid = false;
+        else reviewed += 1;
+    }
+    const loanYear = document.getElementById('dqLoanYear')?.value || '';
+    const loanDate = document.getElementById('dqLoanDate')?.value || '';
+    if (loanYear && loanDate && Number(loanYear) !== Number(String(loanDate).slice(0,4))) valid = false;
+    const status = document.getElementById('dqPreviewStatus');
+    if (status) {
+        if (item.invalid_source_count) status.textContent = 'Apply blocked: invalid legacy day/month detected.';
+        else if (rows.length && reviewed !== rows.length) status.textContent = `${reviewed}/${rows.length} EMI years reviewed. Har missing EMI ka year required hai.`;
+        else if (loanYear && loanDate && Number(loanYear) !== Number(String(loanDate).slice(0,4))) status.textContent = 'Loan year aur exact loan date ka year match hona chahiye.';
+        else status.textContent = rows.length ? `✅ ${reviewed} EMI dates ready for final confirmation.` : '✅ EMI dates complete. Optional loan metadata can be saved.';
+    }
+    const applyBtn = document.getElementById('dqApplyBtn');
+    if (applyBtn) applyBtn.disabled = Boolean(item.invalid_source_count) || !valid;
+}
+
+async function applyDataQualityReview() {
+    const item = dqSelectedLoan();
+    if (!item) return;
+    if (item.invalid_source_count) return alert('Invalid legacy day/month ke karan apply blocked hai.');
+
+    const updates = [];
+    for (const row of document.querySelectorAll('#dqEmiBody tr.dq-missing-row')) {
+        const input = row.querySelector('.dq-year-input');
+        const year = Number.parseInt(input?.value, 10);
+        const iso = dqIsoFor(Number(row.dataset.day), row.dataset.month, year);
+        if (!iso) return alert(`EMI row ka reviewed year/date valid nahi hai: ${row.dataset.day} ${row.dataset.month}`);
+        updates.push({ emi_id: row.dataset.emiId, due_year: year });
+    }
+
+    const loanYearRaw = document.getElementById('dqLoanYear')?.value || '';
+    const loanDate = document.getElementById('dqLoanDate')?.value || '';
+    const loanYear = loanYearRaw ? Number.parseInt(loanYearRaw, 10) : null;
+    if (loanYear && (loanYear < 2000 || loanYear > 2200)) return alert('Loan year valid nahi hai.');
+    if (loanDate && loanYear && Number(loanDate.slice(0,4)) !== loanYear) return alert('Loan year aur exact loan date ka year match hona chahiye.');
+    if (!updates.length && !loanYear && !loanDate) return alert('Save karne ke liye koi reviewed change nahi hai.');
+
+    const typed = prompt(`Safety confirmation\n\n${item.borrower_name} • ${item.loan_code}\n${updates.length} EMI date(s) update hongi. Apply se pehle automatic backup banega.\n\nType APPLY DATES to continue:`);
+    if (String(typed || '').trim().toUpperCase() !== 'APPLY DATES') return;
+
+    const applyBtn = document.getElementById('dqApplyBtn');
+    if (applyBtn) { applyBtn.disabled = true; applyBtn.textContent = 'Applying safely...'; }
+    try {
+        const response = await adminFetch('/api/dashboard?mode=data-quality', {
+            method:'POST', headers:{ 'Content-Type':'application/json' },
+            body:JSON.stringify({
+                action:'apply_cleanup', loan_id:item.id, updates,
+                loan_year:loanYear, loan_date:loanDate || null,
+                note:document.getElementById('dqNote')?.value || '', confirm:'APPLY DATES'
+            })
+        });
+        const result = await response.json();
+        alert(`✅ Cleanup applied safely.\nUpdated EMI dates: ${Number(result.updated_emis || 0)}\nBackup snapshot: ${result.snapshot_id || 'created'}`);
+        closeDataQualityReview();
+        await loadAllData();
+        await loadDataQualityCenter();
+        await refreshReminderBadge(true);
+    } catch (err) {
+        alert(`Cleanup apply nahi hua: ${err.message}`);
+    } finally {
+        if (applyBtn) { applyBtn.textContent = '✅ Apply Reviewed Cleanup'; updateDataQualityPreview(); }
+    }
 }

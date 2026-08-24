@@ -1,0 +1,65 @@
+ABHITOOLS PHASE 18 — DATA QUALITY & LEGACY CLEANUP CENTER
+Date: 2026-08-24
+
+Scope
+- Admin-only Data Quality & Legacy Cleanup Center.
+- No guessed years/dates. Existing legacy due_day/due_month remain the source schedule.
+- Review is per loan.
+- First visible EMI year can be entered manually; Fill Sequence only fills year inputs and rolls year at month rollover.
+- Every generated date is previewed row-by-row before apply.
+- Existing installment-number gaps are flagged; Phase 18 never creates missing EMI rows.
+- Optional verified loan_year and exact loan_date can be filled manually.
+- Existing non-null loan year/date cannot be overwritten by this cleanup tool.
+
+Safety
+- Apply requires typed confirmation: APPLY DATES.
+- All missing EMI dates for a loan are reviewed together.
+- Server validates EMI ownership, years, month/day and real calendar dates.
+- Apply is atomic through public.abhi_apply_legacy_due_dates(...).
+- Automatic full DB snapshot is created in the same transaction before data changes.
+- Due statuses are refreshed after successful date cleanup.
+- Successful cleanup writes LEGACY_DATE_CLEANUP to activity_log.
+- RPC execution is revoked from public/anon/authenticated and granted only to service_role.
+
+Current legacy audit before any user cleanup
+- Visible loans: 24
+- Missing EMI due year/date: 97
+- Missing loan year: 24
+- Missing exact loan date: 24
+- Loans with installment-number gaps: 6
+- No source rows were modified during build/testing.
+
+Vercel architecture
+- New internal route: server_routes/data_quality.js
+- Routed through existing /api/dashboard?mode=data-quality
+- No new Vercel function; api/*.js count remains exactly 12.
+
+Supabase migrations already applied to abhishek-management
+- phase18_legacy_data_quality_cleanup
+- phase18_optional_loan_date_cleanup
+- phase18_metadata_only_cleanup
+
+Testing
+- Rollback-only real DB cleanup test passed.
+- After rollback: selected loan year/date remained null and all tested EMI dates remained missing.
+- Data integrity after tests: 5 borrowers / 24 loans / 97 EMIs / 0 documents / 0 recycle items / 0 active payments / 97 legacy missing dates.
+- Supabase Security Advisor: 0 issues.
+- Data-quality API GET/POST/auth mock smoke passed.
+- HTML duplicate IDs: none.
+- Inline handler wiring: clean.
+- All JS syntax checks passed.
+- Secret scan clean.
+- git diff --check passed.
+- Vercel API function count: 12.
+
+GitHub update files
+- admin.html
+- admin_script.js
+- style.css
+- api/dashboard.js
+- server_routes/activity.js
+- server_routes/data_quality.js
+- supabase/migrations/20260824115500_phase18_legacy_data_quality_cleanup.sql
+- supabase/migrations/20260824115800_phase18_optional_loan_date_cleanup.sql
+- supabase/migrations/20260824120200_phase18_metadata_only_cleanup.sql
+- ABHITOOLS_PHASE18_BUILD_NOTES.txt

@@ -2,7 +2,7 @@ import { noStore, requireAdmin, sendServerError, supabaseRequest } from '../serv
 
 const TIME_ZONE = 'Asia/Kolkata';
 const VALID_PERIODS = new Set(['all', 'today', '7d', '30d', '90d']);
-const VALID_CATEGORIES = new Set(['all', 'payment', 'borrower', 'loan', 'document', 'recycle', 'safety', 'reminder', 'system']);
+const VALID_CATEGORIES = new Set(['all', 'payment', 'borrower', 'loan', 'document', 'recycle', 'safety', 'reminder', 'quality', 'system']);
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 function businessDate() {
@@ -27,6 +27,7 @@ function subtractDays(iso, days) {
 function categoryFor(action = '', table = '') {
     const a = String(action).toUpperCase();
     const t = String(table).toLowerCase();
+    if (a === 'LEGACY_DATE_CLEANUP' || a.includes('DATA_QUALITY')) return 'quality';
     if (a.includes('REMINDER')) return 'reminder';
     if (a.includes('PAYMENT') || t === 'emi_payments') return 'payment';
     if (a.includes('RECYCLE') || a.includes('PURGE') || t === 'recycle_bin') return 'recycle';
@@ -38,7 +39,7 @@ function categoryFor(action = '', table = '') {
 }
 
 function iconFor(category) {
-    return ({ payment:'💰', borrower:'👤', loan:'💳', document:'📎', recycle:'♻️', safety:'🛡️', reminder:'🔔', system:'⚙️' })[category] || '🕘';
+    return ({ payment:'💰', borrower:'👤', loan:'💳', document:'📎', recycle:'♻️', safety:'🛡️', reminder:'🔔', quality:'🧩', system:'⚙️' })[category] || '🕘';
 }
 
 function labelFor(action = '') {
@@ -49,7 +50,7 @@ function labelFor(action = '') {
         UPLOAD_DOCUMENT:'Document Uploaded', RECYCLE_BORROWER:'Borrower Recycled', RECYCLE_LOAN:'Loan Recycled', RECYCLE_DOCUMENT:'Document Recycled',
         RESTORE_RECYCLE_ITEM:'Recycle Item Restored', PURGE_RECYCLE_ITEM:'Recycle Item Permanently Deleted',
         CREATE_BACKUP:'Backup Created', RESTORE_BACKUP:'Backup Restored', SMART_IMPORT:'Smart Import', LEGACY_IMPORT:'Legacy Import',
-        CONTACT_REMINDER:'Reminder Contacted'
+        CONTACT_REMINDER:'Reminder Contacted', LEGACY_DATE_CLEANUP:'Legacy Data Quality Cleanup'
     };
     const key = String(action || '').toUpperCase();
     return labels[key] || key.split('_').filter(Boolean).map(w => w[0] + w.slice(1).toLowerCase()).join(' ') || 'Activity';
