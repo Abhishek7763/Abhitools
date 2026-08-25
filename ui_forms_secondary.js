@@ -8,11 +8,49 @@
 
     const body = document.body;
     const mobileMq = window.matchMedia('(max-width: 760px)');
+    const LOAN_CODE_MAX_LENGTH = 80;
 
     function visible(el) {
         if (!el) return false;
         const style = getComputedStyle(el);
         return style.display !== 'none' && style.visibility !== 'hidden';
+    }
+
+    function normalizeLoanCode(value) {
+        return String(value ?? '').trim();
+    }
+
+    function ensureLoanCodeField() {
+        const existing = document.getElementById('loanCode');
+        if (existing) return existing;
+
+        const amountInput = document.getElementById('loanAmount');
+        const amountGroup = amountInput?.closest('.form-group');
+        const coreGrid = amountGroup?.parentElement;
+        if (!amountGroup || !coreGrid) return null;
+
+        const group = document.createElement('div');
+        group.className = 'form-group ui-loan-code-field';
+
+        const label = document.createElement('label');
+        label.htmlFor = 'loanCode';
+        label.textContent = '🆔 Loan ID *';
+
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.id = 'loanCode';
+        input.maxLength = LOAN_CODE_MAX_LENGTH;
+        input.placeholder = 'e.g. APP-LOAN-123';
+        input.autocomplete = 'off';
+        input.spellcheck = false;
+        input.setAttribute('autocapitalize', 'none');
+        input.setAttribute('autocorrect', 'off');
+        input.setAttribute('aria-label', 'Loan ID');
+        input.title = 'Dusre loan app ki exact Loan ID yahan enter karein.';
+
+        group.append(label, input);
+        coreGrid.insertBefore(group, amountGroup);
+        return input;
     }
 
     function markPrimaryForm(containerId, kind) {
@@ -48,6 +86,7 @@
             const candidates = Array.from(container.children).filter(el => el.tagName === 'DIV');
             const coreGrid = candidates.find(el => String(el.getAttribute('style') || '').includes('grid-template-columns:1fr 1fr 1fr'));
             coreGrid?.classList.add('ui-loan-core-fields');
+            ensureLoanCodeField();
             const actionRow = candidates.find(el => Array.from(el.querySelectorAll('button')).some(btn => String(btn.getAttribute('onclick') || '').includes('saveLoan')));
             actionRow?.classList.add('ui-form-action-bar');
             document.getElementById('dynamicEmiContainer')?.classList.add('ui-emi-editor-list');
@@ -66,6 +105,74 @@
             });
             row.querySelector('button')?.setAttribute('aria-label', `Remove EMI ${index + 1}`);
         });
+    }
+
+    function installLoanCodeIntegration() {
+        if (window.__ABHITOOLS_MANUAL_LOAN_CODE__) return;
+        if (typeof adminFetch !== 'function' || typeof showForm !== 'function' || typeof editLoan !== 'function') return;
+
+        const coreAdminFetch = adminFetch;
+        const coreShowForm = showForm;
+        const coreEditLoan = editLoan;
+
+        showForm = function(...args) {
+            const result = coreShowForm.apply(this, args);
+            const input = ensureLoanCodeField();
+            if (input) {
+                input.disabled = false;
+                input.value = '';
+                input.placeholder = 'e.g. APP-LOAN-123';
+            }
+            return result;
+        };
+
+        editLoan = async function(loanId) {
+            const result = await coreEditLoan.call(this, loanId);
+            const input = ensureLoanCodeField();
+            const loan = typeof loans !== 'undefined' && Array.isArray(loans)
+                ? loans.find(row => row.id === loanId)
+                : null;
+            if (input) {
+                input.disabled = false;
+                input.value = normalizeLoanCode(loan?.loan_code);
+                input.placeholder = 'e.g. APP-LOAN-123';
+            }
+            return result;
+        };
+
+        adminFetch = async function(url, options = {}) {
+            const target = String(url || '');
+            const isLoanAdd = target === '/api/loans?action=add';
+            const isLoanUpdate = target === '/api/loans?action=update';
+            if (!isLoanAdd && !isLoanUpdate) return coreAdminFetch(url, options);
+
+            const input = ensureLoanCodeField();
+            if (!input) throw new Error('Loan ID field load nahi hui. Page refresh karke phir try karein.');
+
+            const loanCode = normalizeLoanCode(input.value);
+            if (!loanCode) throw new Error('Loan ID required hai. Dusre app wali exact Loan ID enter karein.');
+            if (loanCode.length > LOAN_CODE_MAX_LENGTH || /[\u0000-\u001f\u007f]/.test(loanCode)) {
+                throw new Error(`Loan ID 1-${LOAN_CODE_MAX_LENGTH} normal characters me honi chahiye.`);
+            }
+
+            let payload;
+            try {
+                payload = JSON.parse(String(options?.body || '{}'));
+            } catch {
+                throw new Error('Loan save request invalid hai. Page refresh karke phir try karein.');
+            }
+
+            const currentLoanId = String(payload.loan_id || document.getElementById('editLoanId')?.value || '').trim();
+            const duplicateActive = typeof loans !== 'undefined' && Array.isArray(loans)
+                ? loans.some(row => row.id !== currentLoanId && normalizeLoanCode(row.loan_code) === loanCode)
+                : false;
+            if (duplicateActive) throw new Error('Ye Loan ID kisi aur loan me already use ho rahi hai.');
+
+            payload.loan_code = loanCode;
+            return coreAdminFetch(url, { ...options, body: JSON.stringify(payload) });
+        };
+
+        window.__ABHITOOLS_MANUAL_LOAN_CODE__ = true;
     }
 
     function syncPrimaryFormState() {
@@ -171,6 +278,7 @@
 
     markPrimaryForm('borrowerFormContainer', 'borrower');
     markPrimaryForm('loanFormContainer', 'loan');
+    installLoanCodeIntegration();
     annotateSecondaryScreens();
     improveIconButtons();
     syncPrimaryFormState();

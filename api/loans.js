@@ -2,6 +2,7 @@ import { isValidAdminSession, noStore, requireAdmin, sendServerError, supabaseRe
 
 const MONTHS = { JAN:1, FEB:2, MAR:3, APR:4, MAY:5, JUN:6, JUL:7, AUG:8, SEP:9, OCT:10, NOV:11, DEC:12 };
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const LOAN_CODE_MAX_LENGTH = 80;
 
 function requestError(message, status = 400) {
     return Object.assign(new Error(message), { status, publicMessage: message });
@@ -12,6 +13,20 @@ function validIsoDate(value) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
     const parsed = new Date(`${date}T00:00:00Z`);
     return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date ? date : null;
+}
+
+function normalizeLoanCode(value) {
+    const code = String(value ?? '').trim();
+    if (!code || code.length > LOAN_CODE_MAX_LENGTH || /[\u0000-\u001f\u007f]/.test(code)) return null;
+    return code;
+}
+
+async function assertLoanCodeAvailable(loanCode, excludeLoanId = null) {
+    const { data } = await supabaseRequest('loans?select=id,loan_code');
+    const duplicate = (data || []).find(row => row.id !== excludeLoanId && String(row.loan_code ?? '').trim() === loanCode);
+    if (duplicate) {
+        throw requestError('Ye Loan ID pehle se kisi loan me use ho rahi hai, Recycle Bin records me bhi duplicate allowed nahi hai.', 409);
+    }
 }
 
 function validDateParts(day, month, year) {
@@ -140,23 +155,25 @@ export default async function handler(req, res) {
 
         if (req.method === 'POST' && action === 'add') {
             const { borrower_id, loan_code, amount, interest_rate, loan_date, loan_year, notes, emis = [] } = req.body || {};
+            const loanCode = normalizeLoanCode(loan_code);
             const amountNum = Number(amount);
             const yearNum = Number(loan_year);
             const interestNum = interest_rate === '' || interest_rate === null || interest_rate === undefined ? 0 : Number(interest_rate);
             const loanDate = loan_date ? validIsoDate(loan_date) : null;
-            if (!UUID_RE.test(String(borrower_id || '').trim()) || !String(loan_code || '').trim() || !Number.isInteger(amountNum) || amountNum <= 0 || !Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2200) {
-                return res.status(400).json({ error: 'Borrower, loan code, positive amount aur valid year required hain.' });
+            if (!UUID_RE.test(String(borrower_id || '').trim()) || !loanCode || !Number.isInteger(amountNum) || amountNum <= 0 || !Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2200) {
+                return res.status(400).json({ error: `Borrower, 1-${LOAN_CODE_MAX_LENGTH} character Loan ID, positive amount aur valid year required hain.` });
             }
             if (loan_date && !loanDate) return res.status(400).json({ error: 'Loan date valid calendar date honi chahiye.' });
             if (loanDate && Number(loanDate.slice(0, 4)) !== yearNum) return res.status(400).json({ error: 'Loan date aur loan year ka saal same hona chahiye.' });
             if (!Number.isFinite(interestNum) || interestNum < 0) return res.status(400).json({ error: 'Interest rate valid non-negative number honi chahiye.' });
+            await assertLoanCodeAvailable(loanCode);
 
             // Validate the complete schedule before creating the loan. Invalid input must never leave a partial loan row behind.
             const validatedEmiRows = buildNewEmiRows('__pending_loan__', Array.isArray(emis) ? emis : []);
 
             const { data: loanData } = await supabaseRequest('loans', 'POST', {
                 borrower_id,
-                loan_code: String(loan_code).trim(),
+                loan_code: loanCode,
                 amount: amountNum,
                 interest_rate: interestNum,
                 loan_date: loanDate,
@@ -177,14 +194,20 @@ export default async function handler(req, res) {
         }
 
         if (req.method === 'PUT' && action === 'update') {
-            const { loan_id, amount, interest_rate, loan_date, loan_year, notes, status, emis } = req.body || {};
+            const { loan_id, loan_code, amount, interest_rate, loan_date, loan_year, notes, status, emis } = req.body || {};
             if (!loan_id) return res.status(400).json({ error: 'loan_id required' });
-            const { data: visibleLoanRows } = await supabaseRequest(`loans?id=eq.${encodeURIComponent(loan_id)}&deleted_at=is.null&select=id,loan_date,loan_year&limit=1`);
+            const { data: visibleLoanRows } = await supabaseRequest(`loans?id=eq.${encodeURIComponent(loan_id)}&deleted_at=is.null&select=id,loan_code,loan_date,loan_year&limit=1`);
             if (!visibleLoanRows?.length) return res.status(404).json({ error: 'Loan not found or is in Recycle Bin' });
             const { data: activeSettlementRows } = await supabaseRequest(`loan_settlements?loan_id=eq.${encodeURIComponent(loan_id)}&reopened_at=is.null&select=id&limit=1`);
             if (activeSettlementRows?.length) return res.status(409).json({ error: 'Settled loan is locked. Reopen the settlement before editing the loan.' });
 
             const patch = {};
+            if (loan_code !== undefined) {
+                const loanCode = normalizeLoanCode(loan_code);
+                if (!loanCode) return res.status(400).json({ error: `Loan ID 1-${LOAN_CODE_MAX_LENGTH} normal characters me honi chahiye.` });
+                await assertLoanCodeAvailable(loanCode, loan_id);
+                patch.loan_code = loanCode;
+            }
             if (amount !== undefined && amount !== '') {
                 const amountNum = Number(amount);
                 if (!Number.isInteger(amountNum) || amountNum <= 0) return res.status(400).json({ error: 'Invalid amount' });
@@ -226,9 +249,12 @@ export default async function handler(req, res) {
             if (Array.isArray(emis)) await syncExistingEmis(loan_id, emis);
             if (Object.keys(patch).length) await supabaseRequest(`loans?id=eq.${encodeURIComponent(loan_id)}&deleted_at=is.null`, 'PATCH', patch);
 
+            const loanCodeChanged = Object.hasOwn(patch, 'loan_code') && patch.loan_code !== String(visibleLoanRows[0].loan_code ?? '').trim();
             await supabaseRequest('activity_log', 'POST', {
                 action: 'UPDATE_LOAN', table_name: 'loans', record_id: loan_id,
-                description: 'Loan updated'
+                description: loanCodeChanged
+                    ? `Loan updated - Loan ID ${visibleLoanRows[0].loan_code || '—'} -> ${patch.loan_code}`
+                    : 'Loan updated'
             });
             return res.status(200).json({ success: true });
         }
