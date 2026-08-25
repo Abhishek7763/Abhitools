@@ -3,6 +3,17 @@ import { isValidAdminSession, noStore, requireAdmin, sendServerError, supabaseRe
 const MONTHS = { JAN:1, FEB:2, MAR:3, APR:4, MAY:5, JUN:6, JUL:7, AUG:8, SEP:9, OCT:10, NOV:11, DEC:12 };
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function requestError(message, status = 400) {
+    return Object.assign(new Error(message), { status, publicMessage: message });
+}
+
+function validIsoDate(value) {
+    const date = String(value || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    const parsed = new Date(`${date}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date ? date : null;
+}
+
 function validDateParts(day, month, year) {
     const d = Number(day);
     const m = MONTHS[String(month || '').toUpperCase()];
@@ -14,25 +25,25 @@ function validDateParts(day, month, year) {
 }
 
 function parseEmiInput(loanId, e, index, existing = false) {
-    const day = Number.parseInt(e?.day ?? e?.due_day, 10);
+    const day = Number(e?.day ?? e?.due_day);
     const month = String(e?.month ?? e?.due_month ?? '').trim().toUpperCase();
-    const amount = Number.parseInt(e?.amount, 10);
+    const amount = Number(e?.amount);
     const rawYear = e?.year ?? e?.due_year;
     const hasYear = rawYear !== null && rawYear !== undefined && String(rawYear).trim() !== '';
 
-    if (!Number.isInteger(day) || day < 1 || day > 31 || !MONTHS[month] || !Number.isFinite(amount) || amount <= 0) {
-        throw Object.assign(new Error('Invalid EMI day/month/amount'), { status: 400 });
+    if (!Number.isInteger(day) || day < 1 || day > 31 || !MONTHS[month] || !Number.isInteger(amount) || amount <= 0) {
+        throw requestError('EMI ka day, month ya amount valid nahi hai.');
     }
 
     let dueDate = null;
     let dueYear = null;
     if (hasYear) {
         const date = validDateParts(day, month, rawYear);
-        if (!date) throw Object.assign(new Error('Invalid EMI date'), { status: 400 });
+        if (!date) throw requestError('EMI ki calendar date valid nahi hai.');
         dueDate = date.iso;
         dueYear = date.y;
     } else if (!existing) {
-        throw Object.assign(new Error('Year is required for new EMI rows'), { status: 400 });
+        throw requestError('New EMI row ke liye year required hai.');
     }
 
     const id = UUID_RE.test(String(e?.id || '').trim()) ? String(e.id).trim() : null;
@@ -67,7 +78,7 @@ async function syncExistingEmis(loanId, incoming) {
 
     incoming.forEach((raw, index) => {
         const rawId = UUID_RE.test(String(raw?.id || '').trim()) ? String(raw.id).trim() : null;
-        if (rawId && !byId.has(rawId)) throw Object.assign(new Error('EMI does not belong to this loan'), { status: 400 });
+        if (rawId && !byId.has(rawId)) throw requestError('EMI is loan se linked nahi hai.');
         const row = parseEmiInput(loanId, raw, index, Boolean(rawId));
         parsed.push(row);
         if (rawId) seen.add(rawId);
@@ -75,14 +86,14 @@ async function syncExistingEmis(loanId, incoming) {
 
     const removed = existing.filter(e => !seen.has(e.id));
     if (removed.some(e => (Number.parseInt(e.paid_amount, 10) || 0) > 0 || e.status === 'paid')) {
-        throw Object.assign(new Error('Paid EMI cannot be removed from the schedule. Remove/correct its payments first.'), { status: 409 });
+        throw requestError('Paid EMI schedule se remove nahi ho sakti. Pehle uski payment correct karein.', 409);
     }
 
     for (const row of parsed) {
         if (row.id) {
             const old = byId.get(row.id);
             const paid = Number.parseInt(old?.paid_amount, 10) || 0;
-            if (paid > row.amount) throw Object.assign(new Error('EMI amount cannot be lower than the amount already paid'), { status: 409 });
+            if (paid > row.amount) throw requestError('EMI amount already paid amount se kam nahi ho sakta.', 409);
             const id = row.id;
             const patch = { ...row };
             delete patch.id;
@@ -129,18 +140,26 @@ export default async function handler(req, res) {
 
         if (req.method === 'POST' && action === 'add') {
             const { borrower_id, loan_code, amount, interest_rate, loan_date, loan_year, notes, emis = [] } = req.body || {};
-            const amountNum = Number.parseInt(amount, 10);
-            const yearNum = Number.parseInt(loan_year, 10);
-            if (!borrower_id || !loan_code || !Number.isFinite(amountNum) || amountNum <= 0 || !loan_date || !Number.isInteger(yearNum)) {
-                return res.status(400).json({ error: 'Borrower, loan code, amount, date and year are required' });
+            const amountNum = Number(amount);
+            const yearNum = Number(loan_year);
+            const interestNum = interest_rate === '' || interest_rate === null || interest_rate === undefined ? 0 : Number(interest_rate);
+            const loanDate = loan_date ? validIsoDate(loan_date) : null;
+            if (!UUID_RE.test(String(borrower_id || '').trim()) || !String(loan_code || '').trim() || !Number.isInteger(amountNum) || amountNum <= 0 || !Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2200) {
+                return res.status(400).json({ error: 'Borrower, loan code, positive amount aur valid year required hain.' });
             }
+            if (loan_date && !loanDate) return res.status(400).json({ error: 'Loan date valid calendar date honi chahiye.' });
+            if (loanDate && Number(loanDate.slice(0, 4)) !== yearNum) return res.status(400).json({ error: 'Loan date aur loan year ka saal same hona chahiye.' });
+            if (!Number.isFinite(interestNum) || interestNum < 0) return res.status(400).json({ error: 'Interest rate valid non-negative number honi chahiye.' });
+
+            // Validate the complete schedule before creating the loan. Invalid input must never leave a partial loan row behind.
+            const validatedEmiRows = buildNewEmiRows('__pending_loan__', Array.isArray(emis) ? emis : []);
 
             const { data: loanData } = await supabaseRequest('loans', 'POST', {
                 borrower_id,
                 loan_code: String(loan_code).trim(),
                 amount: amountNum,
-                interest_rate: Number(interest_rate || 0),
-                loan_date,
+                interest_rate: interestNum,
+                loan_date: loanDate,
                 loan_year: yearNum,
                 notes: String(notes || '').trim() || null,
                 status: 'active'
@@ -148,7 +167,7 @@ export default async function handler(req, res) {
             const loan = loanData?.[0];
             if (!loan?.id) throw new Error('Loan insert did not return an id');
 
-            const emiRows = buildNewEmiRows(loan.id, Array.isArray(emis) ? emis : []);
+            const emiRows = validatedEmiRows.map(row => ({ ...row, loan_id: loan.id }));
             if (emiRows.length) await supabaseRequest('emis', 'POST', emiRows);
             await supabaseRequest('activity_log', 'POST', {
                 action: 'ADD_LOAN', table_name: 'loans', record_id: loan.id,
@@ -158,20 +177,45 @@ export default async function handler(req, res) {
         }
 
         if (req.method === 'PUT' && action === 'update') {
-            const { loan_id, amount, interest_rate, notes, status, emis } = req.body || {};
+            const { loan_id, amount, interest_rate, loan_date, loan_year, notes, status, emis } = req.body || {};
             if (!loan_id) return res.status(400).json({ error: 'loan_id required' });
-            const { data: visibleLoanRows } = await supabaseRequest(`loans?id=eq.${encodeURIComponent(loan_id)}&deleted_at=is.null&select=id&limit=1`);
+            const { data: visibleLoanRows } = await supabaseRequest(`loans?id=eq.${encodeURIComponent(loan_id)}&deleted_at=is.null&select=id,loan_date,loan_year&limit=1`);
             if (!visibleLoanRows?.length) return res.status(404).json({ error: 'Loan not found or is in Recycle Bin' });
             const { data: activeSettlementRows } = await supabaseRequest(`loan_settlements?loan_id=eq.${encodeURIComponent(loan_id)}&reopened_at=is.null&select=id&limit=1`);
             if (activeSettlementRows?.length) return res.status(409).json({ error: 'Settled loan is locked. Reopen the settlement before editing the loan.' });
 
             const patch = {};
             if (amount !== undefined && amount !== '') {
-                const amountNum = Number.parseInt(amount, 10);
-                if (!Number.isFinite(amountNum) || amountNum <= 0) return res.status(400).json({ error: 'Invalid amount' });
+                const amountNum = Number(amount);
+                if (!Number.isInteger(amountNum) || amountNum <= 0) return res.status(400).json({ error: 'Invalid amount' });
                 patch.amount = amountNum;
             }
-            if (interest_rate !== undefined && interest_rate !== '') patch.interest_rate = Number(interest_rate || 0);
+            if (interest_rate !== undefined && interest_rate !== '') {
+                const interestNum = Number(interest_rate);
+                if (!Number.isFinite(interestNum) || interestNum < 0) return res.status(400).json({ error: 'Invalid interest rate' });
+                patch.interest_rate = interestNum;
+            }
+            if (loan_year !== undefined) {
+                if (loan_year === '' || loan_year === null) patch.loan_year = null;
+                else {
+                    const yearNum = Number(loan_year);
+                    if (!Number.isInteger(yearNum) || yearNum < 2000 || yearNum > 2200) return res.status(400).json({ error: 'Invalid loan year' });
+                    patch.loan_year = yearNum;
+                }
+            }
+            if (loan_date !== undefined) {
+                if (loan_date === '' || loan_date === null) patch.loan_date = null;
+                else {
+                    const loanDate = validIsoDate(loan_date);
+                    if (!loanDate) return res.status(400).json({ error: 'Invalid loan date' });
+                    patch.loan_date = loanDate;
+                }
+            }
+            const effectiveYear = Object.hasOwn(patch, 'loan_year') ? patch.loan_year : visibleLoanRows[0].loan_year;
+            const effectiveDate = Object.hasOwn(patch, 'loan_date') ? patch.loan_date : visibleLoanRows[0].loan_date;
+            if (effectiveYear && effectiveDate && Number(String(effectiveDate).slice(0, 4)) !== Number(effectiveYear)) {
+                return res.status(400).json({ error: 'Loan date aur loan year ka saal same hona chahiye.' });
+            }
             if (notes !== undefined) patch.notes = String(notes || '').trim() || null;
             if (status !== undefined) {
                 if (!['active','closed','defaulted'].includes(status)) return res.status(400).json({ error: 'Invalid loan status' });

@@ -300,7 +300,7 @@
     }
 
     async function syncStableReleaseMeta() {
-        const fallback = { release:'2.3.0', label:'V2.3 Stable', backup_format_version:7, release_date:'2026-08-25' };
+        const fallback = { release:'2.3.1', label:'V2.3.1 Stable', backup_format_version:7, release_date:'2026-08-25' };
         let manifest = fallback;
         try {
             const response = await fetch('/version.json', { cache:'no-store', credentials:'same-origin' });
@@ -318,7 +318,7 @@
         set('releaseBackupFormat', `v${backupVersion}`);
 
         const releaseMeta = document.getElementById('releaseCenterMeta');
-        if (releaseMeta && /V2\.2|2\.2\.0/i.test(releaseMeta.textContent || '')) {
+        if (releaseMeta) {
             releaseMeta.textContent = `${label} • released ${manifest.release_date || fallback.release_date} • production recovery toolkit`;
         }
 

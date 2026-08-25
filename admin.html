@@ -22,7 +22,7 @@
             <button id="installAdminAppBtn" data-pwa-install class="btn btn-success" style="display:none;font-size:11px;padding:5px 10px;align-items:center;">⬇️ App</button>
         </div>
         <h2 class="no-print" style="margin:0;flex-grow:1;text-align:center;color:#ea4335;">Admin Panel 🔐</h2>
-        <button id="releaseVersionBadge" class="release-version-badge" onclick="openReleaseCenter()" title="Open Release & Recovery Center">V2.2 Stable</button>
+        <button id="releaseVersionBadge" class="release-version-badge" onclick="openReleaseCenter()" title="Open Release & Recovery Center">V2.3.1 Stable</button>
         <div id="lastUpdatedBadge" class="clickable-badge" onclick="manualSync()" title="Click to Sync"
             style="font-size:10px;background:#fce8e6;color:#ea4335;padding:5px 8px;border-radius:4px;border:1px solid #ea4335;font-weight:600;text-align:center;line-height:1.2;">
             Updated:<br>N/A
@@ -192,7 +192,7 @@
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
                 <div class="form-group">
                     <label>Naam *</label>
-                    <input type="text" id="bName" placeholder="e.g. LAKHAN" required>
+                    <input type="text" id="bName" placeholder="e.g. LAKHAN" maxlength="120" autocapitalize="characters" required>
                 </div>
                 <div class="form-group">
                     <label>Father's Name</label>
@@ -200,11 +200,11 @@
                 </div>
                 <div class="form-group">
                     <label>📱 Phone</label>
-                    <input type="tel" id="bPhone" placeholder="9301270671">
+                    <input type="tel" id="bPhone" placeholder="9301270671" inputmode="tel" maxlength="20">
                 </div>
                 <div class="form-group">
                     <label>💬 WhatsApp</label>
-                    <input type="tel" id="bWhatsapp" placeholder="9301270671">
+                    <input type="tel" id="bWhatsapp" placeholder="9301270671" inputmode="tel" maxlength="20">
                 </div>
                 <div class="form-group" style="grid-column:1/-1;">
                     <label>🏠 Address</label>
@@ -212,11 +212,11 @@
                 </div>
                 <div class="form-group">
                     <label>🪪 Aadhaar</label>
-                    <input type="text" id="bAadhaar" placeholder="XXXX XXXX XXXX">
+                    <input type="text" id="bAadhaar" placeholder="XXXX XXXX XXXX" inputmode="numeric" maxlength="20">
                 </div>
                 <div class="form-group">
                     <label>📋 PAN</label>
-                    <input type="text" id="bPan" placeholder="ABCDE1234F">
+                    <input type="text" id="bPan" placeholder="ABCDE1234F" maxlength="20" autocapitalize="characters">
                 </div>
                 <div class="form-group" style="grid-column:1/-1;">
                     <label>📝 Notes</label>
@@ -225,8 +225,8 @@
             </div>
         </form>
         <div style="display:flex;gap:10px;margin-top:10px;">
-            <button class="btn btn-success" style="flex:1;" onclick="saveBorrower()">💾 Save Borrower</button>
-            <button class="btn btn-danger" style="flex:1;" onclick="hideBorrowerForm()">❌ Cancel</button>
+            <button type="button" id="saveBorrowerBtn" class="btn btn-success" style="flex:1;" onclick="saveBorrower()">💾 Save Borrower</button>
+            <button type="button" class="btn btn-danger" style="flex:1;" onclick="hideBorrowerForm()">❌ Cancel</button>
         </div>
     </div>
 
@@ -243,16 +243,20 @@
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
             <div class="form-group">
                 <label>💰 Amount (₹) *</label>
-                <input type="number" id="loanAmount" placeholder="e.g. 10000" min="1">
+                <input type="number" id="loanAmount" placeholder="e.g. 10000" min="1" inputmode="numeric">
             </div>
             <div class="form-group">
                 <label>📅 Saal *</label>
-                <input type="number" id="loanYear" placeholder="2025" min="2020" max="2099">
+                <input type="number" id="loanYear" placeholder="2025" min="2000" max="2200" inputmode="numeric">
             </div>
             <div class="form-group">
                 <label>📈 Interest (%)</label>
-                <input type="number" id="loanInterest" placeholder="e.g. 2" min="0" step="0.1">
+                <input type="number" id="loanInterest" placeholder="e.g. 2" min="0" step="0.1" inputmode="decimal">
             </div>
+        </div>
+        <div class="form-group">
+            <label>📆 Loan Date <small style="font-weight:400;opacity:.72;">(optional — sirf exact date pata ho tab)</small></label>
+            <input type="date" id="loanDate" style="width:100%;">
         </div>
         <div class="form-group">
             <label>📝 Notes</label>
@@ -261,11 +265,11 @@
         <div class="form-group">
             <label>📅 EMI Schedule (Din | Mahina | Saal | Amount):</label>
             <div id="dynamicEmiContainer"></div>
-            <button class="btn btn-secondary" onclick="addEmiRow()" style="margin-top:10px;width:100%;">➕ EMI Add Karo</button>
+            <button type="button" class="btn btn-secondary" onclick="addEmiRow()" style="margin-top:10px;width:100%;">➕ EMI Add Karo</button>
         </div>
         <div style="display:flex;gap:10px;margin-top:15px;">
-            <button class="btn btn-success" style="flex:1;" onclick="saveLoan()">💾 Save Loan</button>
-            <button class="btn btn-danger" style="flex:1;" onclick="hideForm()">❌ Cancel</button>
+            <button type="button" id="saveLoanBtn" class="btn btn-success" style="flex:1;" onclick="saveLoan()">💾 Save Loan</button>
+            <button type="button" class="btn btn-danger" style="flex:1;" onclick="hideForm()">❌ Cancel</button>
         </div>
     </div>
 
@@ -1192,7 +1196,7 @@
                     <section class="settings-panel settings-status-panel">
                         <h4>☁️ Sync & Backup</h4>
                         <div><small>Storage</small><strong>Supabase server-side</strong></div>
-                        <div><small>Backup Format</small><strong>v6 • settings included</strong></div>
+                        <div><small>Backup Format</small><strong>v7 • settings included</strong></div>
                         <div><small>Last Saved</small><strong id="settingsUpdatedAt">—</strong></div>
                         <div><small>Activity Audit</small><strong>Enabled</strong></div>
                     </section>
@@ -1242,7 +1246,7 @@
             <div class="release-header">
                 <div>
                     <h3 id="releaseCenterTitle">🧰 Release & Recovery Center</h3>
-                    <small id="releaseCenterMeta">V2.2 Stable • production recovery toolkit</small>
+                    <small id="releaseCenterMeta">V2.3.1 Stable • production recovery toolkit</small>
                 </div>
                 <div class="release-head-actions">
                     <button class="btn btn-secondary" onclick="refreshReleaseCenter()">🔄 Refresh</button>
@@ -1251,17 +1255,17 @@
             </div>
 
             <div class="release-stable-banner">
-                <div><span>✅</span><div><strong id="releaseStableLabel">V2.2 Stable</strong><small>Stable baseline for future upgrades</small></div></div>
-                <code id="releaseVersionCode">2.2.0</code>
+                <div><span>✅</span><div><strong id="releaseStableLabel">V2.3.1 Stable</strong><small>Stable baseline for future upgrades</small></div></div>
+                <code id="releaseVersionCode">2.3.1</code>
             </div>
 
             <div id="releaseHealthGrid" class="release-health-grid">
-                <div><small>Release</small><strong id="releaseHealthVersion">2.2.0</strong><span>Stable channel</span></div>
+                <div><small>Release</small><strong id="releaseHealthVersion">2.3.1</strong><span>Stable channel</span></div>
                 <div><small>Function Budget</small><strong>12 max</strong><span>No new API function</span></div>
                 <div><small>Latest Snapshot</small><strong id="releaseHealthBackup">Checking…</strong><span id="releaseHealthBackupTime">Server backup</span></div>
                 <div><small>Recycle Bin</small><strong id="releaseHealthRecycle">—</strong><span>Recoverable items</span></div>
                 <div><small>Data Quality</small><strong id="releaseHealthQuality">—</strong><span>Legacy dates pending</span></div>
-                <div><small>Backup Format</small><strong id="releaseBackupFormat">v6</strong><span>Full JSON + snapshots</span></div>
+                <div><small>Backup Format</small><strong id="releaseBackupFormat">v7</strong><span>Full JSON + snapshots</span></div>
             </div>
 
             <div class="release-grid">
@@ -1293,11 +1297,11 @@
                 <div><span>✓</span> PWA service worker `/api/*` financial responses cache nahi karta.</div>
                 <div><span>✓</span> Legacy dates automatic guess nahi hote.</div>
                 <div><span>✓</span> Backup/restore workflow audit-aware aur guarded hai.</div>
-                <div><span>✓</span> App settings backup format v6 me snapshots ke saath included hain.</div>
+                <div><span>✓</span> App settings aur follow-up history backup format v7 me included hain.</div>
                 <div><span>✓</span> Future build se pehle fresh backup recommended hai.</div>
             </div>
 
-            <div class="release-files">Repository reference files: <code>version.json</code> • <code>CHANGELOG_V2.md</code> • <code>RECOVERY_GUIDE.md</code> • <code>RELEASE_CHECKLIST.md</code></div>
+            <div class="release-files">Release marker: <code>version.json</code></div>
         </div>
     </div>
 

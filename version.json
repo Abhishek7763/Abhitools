@@ -1,8 +1,8 @@
 {
   "product": "AbhiTools / Abhishek Management Tool",
-  "release": "2.3.0",
+  "release": "2.3.1",
   "channel": "stable",
-  "label": "V2.3 Stable",
+  "label": "V2.3.1 Stable",
   "release_date": "2026-08-25",
   "phase": 23,
   "architecture": {
@@ -13,5 +13,5 @@
     "vercel_hobby_function_budget": 12
   },
   "backup_format_version": 7,
-  "notes": "V2.3 Stable final release with compact mobile-first loan/EMI UI, clearer loan and EMI typography, readable date/status text, print/PDF refinement, and backup format v7. Secrets are intentionally not included."
+  "notes": "V2.3.1 final stability release with safer manual entry, strict date validation, duplicate-submit protection, migration-history alignment, and backup format v7. Financial calculations and stored records are unchanged."
 }

@@ -31,7 +31,7 @@ function validIsoDate(value) {
     const s = String(value).slice(0, 10);
     if (!DATE_RE.test(s)) return null;
     const d = new Date(`${s}T00:00:00Z`);
-    return Number.isNaN(d.getTime()) ? null : s;
+    return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? null : s;
 }
 
 function dateFromParts(day, month, year) {
