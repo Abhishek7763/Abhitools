@@ -232,6 +232,7 @@
             const coreReady = await waitForPublicCore();
             if (!coreReady) throw new Error('Public loan handlers were not ready in time');
             await loadScriptInOrder('/ui_public_compact.js', 'data-abhi-public-compact-ui');
+            await loadScriptInOrder('/ui_upi_payments.js', 'data-abhi-upi-payments-ui');
         } catch (error) {
             console.error('Public compact UI layer failed; using core public UI:', error);
         }
@@ -257,6 +258,7 @@
             await loadScriptInOrder('/ui_loans.js', 'data-abhi-loans-ui');
             await loadScriptInOrder('/ui_home_collections.js', 'data-abhi-home-collections-ui');
             await loadScriptInOrder('/ui_forms_secondary.js', 'data-abhi-forms-secondary-ui');
+            await loadScriptInOrder('/ui_upi_payments.js', 'data-abhi-upi-payments-ui');
         } catch (error) {
             // Authorized users fall back to the existing admin UI instead of being locked out.
             console.error('Admin UI enhancement layer failed; using core UI:', error);
