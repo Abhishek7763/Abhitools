@@ -182,7 +182,13 @@ function toggleLayout() {
 // ==========================================
 function switchTab(tab) {
     currentTab = tab;
-    ['tabFolder','tabMonth'].forEach(id => document.getElementById(id)?.classList.remove('active'));
+    currentOpenFolder = null;
+    document.body.classList.remove('public-detail-active');
+    ['tabFolder','tabMonth'].forEach(id => {
+        const tabButton = document.getElementById(id);
+        tabButton?.classList.remove('active');
+        tabButton?.setAttribute('aria-selected', 'false');
+    });
     ['folderView','detailView','monthView','monthDetailView'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
@@ -190,12 +196,14 @@ function switchTab(tab) {
 
     if (tab === 'folder') {
         document.getElementById('tabFolder')?.classList.add('active');
+        document.getElementById('tabFolder')?.setAttribute('aria-selected', 'true');
         document.getElementById('folderView').style.display = 'block';
         document.getElementById('viewControlsContainer').style.display = 'flex';
         document.querySelector('.search-container').style.display = 'flex';
         handleSearch();
     } else {
         document.getElementById('tabMonth')?.classList.add('active');
+        document.getElementById('tabMonth')?.setAttribute('aria-selected', 'true');
         document.getElementById('monthView').style.display = 'block';
         document.getElementById('viewControlsContainer').style.display = 'none';
         document.querySelector('.search-container').style.display = 'none';
@@ -232,16 +240,19 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
 
     names.forEach(name => {
         const f = folders[name];
-        const div = document.createElement('div');
-        div.className = 'folder';
-        div.onclick = () => openFolder(name);
-        div.innerHTML = `
+        const folderButton = document.createElement('button');
+        const loanLabel = f.count === 1 ? 'Loan' : 'Loans';
+        folderButton.type = 'button';
+        folderButton.className = 'folder';
+        folderButton.setAttribute('aria-label', `${name}: ${f.count} ${loanLabel}, active loan total ₹${f.sum.toLocaleString('en-IN')}`);
+        folderButton.onclick = () => openFolder(name);
+        folderButton.innerHTML = `
             <div>📁 ${publicEscapeHtml(name)}</div>
             <div>
-                <span>${f.count} Loans | ₹${f.sum.toLocaleString('en-IN')}</span>
+                <span>${f.count} ${loanLabel} • ₹${f.sum.toLocaleString('en-IN')}</span>
             </div>
         `;
-        folderDiv.appendChild(div);
+        folderDiv.appendChild(folderButton);
     });
 
     if (names.length === 0) {
@@ -251,6 +262,7 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
 
 function openFolder(name) {
     currentOpenFolder = name;
+    document.body.classList.add('public-detail-active');
     document.getElementById('folderView').style.display = 'none';
     document.getElementById('detailView').style.display = 'block';
     document.getElementById('viewControlsContainer').style.display = 'none';
@@ -267,19 +279,22 @@ function openFolder(name) {
     document.getElementById('currentFolderName').innerHTML = `
         📁 ${publicEscapeHtml(name)}<br>
         <span style="font-size:14px;font-weight:normal;display:inline-block;margin-top:5px;background:${badgeBg};padding:5px 15px;border-radius:20px;">
-            Loans: <b>${loanCount}</b> &nbsp;|&nbsp; Amount: <b>₹${totalAmount.toLocaleString('en-IN')}</b>
+            Loans: <b>${loanCount}</b> &nbsp;•&nbsp; Loan total: <b>₹${totalAmount.toLocaleString('en-IN')}</b>
         </span>
     `;
 
     renderLoanList(name);
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
 }
 
 function goBackToFolders() {
     currentOpenFolder = null;
+    document.body.classList.remove('public-detail-active');
     document.getElementById('detailView').style.display = 'none';
     document.getElementById('folderView').style.display = 'block';
     document.getElementById('viewControlsContainer').style.display = 'flex';
     handleSearch();
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
 }
 
 // ==========================================
@@ -384,17 +399,19 @@ function renderMonthFolders() {
 
     sorted.forEach(key => {
         const d = monthData[key];
-        const div = document.createElement('div');
-        div.className = 'month-folder';
-        div.onclick = () => openMonthDetail(key, d);
-        div.innerHTML = `
+        const monthButton = document.createElement('button');
+        monthButton.type = 'button';
+        monthButton.className = 'month-folder';
+        monthButton.setAttribute('aria-label', `${d.month || ''} ${d.year || 'year not set'}: EMI total ₹${d.total.toLocaleString('en-IN')}, collected ₹${d.collected.toLocaleString('en-IN')}`);
+        monthButton.onclick = () => openMonthDetail(key, d);
+        monthButton.innerHTML = `
             <div>📅 ${publicEscapeHtml(d.month || '')} ${d.year ? publicEscapeHtml(d.year) : 'Year not set'}</div>
             <div>
                 <span style="color:#34a853;font-weight:600;">Total: ₹${d.total.toLocaleString('en-IN')}</span><br>
                 <small style="color:#34a853;">✅ Collected: ₹${d.collected.toLocaleString('en-IN')}</small>
             </div>
         `;
-        monthViewDiv.appendChild(div);
+        monthViewDiv.appendChild(monthButton);
     });
 
     if (sorted.length === 0) {
@@ -403,6 +420,7 @@ function renderMonthFolders() {
 }
 
 function openMonthDetail(key, monthObj) {
+    document.body.classList.add('public-detail-active');
     document.getElementById('monthView').style.display = 'none';
     document.getElementById('monthDetailView').style.display = 'block';
     document.getElementById('currentMonthName').innerText =
@@ -430,9 +448,11 @@ function openMonthDetail(key, monthObj) {
         `;
         list.appendChild(div);
     });
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
 }
 
 function goBackToMonths() {
+    document.body.classList.remove('public-detail-active');
     document.getElementById('monthDetailView').style.display = 'none';
     document.getElementById('monthView').style.display = 'block';
     renderMonthFolders();
@@ -447,6 +467,7 @@ function handleSearch() {
     if (currentTab === 'folder') {
         if (currentOpenFolder) {
             currentOpenFolder = null;
+            document.body.classList.remove('public-detail-active');
             document.getElementById('detailView').style.display = 'none';
             document.getElementById('folderView').style.display = 'block';
             document.getElementById('viewControlsContainer').style.display = 'flex';

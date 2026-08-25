@@ -13,7 +13,7 @@
     <meta name="apple-mobile-web-app-title" content="AbhiTools">
     <link rel="stylesheet" href="style.css">
 </head>
-<body class="has-mobile-app-nav">
+<body class="has-mobile-app-nav public-page">
 
     <!-- Header -->
     <div class="header-container no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
@@ -41,11 +41,11 @@
     <!-- Dashboard -->
     <div class="dashboard no-print" id="dashboard">
         <div class="dash-box">
-            <h4>Total Active</h4>
+            <h4>Active Loans</h4>
             <h3 id="totalLoansCount">0</h3>
         </div>
         <div class="dash-box">
-            <h4>Total Out</h4>
+            <h4>Active Loan Total</h4>
             <h3 id="totalAmountSum">₹0</h3>
         </div>
         <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
@@ -75,7 +75,7 @@
 
     <!-- Search -->
     <div class="search-container no-print">
-        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search Name or ID..." onkeyup="handleSearch()">
+        <input type="text" id="searchInput" class="search-box" placeholder="🔍 Search borrower or Loan ID..." onkeyup="handleSearch()">
         <select id="sortSelect" class="search-box" onchange="handleSearch()">
             <option value="name">🔤 Sort by Name</option>
             <option value="highest">📈 Highest Amount</option>
@@ -84,9 +84,9 @@
     </div>
 
     <!-- Tabs -->
-    <div class="tabs no-print">
-        <div class="tab active" id="tabFolder" onclick="switchTab('folder')">📁 By Name</div>
-        <div class="tab" id="tabMonth" onclick="switchTab('month')">📅 By Month</div>
+    <div class="tabs no-print" role="tablist" aria-label="Browse loans">
+        <button type="button" class="tab active" id="tabFolder" role="tab" aria-selected="true" aria-controls="folderView" onclick="switchTab('folder')">📁 By Name</button>
+        <button type="button" class="tab" id="tabMonth" role="tab" aria-selected="false" aria-controls="monthView" onclick="switchTab('month')">📅 By Month</button>
     </div>
 
     <!-- View Toggle -->
@@ -123,10 +123,10 @@
         <div id="folderView"></div>
 
         <div id="detailView" style="display:none;">
-            <div class="controls no-print" style="justify-content:space-between;">
+            <div class="controls no-print public-detail-actions" style="justify-content:space-between;">
                 <div>
                     <button class="btn btn-secondary" onclick="goBackToFolders()">🔙 Back</button>
-                    <button class="btn btn-warning" onclick="printStatement()">🖨️ Print Statement</button>
+                    <button class="btn btn-warning" onclick="printStatement()">🖨️ Print</button>
                 </div>
             </div>
             <h3 id="currentFolderName" style="text-align:center;color:#1a73e8;margin-top:15px;margin-bottom:15px;"></h3>
