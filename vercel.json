@@ -4,6 +4,12 @@
       "maxDuration": 10
     }
   },
+  "rewrites": [
+    {
+      "source": "/api/upi-payments",
+      "destination": "/api/dashboard?mode=upi-payments"
+    }
+  ],
   "headers": [
     {
       "source": "/(.*)",
