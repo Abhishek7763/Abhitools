@@ -197,7 +197,10 @@
                 body.public-compact-ready #loanList { grid-template-columns:repeat(auto-fit,minmax(270px,1fr))!important; }
             }
             @media(min-width:1100px) {
-                body.public-compact-ready #loanList { grid-template-columns:repeat(3,minmax(0,1fr))!important; }
+                body.public-compact-ready #loanList {
+                    grid-template-columns:repeat(auto-fit,minmax(300px,420px))!important;
+                    justify-content:center!important;
+                }
             }
 
             /* Read-only EMI detail sheet */
