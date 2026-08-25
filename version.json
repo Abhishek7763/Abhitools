@@ -1,8 +1,8 @@
 {
   "product": "AbhiTools / Abhishek Management Tool",
-  "release": "2.3.1",
+  "release": "2.3.2",
   "channel": "stable",
-  "label": "V2.3.1 Stable",
+  "label": "V2.3.2 Stable",
   "release_date": "2026-08-25",
   "phase": 23,
   "architecture": {
@@ -13,5 +13,5 @@
     "vercel_hobby_function_budget": 12
   },
   "backup_format_version": 7,
-  "notes": "V2.3.1 final stability release with safer manual entry, strict date validation, duplicate-submit protection, migration-history alignment, and backup format v7. Financial calculations and stored records are unchanged."
+  "notes": "V2.3.2 fixes permanent deletion of stale recycle-bin entries while preserving batch-mismatch protection and audit history. Financial calculations and active records are unchanged."
 }
