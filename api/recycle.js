@@ -2,6 +2,24 @@ import { noStore, requireAdmin, sendServerError, supabaseRequest } from '../serv
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+const RECYCLE_PUBLIC_MESSAGES = new Map([
+    ['Recycle item not found', 'Recycle item nahi mila. List refresh karke dobara try karein.'],
+    ['Recycle item already restored', 'Item pehle hi restore ho chuka hai. List refresh karein.'],
+    ['Recycle item permanently deleted', 'Item pehle hi permanently delete ho chuka hai. List refresh karein.'],
+    ['Recycle item already permanently deleted', 'Item pehle hi permanently delete ho chuka hai. List refresh karein.'],
+    ['Restored item cannot be purged from this recycle entry', 'Restored item ko is recycle entry se delete nahi kiya ja sakta. List refresh karein.'],
+    ['Original record is missing and cannot be restored', 'Original data pehle hi missing hai. Restore possible nahi; Permanent Delete se stale entry hata sakte hain.'],
+    ['Original record no longer belongs to this recycle entry', 'Original item is recycle entry se linked nahi hai. Data safety ke liye delete roka gaya; list refresh karein.'],
+    ['Unsupported recycle item type', 'Yeh recycle item type supported nahi hai.']
+]);
+
+function withRecyclePublicMessage(err) {
+    const databaseMessage = String(err?.details?.message || '').trim();
+    const publicMessage = RECYCLE_PUBLIC_MESSAGES.get(databaseMessage);
+    if (publicMessage) err.publicMessage = publicMessage;
+    return err;
+}
+
 function env(name) {
     const value = process.env[name];
     if (!value) throw new Error(`Missing environment variable: ${name}`);
@@ -115,6 +133,6 @@ export default async function handler(req, res) {
         res.setHeader('Allow', 'GET, POST, DELETE');
         return res.status(404).json({ error: 'Recycle action not found' });
     } catch (err) {
-        return sendServerError(res, 'Recycle API Error:', err);
+        return sendServerError(res, 'Recycle API Error:', withRecyclePublicMessage(err));
     }
 }

@@ -4248,11 +4248,11 @@ async function loadReleaseVersionBadge() {
         if (!response.ok) throw new Error(`Version manifest ${response.status}`);
         releaseManifestData = await response.json();
         const badge = document.getElementById('releaseVersionBadge');
-        if (badge) badge.textContent = releaseManifestData?.label || `V${releaseManifestData?.release || '2.3.1'} Stable`;
+        if (badge) badge.textContent = releaseManifestData?.label || `V${releaseManifestData?.release || '2.3.2'} Stable`;
         return releaseManifestData;
     } catch (err) {
         const badge = document.getElementById('releaseVersionBadge');
-        if (badge) badge.textContent = 'V2.3.1 Stable';
+        if (badge) badge.textContent = 'V2.3.2 Stable';
         throw err;
     }
 }
@@ -4289,7 +4289,7 @@ async function refreshReleaseCenter() {
         releaseManifestData = manifest;
 
         const latest = Array.isArray(backups) ? backups[0] : null;
-        const version = manifest?.release || '2.3.1';
+        const version = manifest?.release || '2.3.2';
         const label = manifest?.label || `V${version} Stable`;
         set('releaseCenterMeta', `${label} • released ${manifest?.release_date || '2026-08-24'} • production recovery toolkit`);
         set('releaseStableLabel', label);
