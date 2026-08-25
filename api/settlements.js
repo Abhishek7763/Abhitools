@@ -11,11 +11,11 @@ function date(value) {
     const v = String(value || '').slice(0, 10);
     if (!DATE_RE.test(v)) return null;
     const d = new Date(`${v}T00:00:00Z`);
-    return Number.isNaN(d.getTime()) ? null : v;
+    return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== v ? null : v;
 }
 function money(value) {
     if (value === '' || value === null || value === undefined) return 0;
-    const n = Number.parseInt(value, 10);
+    const n = Number(value);
     return Number.isInteger(n) && n >= 0 ? n : null;
 }
 function text(value, max = 1000) {

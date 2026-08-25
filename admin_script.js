@@ -84,8 +84,27 @@ let appSettingsPlaceholders = [];
 let followupCenterData = null;
 let followupBucket = 'all';
 let followupPrefill = null;
+let borrowerSavePending = false;
+let loanSavePending = false;
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+
+function adminBusinessDate() {
+    const serverDate = String(dueCenterData?.businessDate || '').slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(serverDate)) return serverDate;
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone:'Asia/Kolkata', year:'numeric', month:'2-digit', day:'2-digit'
+    }).formatToParts(new Date());
+    const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${map.year}-${map.month}-${map.day}`;
+}
+
+function adminIsoDateValid(value) {
+    const date = String(value || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+    const parsed = new Date(`${date}T00:00:00Z`);
+    return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
+}
 
 // ==========================================
 // APP INIT
@@ -750,7 +769,7 @@ function resetPaymentForm() {
     const method = document.getElementById('paymentMethod');
     const notes = document.getElementById('paymentNotes');
     if (amount) { amount.value = remaining || ''; amount.max = remaining || ''; }
-    if (date) date.value = new Date().toISOString().slice(0, 10);
+    if (date) date.value = adminBusinessDate();
     if (method) method.value = appSettingsData?.default_payment_method || 'Cash';
     if (notes) notes.value = '';
     const saveBtn = document.getElementById('savePaymentBtn');
@@ -813,7 +832,7 @@ function editPayment(paymentId) {
     if (!p?.id || p.source !== 'manual') return;
     currentPaymentId = p.id;
     document.getElementById('paymentAmount').value = p.amount || '';
-    document.getElementById('paymentDate').value = p.paid_date || new Date().toISOString().slice(0, 10);
+    document.getElementById('paymentDate').value = p.paid_date || adminBusinessDate();
     document.getElementById('paymentMethod').value = p.method || 'Cash';
     document.getElementById('paymentNotes').value = p.notes || '';
     document.getElementById('savePaymentBtn').textContent = '✅ Save Correction';
@@ -890,6 +909,11 @@ function showBorrowerForm(borrowerId = null) {
     } else {
         document.getElementById('borrowerForm').reset();
     }
+    const saveBtn = document.getElementById('saveBorrowerBtn');
+    if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = borrowerId ? '💾 Save Changes' : '💾 Save Borrower';
+    }
     window.scrollTo(0, 0);
 }
 
@@ -911,6 +935,15 @@ async function saveBorrower() {
     };
 
     if (!body.name) { alert('Naam required hai!'); return; }
+    if (borrowerSavePending) return;
+
+    const saveBtn = document.getElementById('saveBorrowerBtn');
+    const idleLabel = id ? '💾 Save Changes' : '💾 Save Borrower';
+    borrowerSavePending = true;
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ Saving...';
+    }
 
     try {
         if (id) {
@@ -929,7 +962,13 @@ async function saveBorrower() {
         hideBorrowerForm();
         await loadAllData();
     } catch (err) {
-        alert('Borrower save nahi hua. Try again.');
+        alert(err.message || 'Borrower save nahi hua. Try again.');
+    } finally {
+        borrowerSavePending = false;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = idleLabel;
+        }
     }
 }
 
@@ -1409,7 +1448,7 @@ function buildWhatsAppTemplate(type, ctx) {
     const date = waDateLabel(emi);
     const loanTotals = phase6LoanTotals(loan);
     const paymentAmount = Number(payment.amount) || paid;
-    const paymentDate = payment.paid_date || payment.payment_date || emi.paid_date || new Date().toISOString().slice(0,10);
+    const paymentDate = payment.paid_date || payment.payment_date || emi.paid_date || adminBusinessDate();
     const signature = appSettingsData?.message_signature || appSettingsData?.business_name || 'Abhishek Management';
     const businessName = appSettingsData?.business_name || 'Abhishek Management';
     const closingStatus = loan.status === 'closed' || loanTotals.remaining <= 0 ? 'complete/closed' : 'closing review ke liye ready';
@@ -1699,13 +1738,15 @@ function showForm(borrowerId = null) {
     document.getElementById('loanFormContainer').style.display = 'block';
     document.getElementById('editLoanId').value = '';
     document.getElementById('loanAmount').value = '';
-    document.getElementById('loanYear').value = new Date().getFullYear();
+    document.getElementById('loanYear').value = adminBusinessDate().slice(0, 4);
+    document.getElementById('loanDate').value = '';
     document.getElementById('loanInterest').value = '';
     document.getElementById('loanNotes').value = '';
     document.getElementById('dynamicEmiContainer').innerHTML = '';
 
     // Borrower select populate karo
     const select = document.getElementById('loanBorrowerSelect');
+    select.disabled = false;
     select.innerHTML = '<option value="">-- Borrower Chunein --</option>';
     borrowers.forEach(b => {
         const opt = document.createElement('option');
@@ -1716,6 +1757,11 @@ function showForm(borrowerId = null) {
     });
 
     addEmiRow();
+    const saveBtn = document.getElementById('saveLoanBtn');
+    if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = '💾 Save Loan';
+    }
     window.scrollTo(0, 0);
 }
 
@@ -1729,11 +1775,11 @@ function addEmiRow(day = '', month = '', year = undefined, amount = '', emiId = 
     row.className = 'emi-row';
     row.dataset.emiId = emiId || '';
     row.innerHTML = `
-        <input type="number" placeholder="Din (10)" value="${day}" style="width:20%;" min="1" max="31">
-        <input type="text" placeholder="Mahina (AUG)" value="${month}" style="width:25%;text-transform:uppercase;">
-        <input type="number" placeholder="Saal (2025)" value="${year === undefined ? new Date().getFullYear() : (year || '')}" style="width:25%;" min="2020" max="2099">
-        <input type="number" placeholder="Amount (₹)" value="${amount}" style="width:22%;" min="1">
-        <button class="btn btn-danger" onclick="this.parentElement.remove()" style="padding:8px;width:8%;">❌</button>
+        <input type="number" placeholder="Din (10)" value="${day}" style="width:20%;" min="1" max="31" inputmode="numeric">
+        <input type="text" placeholder="Mahina (AUG)" value="${month}" style="width:25%;text-transform:uppercase;" maxlength="3" autocapitalize="characters" spellcheck="false">
+        <input type="number" placeholder="Saal (2025)" value="${year === undefined ? adminBusinessDate().slice(0, 4) : (year || '')}" style="width:25%;" min="2000" max="2200" inputmode="numeric">
+        <input type="number" placeholder="Amount (₹)" value="${amount}" style="width:22%;" min="1" inputmode="numeric">
+        <button type="button" class="btn btn-danger" onclick="this.parentElement.remove()" style="padding:8px;width:8%;">❌</button>
     `;
     container.appendChild(row);
 }
@@ -1743,10 +1789,21 @@ async function saveLoan() {
     const borrower_id = document.getElementById('loanBorrowerSelect').value;
     const amount = document.getElementById('loanAmount').value;
     const loan_year = document.getElementById('loanYear').value;
+    const loan_date = document.getElementById('loanDate').value;
     const interest_rate = document.getElementById('loanInterest').value;
     const notes = document.getElementById('loanNotes').value;
 
     if (!borrower_id || !amount) { alert('Borrower aur Amount required hain!'); return; }
+    if (!loanId && !loan_year) { alert('New loan ke liye Saal required hai.'); return; }
+    if (loan_year && (!Number.isInteger(Number(loan_year)) || Number(loan_year) < 2000 || Number(loan_year) > 2200)) {
+        alert('Loan year 2000 se 2200 ke beech hona chahiye.');
+        return;
+    }
+    if (loan_date && !adminIsoDateValid(loan_date)) { alert('Valid exact Loan Date select karein.'); return; }
+    if (loan_date && loan_year && Number(loan_date.slice(0, 4)) !== Number(loan_year)) {
+        alert('Loan Date aur Loan Year ka saal same hona chahiye.');
+        return;
+    }
 
     const emis = [];
     let invalidNewLegacyRow = false;
@@ -1770,16 +1827,24 @@ async function saveLoan() {
         return;
     }
 
+    if (loanSavePending) return;
+    const saveBtn = document.getElementById('saveLoanBtn');
+    const idleLabel = loanId ? '💾 Save Changes' : '💾 Save Loan';
+    loanSavePending = true;
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.textContent = '⏳ Saving...';
+    }
+
     try {
         if (loanId) {
             await adminFetch('/api/loans?action=update', {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ loan_id: loanId, amount, interest_rate, notes, emis })
+                body: JSON.stringify({ loan_id: loanId, amount, interest_rate, loan_year: loan_year || null, loan_date: loan_date || null, notes, emis })
             });
         } else {
             const loan_code = 'ID' + Date.now();
-            const loan_date = new Date().toISOString().split('T')[0];
             await adminFetch('/api/loans?action=add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1791,6 +1856,12 @@ async function saveLoan() {
         if (currentOpenFolder) openFolder(currentOpenFolder);
     } catch (err) {
         alert(err.message || 'Loan save nahi hua.');
+    } finally {
+        loanSavePending = false;
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.textContent = idleLabel;
+        }
     }
 }
 
@@ -1801,10 +1872,14 @@ async function editLoan(loanId) {
     showForm(loan.borrower_id);
     document.getElementById('editLoanId').value = loanId;
     document.getElementById('loanBorrowerSelect').value = loan.borrower_id;
+    document.getElementById('loanBorrowerSelect').disabled = true;
     document.getElementById('loanAmount').value = loan.amount;
     document.getElementById('loanYear').value = loan.loan_year || '';
+    document.getElementById('loanDate').value = String(loan.loan_date || '').slice(0, 10);
     document.getElementById('loanInterest').value = loan.interest_rate || '';
     document.getElementById('loanNotes').value = loan.notes || '';
+    const saveBtn = document.getElementById('saveLoanBtn');
+    if (saveBtn) saveBtn.textContent = '💾 Save Changes';
 
     document.getElementById('dynamicEmiContainer').innerHTML = '';
     (loan.emis || []).sort((a,b) => (a.installment_number || 0) - (b.installment_number || 0))
@@ -4173,11 +4248,11 @@ async function loadReleaseVersionBadge() {
         if (!response.ok) throw new Error(`Version manifest ${response.status}`);
         releaseManifestData = await response.json();
         const badge = document.getElementById('releaseVersionBadge');
-        if (badge) badge.textContent = releaseManifestData?.label || `V${releaseManifestData?.release || '2.2.0'} Stable`;
+        if (badge) badge.textContent = releaseManifestData?.label || `V${releaseManifestData?.release || '2.3.1'} Stable`;
         return releaseManifestData;
     } catch (err) {
         const badge = document.getElementById('releaseVersionBadge');
-        if (badge) badge.textContent = 'V2.2 Stable';
+        if (badge) badge.textContent = 'V2.3.1 Stable';
         throw err;
     }
 }
@@ -4214,7 +4289,7 @@ async function refreshReleaseCenter() {
         releaseManifestData = manifest;
 
         const latest = Array.isArray(backups) ? backups[0] : null;
-        const version = manifest?.release || '2.2.0';
+        const version = manifest?.release || '2.3.1';
         const label = manifest?.label || `V${version} Stable`;
         set('releaseCenterMeta', `${label} • released ${manifest?.release_date || '2026-08-24'} • production recovery toolkit`);
         set('releaseStableLabel', label);

@@ -2,6 +2,15 @@ import { noStore, requireAdmin, sendServerError, supabaseRequest } from '../serv
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_ZONE = 'Asia/Kolkata';
+
+function businessDate() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${map.year}-${map.month}-${map.day}`;
+}
 
 function validUuid(value) {
     const text = String(value || '').trim();
@@ -9,8 +18,8 @@ function validUuid(value) {
 }
 
 function positiveInt(value) {
-    const n = Number.parseInt(value, 10);
-    return Number.isFinite(n) && n > 0 ? n : null;
+    const n = Number(value);
+    return Number.isInteger(n) && n > 0 ? n : null;
 }
 
 function cleanText(value, max = 500) {
@@ -37,7 +46,7 @@ function cleanDate(value) {
     const text = String(value || '').slice(0, 10);
     if (!DATE_RE.test(text)) return null;
     const d = new Date(`${text}T00:00:00Z`);
-    return Number.isNaN(d.getTime()) ? null : text;
+    return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== text ? null : text;
 }
 
 export default async function handler(req, res) {
@@ -76,8 +85,10 @@ export default async function handler(req, res) {
         if (req.method === 'POST') {
             const emiId = validUuid(req.body?.emi_id);
             const amount = positiveInt(req.body?.amount);
-            const paidDate = cleanDate(req.body?.paid_date) || new Date().toISOString().slice(0, 10);
+            const suppliedDate = String(req.body?.paid_date || '').trim();
+            const paidDate = suppliedDate ? cleanDate(suppliedDate) : businessDate();
             if (!emiId || !amount) return res.status(400).json({ error: 'Valid emi_id and amount required' });
+            if (!paidDate) return res.status(400).json({ error: 'Valid payment date required' });
             if (!await ensureVisibleEmi(emiId)) return res.status(404).json({ error: 'EMI not found or loan is in Recycle Bin' });
 
             const { data } = await supabaseRequest('rpc/abhi_add_emi_payment', 'POST', {
@@ -93,8 +104,10 @@ export default async function handler(req, res) {
         if (req.method === 'PUT') {
             const paymentId = validUuid(req.body?.payment_id);
             const amount = positiveInt(req.body?.amount);
-            const paidDate = cleanDate(req.body?.paid_date) || new Date().toISOString().slice(0, 10);
+            const suppliedDate = String(req.body?.paid_date || '').trim();
+            const paidDate = suppliedDate ? cleanDate(suppliedDate) : businessDate();
             if (!paymentId || !amount) return res.status(400).json({ error: 'Valid payment_id and amount required' });
+            if (!paidDate) return res.status(400).json({ error: 'Valid payment date required' });
             if (!await ensureVisiblePayment(paymentId)) return res.status(404).json({ error: 'Payment not found or loan is in Recycle Bin' });
 
             const { data } = await supabaseRequest('rpc/abhi_update_emi_payment', 'POST', {

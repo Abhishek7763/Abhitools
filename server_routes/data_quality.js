@@ -8,6 +8,13 @@ function safeInt(value) {
     return Number.isFinite(n) ? n : 0;
 }
 
+function validIsoDate(value) {
+    const date = String(value || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+    const parsed = new Date(`${date}T00:00:00Z`);
+    return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date ? null : date;
+}
+
 function sourceDateValid(emi) {
     const month = MONTH_INDEX.get(String(emi?.due_month || '').trim().toUpperCase());
     const day = safeInt(emi?.due_day);
@@ -111,7 +118,10 @@ async function applyCleanup(req, res) {
         if (!Number.isInteger(loanYear) || loanYear < 2000 || loanYear > 2200) return res.status(400).json({ error: 'Invalid optional loan year' });
     }
     let loanDate = String(req.body?.loan_date || '').trim() || null;
-    if (loanDate && !/^\d{4}-\d{2}-\d{2}$/.test(loanDate)) return res.status(400).json({ error: 'Invalid optional loan date' });
+    if (loanDate) {
+        loanDate = validIsoDate(loanDate);
+        if (!loanDate) return res.status(400).json({ error: 'Invalid optional loan date' });
+    }
     if (loanDate && loanYear && Number(loanDate.slice(0,4)) !== loanYear) return res.status(400).json({ error: 'Loan year must match exact loan date year' });
     const note = String(req.body?.note || '').trim().slice(0, 220) || null;
     if (!updates.length && !loanYear && !loanDate) return res.status(400).json({ error: 'Nothing to clean up' });
