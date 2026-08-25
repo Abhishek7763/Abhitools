@@ -50,8 +50,7 @@ function buildUpiUri(data) {
         pn: String(data?.payee_name || 'Abhishek Management').trim(),
         am: String(Number(data?.amount || 0)),
         cu: 'INR',
-        tn: `Loan ${loanCode} EMI ${installment} • Ref ${requestId.slice(0, 8).toUpperCase()}`,
-        tr: requestId
+        tn: `Loan ${loanCode} EMI ${installment} • Ref ${requestId.slice(0, 8).toUpperCase()}`
     });
     return `upi://pay?${params.toString()}`;
 }
