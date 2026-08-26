@@ -104,15 +104,37 @@ The following areas should not be rewritten during polish work unless a verified
 - Production verification: 12/12 functions, errors-only build log clean, `version.json` returned `V2.3.3 Stable`, service worker returned V2.3.3 `v12`, and `/api/due` returned HTTP 200.
 - Runtime verification: no new application error group was attributed to the V2.3.3 production deployment. The only grouped warning remains the pre-existing Node `DEP0169 url.parse()` warning, last seen on the previous Phase F production deployment.
 
+## V2.4 — Security & Regression Hardening
+
+- Branch: `release/v2-4-hardening`.
+- Release metadata: `V2.4 Stable`; package semver `2.4.0`; backup format remains `v7`.
+- Database-level normalized unique UTR/reference index prevents the same UTR from being linked to multiple UPI payment requests, including concurrent submissions.
+- `abhi_submit_upi_reference` keeps the existing pending/expiry checks and adds duplicate-reference rejection without changing payment confirmation semantics.
+- Admin login receives Supabase-backed throttling: 5 failed attempts within a 10-minute window lock that client bucket for 10 minutes.
+- The login bucket stores only a keyed HMAC fingerprint generated server-side; raw client IP is not persisted.
+- Rate limiter is availability-safe: authentication continues through the existing credential path if the limiter RPC is temporarily unavailable, while the degraded protection is logged.
+- Existing signed HttpOnly/Secure/SameSite=Strict admin session behavior remains unchanged.
+- Added dependency-free Node stability tests and a GitHub Actions workflow; tests do not create, pay, settle, delete, or modify production loan records.
+- Automated checks assert 12 API functions, GET-only service-worker retries, V2.4 metadata alignment, login rate-limit wiring, and migration guard presence.
+- Supabase migration `v24_security_hardening` applied successfully on 2026-08-26.
+- Pre-migration duplicate UTR audit returned zero duplicates.
+- Rate-limit RPC was exercised with a synthetic 64-character test bucket through the lock threshold and then cleared; cleanup verified zero test rows remaining.
+- PWA shell: V2.4 `v13`.
+- Financial calculation rules changed: No.
+- Public direct-data UX changed: No.
+- EMI sequence, foreclosure, settlement, recycle and manual Loan ID behavior changed: No.
+- New serverless function: No.
+- Production verification: pending PR/CI/preview/merge.
+
 ## Current known audit note
 
-Vercel runtime diagnostics still report an intermittent Node `DEP0169 url.parse()` deprecation warning on older `/api/dashboard`, `/api/loans`, and `/api/borrowers` executions. Repo inspection has not found direct `url.parse()` usage in the application code, so no working code is being changed solely to silence that hosting/runtime warning.
+Vercel runtime diagnostics have reported an intermittent Node `DEP0169 url.parse()` deprecation warning on `/api/dashboard`, `/api/loans`, and `/api/borrowers`. Fresh repository code search on 2026-08-26 again found no direct `url.parse` usage, and the project has no runtime npm dependencies in `package.json`. No stable application code is being rewritten solely to chase this hosting/runtime warning.
 
-This warning is currently treated as a hosting/runtime maintenance note, not a verified AbhiTools application failure.
+This warning is treated as a hosting/runtime maintenance note, not a verified AbhiTools application failure.
 
 ## Stable-release decision
 
-V2.3.3 has passed final production verification and is the designated stable baseline. Additional changes should be made only for a verified bug, required maintenance, or an explicitly requested new feature; further speculative polish should not be layered onto the stable baseline.
+V2.3.3 is the previous stable baseline. V2.4 becomes the designated stable baseline only after the V2.4 PR, automated checks, Vercel preview, production deployment, and runtime verification all pass.
 
 ## Release verification checklist
 
@@ -121,8 +143,9 @@ Before a polish/release PR is merged:
 1. Compare branch against `main` and confirm changed files match intended scope.
 2. Confirm Vercel preview is READY and serverless count remains within Hobby limit (12).
 3. Check errors-only build logs.
-4. Verify any touched public endpoint or static runtime asset returns the expected status/shape.
-5. Confirm no financial write route was unintentionally changed.
-6. Merge only after PR is mergeable.
-7. Verify production deployment READY and check recent runtime errors.
-8. Record final production commit/deployment verification in the PR or this audit file.
+4. Run/confirm automated stability tests.
+5. Verify any touched public endpoint or static runtime asset returns the expected status/shape.
+6. Confirm no financial write route was unintentionally changed.
+7. Merge only after PR is mergeable.
+8. Verify production deployment READY and check recent runtime errors.
+9. Record final production commit/deployment verification in the PR or this audit file.
