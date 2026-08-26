@@ -88,17 +88,21 @@ The following areas should not be rewritten during polish work unless a verified
 
 ## Final Stable Closeout — V2.3.3
 
+- PR: #15
+- Main release commit: `df8bed8198dbfed6c5c714f24de27c4b88402ebb`
 - Branch: `release/final-stable-v2-3-3`
 - Purpose: finish the remaining low-risk visual consistency work and align release metadata with the completed stability passes.
 - Final mobile polish keeps the non-blocking sync notice inside phone safe areas and prevents dynamic sheet containers from creating accidental horizontal layout growth.
 - Package and release metadata are aligned to `2.3.3` / `V2.3.3 Stable`.
 - Backup format remains `v7`; no backup/import compatibility change is introduced.
-- Service worker shell moves to the V2.3.3 `v12` cache so installed PWAs receive the final stable assets.
+- Service worker shell is V2.3.3 `v12` so installed PWAs receive the final stable assets.
 - API/server/database/financial write files changed: No.
 - EMI/payment/UPI/foreclosure/settlement/recycle/manual Loan ID behavior changed: No.
 - Database migration: None.
 - New serverless function: None.
-- Production verification: pending final PR merge.
+- Production deployment: `dpl_DEsNpXjYdps7HQYLvBxobcZzcxiA` — READY.
+- Production verification: 12/12 functions, errors-only build log clean, `version.json` returned `V2.3.3 Stable`, service worker returned V2.3.3 `v12`, and `/api/due` returned HTTP 200.
+- Runtime verification: no new application error group was attributed to the V2.3.3 production deployment. The only grouped warning remains the pre-existing Node `DEP0169 url.parse()` warning, last seen on the previous Phase F production deployment.
 
 ## Current known audit note
 
@@ -108,7 +112,7 @@ This warning is currently treated as a hosting/runtime maintenance note, not a v
 
 ## Stable-release decision
 
-After the V2.3.3 closeout passes production verification, this build is the designated stable baseline. Additional changes should be made only for a verified bug, required maintenance, or an explicitly requested new feature; further speculative polish should not be layered onto the stable baseline.
+V2.3.3 has passed final production verification and is the designated stable baseline. Additional changes should be made only for a verified bug, required maintenance, or an explicitly requested new feature; further speculative polish should not be layered onto the stable baseline.
 
 ## Release verification checklist
 
