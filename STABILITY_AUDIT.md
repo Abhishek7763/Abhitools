@@ -46,7 +46,7 @@ The following areas should not be rewritten during polish work unless a verified
 ## Phase D — Network Resilience
 
 - PR: #12
-- Branch head at audit entry: `95d880d5eb0786322c094ed2a4429f8d79292f2a`
+- Main commit: `4ee52737487722108e825101da91fb26b031c5ab`
 - Service worker cache: `v9`.
 - Same-origin `GET /api/*` reads get at most one retry for transient network failure or HTTP 408/502/503/504.
 - Each read attempt has an 8-second timeout and a 350 ms retry delay.
@@ -54,7 +54,22 @@ The following areas should not be rewritten during polish work unless a verified
 - API/auth/financial responses are still never cached by the service worker.
 - Database migration: None.
 - New serverless function: None.
-- Preview before audit-file commit: READY, 12/12 functions, build errors 0.
+- Production verification: READY, 12/12 functions, build errors 0, live service worker 200, `/api/due` fresh → cooldown behavior preserved.
+
+## Phase E — Loading & Error UX
+
+- Branch: `polish/loading-error-ux-phase-e`
+- Purpose: make temporary read/sync failures non-blocking and easier to recover from without touching financial actions.
+- The exact legacy read-failure alert (`Data load nahi hua. Internet check karein.`) is softened into a non-blocking status card with `Retry Sync` and `Dismiss`.
+- All other alerts keep their original behavior.
+- Last successful public/admin sync time is stored locally and shown when a later read sync fails.
+- Existing screen data is intentionally left visible on sync failure; no stale financial response is newly cached by this layer.
+- Retry uses the existing read-only `manualSync()` path, which is already protected by in-flight coalescing.
+- Payment, UPI, foreclosure, settlement, save, delete, recycle and other financial write actions are not retried or modified.
+- Service worker cache bumped to `v10` so the updated performance/feedback layer reaches installed PWAs.
+- Database migration: None.
+- New serverless function: None.
+- Production verification: pending PR merge.
 
 ## Current known audit note
 
@@ -67,9 +82,8 @@ Before a polish PR is merged:
 1. Compare branch against `main` and confirm changed files match intended scope.
 2. Confirm Vercel preview is READY and serverless count remains within Hobby limit (12).
 3. Check errors-only build logs.
-4. Verify any touched public endpoint returns the expected status/shape.
+4. Verify any touched public endpoint or static runtime asset returns the expected status/shape.
 5. Confirm no financial write route was unintentionally changed.
 6. Merge only after PR is mergeable.
 7. Verify production deployment READY and check recent runtime errors.
-
-Production verification for Phase D should be recorded in PR #12 after merge so the GitHub history remains the final audit trail.
+8. Record final production commit/deployment verification in the PR or this audit file.
