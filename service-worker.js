@@ -1,6 +1,9 @@
 // AbhiTools Public UI Cleanup Build 1 hardened service worker
 // SECURITY RULE: /api/* responses and authenticated financial data are never cached.
-const CACHE_NAME = 'abhi-tools-shell-v2-3-2-stable-v8';
+const CACHE_NAME = 'abhi-tools-shell-v2-3-2-stable-v9';
+const API_GET_TIMEOUT_MS = 8000;
+const API_GET_RETRY_DELAY_MS = 350;
+const API_GET_RETRY_STATUSES = new Set([408, 502, 503, 504]);
 const SHELL = [
   '/',
   '/index.html',
@@ -27,6 +30,41 @@ const SHELL = [
   '/offline.html'
 ];
 
+function wait(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchApiGetWithRetry(request) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    if (request.signal?.aborted) throw new DOMException('Request aborted', 'AbortError');
+
+    const controller = new AbortController();
+    const abortFromClient = () => controller.abort();
+    request.signal?.addEventListener?.('abort', abortFromClient, { once: true });
+    const timeoutId = setTimeout(() => controller.abort(), API_GET_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(request.clone(), { signal: controller.signal });
+      clearTimeout(timeoutId);
+      request.signal?.removeEventListener?.('abort', abortFromClient);
+
+      if (!API_GET_RETRY_STATUSES.has(response.status) || attempt === 1) return response;
+      try { await response.body?.cancel(); } catch {}
+    } catch (error) {
+      clearTimeout(timeoutId);
+      request.signal?.removeEventListener?.('abort', abortFromClient);
+      lastError = error;
+      if (request.signal?.aborted || attempt === 1) throw error;
+    }
+
+    await wait(API_GET_RETRY_DELAY_MS);
+  }
+
+  throw lastError || new Error('API GET failed');
+}
+
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)));
 });
@@ -50,9 +88,9 @@ self.addEventListener('fetch', event => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Never cache API/auth/financial responses.
+  // Never cache API/auth/financial responses. GET reads get one safe transient retry only.
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(fetch(request));
+    event.respondWith(fetchApiGetWithRetry(request));
     return;
   }
 
