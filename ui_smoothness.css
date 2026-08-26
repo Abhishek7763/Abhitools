@@ -155,6 +155,26 @@ body.abhi-modal-active {
     will-change: transform, opacity;
 }
 
+/* Final stable closeout: keep transient feedback inside phone safe areas and prevent
+   dynamic sheet content from creating accidental horizontal layout growth. */
+#abhiReadFailureToast {
+    contain: layout paint;
+    max-width: min(390px, calc(100vw - 20px));
+}
+
+.ui-more-panel,
+.ui-loan-detail-panel,
+.public-loan-detail-panel,
+.upi-admin-panel,
+.upi-ref-card,
+.ui-more-content,
+.ui-loan-detail-content,
+.public-loan-detail-body,
+.upi-admin-body,
+.upi-request-list {
+    min-width: 0;
+}
+
 @keyframes abhiFadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
@@ -226,6 +246,13 @@ body.abhi-modal-active {
 
     #publicSyncLoader {
         box-shadow: 0 8px 24px rgba(15,23,42,.16) !important;
+    }
+
+    #abhiReadFailureToast {
+        left: 10px !important;
+        right: 10px !important;
+        bottom: calc(88px + env(safe-area-inset-bottom)) !important;
+        max-width: none;
     }
 }
 
