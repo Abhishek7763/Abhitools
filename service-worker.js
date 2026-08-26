@@ -1,6 +1,6 @@
 // AbhiTools Public UI Cleanup Build 1 hardened service worker
 // SECURITY RULE: /api/* responses and authenticated financial data are never cached.
-const CACHE_NAME = 'abhi-tools-shell-v2-3-2-stable-v9';
+const CACHE_NAME = 'abhi-tools-shell-v2-3-2-stable-v10';
 const API_GET_TIMEOUT_MS = 8000;
 const API_GET_RETRY_DELAY_MS = 350;
 const API_GET_RETRY_STATUSES = new Set([408, 502, 503, 504]);
