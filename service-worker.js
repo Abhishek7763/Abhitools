@@ -1,6 +1,6 @@
 // AbhiTools Public UI Cleanup Build 1 hardened service worker
 // SECURITY RULE: /api/* responses and authenticated financial data are never cached.
-const CACHE_NAME = 'abhi-tools-shell-v2-3-2-stable-v7';
+const CACHE_NAME = 'abhi-tools-shell-v2-3-2-stable-v8';
 const SHELL = [
   '/',
   '/index.html',
@@ -8,6 +8,7 @@ const SHELL = [
   '/public_script.js',
   '/pwa.js',
   '/ui_smoothness.css',
+  '/ui_performance.js',
   '/ui_shell.css',
   '/ui_shell.js',
   '/ui_loans.css',
