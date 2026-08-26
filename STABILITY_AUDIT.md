@@ -58,15 +58,30 @@ The following areas should not be rewritten during polish work unless a verified
 
 ## Phase E — Loading & Error UX
 
-- Branch: `polish/loading-error-ux-phase-e`
-- Purpose: make temporary read/sync failures non-blocking and easier to recover from without touching financial actions.
+- PR: #13
+- Main commit: `bdbda1a075fe700cf99bfea576082ee36370f315`
 - The exact legacy read-failure alert (`Data load nahi hua. Internet check karein.`) is softened into a non-blocking status card with `Retry Sync` and `Dismiss`.
 - All other alerts keep their original behavior.
 - Last successful public/admin sync time is stored locally and shown when a later read sync fails.
 - Existing screen data is intentionally left visible on sync failure; no stale financial response is newly cached by this layer.
 - Retry uses the existing read-only `manualSync()` path, which is already protected by in-flight coalescing.
 - Payment, UPI, foreclosure, settlement, save, delete, recycle and other financial write actions are not retried or modified.
-- Service worker cache bumped to `v10` so the updated performance/feedback layer reaches installed PWAs.
+- Service worker cache: `v10`.
+- Database migration: None.
+- New serverless function: None.
+- Production verification: READY, 12/12 functions, build errors 0, new production error/fatal logs 0, live performance asset and service worker returned 200, `/api/due` returned 200.
+
+## Phase F — Action / Modal / Mobile Polish
+
+- Branch: `polish/action-modal-mobile-phase-f`
+- Purpose: make taps and existing async button states feel immediate while reducing mobile modal/background jank.
+- Clicked actions receive a short presentation-only press state; no button is disabled by this layer.
+- If the existing application disables the clicked HTML button during its own async work, the polish layer adds temporary `aria-busy` + spinner feedback and removes it when the core re-enables the button (or after a short safety timeout).
+- Dynamic loan/public/UPI/More overlays are detected only to apply a presentation-only body scroll lock while a sheet is open.
+- Mobile blur is removed from the admin loan detail backdrop and public sync loader in addition to the already optimized overlays.
+- Mobile sheet shadows are reduced slightly to lower paint cost without changing layout or controls.
+- Service worker cache: `v11`.
+- API/server/database/financial write files changed: No.
 - Database migration: None.
 - New serverless function: None.
 - Production verification: pending PR merge.

@@ -1,4 +1,4 @@
-// AbhiTools Frontend Performance — low-risk interaction/request coalescing + sync feedback.
+// AbhiTools Frontend Performance — low-risk interaction/request coalescing + sync/action feedback.
 (() => {
     'use strict';
 
@@ -10,6 +10,15 @@
     const isPublic = window.location.pathname === '/' || /(?:^|\/)index\.html$/i.test(window.location.pathname);
     const syncStorageKey = isAdmin ? 'abhi_last_sync_admin_v1' : 'abhi_last_sync_public_v1';
     const syncFailureAlert = 'Data load nahi hua. Internet check karein.';
+    const actionProcessingTimeoutMs = 7000;
+    const modalSelectors = [
+        '#uiMoreOverlay:not([hidden])',
+        '#uiLoanDetailOverlay',
+        '#publicLoanDetailOverlay',
+        '.upi-ref-overlay',
+        '.upi-admin-overlay'
+    ];
+    const processingButtons = new WeakMap();
 
     function coalesceAsync(name) {
         const original = window[name];
@@ -198,6 +207,78 @@
         }
     }
 
+    function clearActionProcessing(button) {
+        const state = processingButtons.get(button);
+        if (!state) return;
+        state.observer.disconnect();
+        clearTimeout(state.timeoutId);
+        button.classList.remove('abhi-action-processing');
+        delete button.dataset.abhiActionProcessing;
+        if (state.previousAriaBusy == null) button.removeAttribute('aria-busy');
+        else button.setAttribute('aria-busy', state.previousAriaBusy);
+        processingButtons.delete(button);
+    }
+
+    function markActionProcessing(button) {
+        if (!(button instanceof HTMLButtonElement) || processingButtons.has(button) || !button.disabled) return;
+        const observer = new MutationObserver(() => {
+            if (!button.isConnected || !button.disabled) clearActionProcessing(button);
+        });
+        const previousAriaBusy = button.getAttribute('aria-busy');
+        button.classList.add('abhi-action-processing');
+        button.dataset.abhiActionProcessing = 'yes';
+        button.setAttribute('aria-busy', 'true');
+        observer.observe(button, { attributes: true, attributeFilter: ['disabled'] });
+        const timeoutId = window.setTimeout(() => clearActionProcessing(button), actionProcessingTimeoutMs);
+        processingButtons.set(button, { observer, timeoutId, previousAriaBusy });
+    }
+
+    function scheduleProcessingCheck(button) {
+        [0, 45, 140].forEach(delay => {
+            window.setTimeout(() => {
+                if (button.isConnected && button.disabled) markActionProcessing(button);
+            }, delay);
+        });
+    }
+
+    function installActionFeedback() {
+        if (document.documentElement.dataset.abhiActionFeedback === 'yes') return;
+        document.documentElement.dataset.abhiActionFeedback = 'yes';
+
+        document.addEventListener('click', event => {
+            const target = event.target instanceof Element ? event.target.closest('button,.btn,[role="button"]') : null;
+            if (!(target instanceof HTMLElement)) return;
+            if (target.matches(':disabled,[aria-disabled="true"]')) return;
+
+            target.classList.add('abhi-action-tap');
+            window.setTimeout(() => target.classList.remove('abhi-action-tap'), 190);
+
+            if (target instanceof HTMLButtonElement) scheduleProcessingCheck(target);
+        }, true);
+    }
+
+    function installModalStatePolish() {
+        if (!body || body.dataset.abhiModalPolish === 'yes') return;
+        body.dataset.abhiModalPolish = 'yes';
+        let frame = 0;
+        const sync = () => {
+            frame = 0;
+            const modalOpen = modalSelectors.some(selector => document.querySelector(selector));
+            body.classList.toggle('abhi-modal-active', modalOpen);
+        };
+        const schedule = () => {
+            if (frame) return;
+            frame = window.requestAnimationFrame(sync);
+        };
+        new MutationObserver(schedule).observe(body, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['hidden']
+        });
+        sync();
+    }
+
     if (isPublic) {
         coalesceAsync('fetchFromCloud');
         coalesceAsync('manualSync');
@@ -214,6 +295,8 @@
     installReadFailureSoftener();
     installSearchDebounce();
     installSyncFeedbackGuard();
+    installActionFeedback();
+    installModalStatePolish();
     window.addEventListener('online', () => {
         if (document.getElementById('abhiReadFailureToast')) showReadFailureNotice();
     });
