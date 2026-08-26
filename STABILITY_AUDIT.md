@@ -73,8 +73,8 @@ The following areas should not be rewritten during polish work unless a verified
 
 ## Phase F — Action / Modal / Mobile Polish
 
-- Branch: `polish/action-modal-mobile-phase-f`
-- Purpose: make taps and existing async button states feel immediate while reducing mobile modal/background jank.
+- PR: #14
+- Main commit: `6c9d990f6266806d2714c8c285de1a6c6182bb3b`
 - Clicked actions receive a short presentation-only press state; no button is disabled by this layer.
 - If the existing application disables the clicked HTML button during its own async work, the polish layer adds temporary `aria-busy` + spinner feedback and removes it when the core re-enables the button (or after a short safety timeout).
 - Dynamic loan/public/UPI/More overlays are detected only to apply a presentation-only body scroll lock while a sheet is open.
@@ -84,15 +84,35 @@ The following areas should not be rewritten during polish work unless a verified
 - API/server/database/financial write files changed: No.
 - Database migration: None.
 - New serverless function: None.
-- Production verification: pending PR merge.
+- Production verification: READY, 12/12 functions, build errors 0, live `ui_performance.js` and service worker returned 200, `/api/due` returned 200, new Phase F runtime error/fatal logs 0.
+
+## Final Stable Closeout — V2.3.3
+
+- Branch: `release/final-stable-v2-3-3`
+- Purpose: finish the remaining low-risk visual consistency work and align release metadata with the completed stability passes.
+- Final mobile polish keeps the non-blocking sync notice inside phone safe areas and prevents dynamic sheet containers from creating accidental horizontal layout growth.
+- Package and release metadata are aligned to `2.3.3` / `V2.3.3 Stable`.
+- Backup format remains `v7`; no backup/import compatibility change is introduced.
+- Service worker shell moves to the V2.3.3 `v12` cache so installed PWAs receive the final stable assets.
+- API/server/database/financial write files changed: No.
+- EMI/payment/UPI/foreclosure/settlement/recycle/manual Loan ID behavior changed: No.
+- Database migration: None.
+- New serverless function: None.
+- Production verification: pending final PR merge.
 
 ## Current known audit note
 
 Vercel runtime diagnostics still report an intermittent Node `DEP0169 url.parse()` deprecation warning on older `/api/dashboard`, `/api/loans`, and `/api/borrowers` executions. Repo inspection has not found direct `url.parse()` usage in the application code, so no working code is being changed solely to silence that hosting/runtime warning.
 
+This warning is currently treated as a hosting/runtime maintenance note, not a verified AbhiTools application failure.
+
+## Stable-release decision
+
+After the V2.3.3 closeout passes production verification, this build is the designated stable baseline. Additional changes should be made only for a verified bug, required maintenance, or an explicitly requested new feature; further speculative polish should not be layered onto the stable baseline.
+
 ## Release verification checklist
 
-Before a polish PR is merged:
+Before a polish/release PR is merged:
 
 1. Compare branch against `main` and confirm changed files match intended scope.
 2. Confirm Vercel preview is READY and serverless count remains within Hobby limit (12).
