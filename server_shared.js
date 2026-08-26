@@ -70,6 +70,22 @@ export function credentialsMatch(userId, password) {
     return safeEqual(userId, requiredEnv('ADMIN_ID')) && safeEqual(password, requiredEnv('ADMIN_PASS'));
 }
 
+export function getClientAddress(req) {
+    const forwarded = req?.headers?.['x-forwarded-for'];
+    const realIp = req?.headers?.['x-real-ip'];
+    const source = Array.isArray(forwarded) ? forwarded[0] : (forwarded || realIp || 'unknown');
+    const first = String(source).split(',')[0].trim().slice(0, 128);
+    return first || 'unknown';
+}
+
+export function securityFingerprint(purpose, value) {
+    const secret = authSecret();
+    if (!secret) throw new Error('Missing server security secret');
+    return crypto.createHmac('sha256', secret)
+        .update(`${String(purpose || 'security')}\0${String(value || '')}`)
+        .digest('hex');
+}
+
 export function noStore(res) {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     res.setHeader('X-Content-Type-Options', 'nosniff');
