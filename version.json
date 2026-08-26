@@ -1,10 +1,10 @@
 {
   "product": "AbhiTools / Abhishek Management Tool",
-  "release": "2.3.3",
+  "release": "2.4",
   "channel": "stable",
-  "label": "V2.3.3 Stable",
+  "label": "V2.4 Stable",
   "release_date": "2026-08-26",
-  "phase": 23,
+  "phase": 24,
   "architecture": {
     "hosting": "Vercel",
     "database": "Supabase PostgreSQL",
@@ -13,5 +13,5 @@
     "vercel_hobby_function_budget": 12
   },
   "backup_format_version": 7,
-  "notes": "Final stable smoothness closeout: UI motion, frontend request coalescing, due-refresh optimization, safe GET retry, non-blocking sync recovery, action feedback, modal/mobile jank reduction, and final safe-area polish. Financial write rules and backup format are unchanged."
+  "notes": "V2.4 hardens the stable V2.3.3 baseline with database-level duplicate UTR protection, Supabase-backed admin login throttling, keyed client fingerprints, and lightweight automated stability checks. Financial calculation rules, public direct-data UX, and backup format remain unchanged."
 }
