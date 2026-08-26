@@ -1,9 +1,9 @@
 {
   "product": "AbhiTools / Abhishek Management Tool",
-  "release": "2.3.2",
+  "release": "2.3.3",
   "channel": "stable",
-  "label": "V2.3.2 Stable",
-  "release_date": "2026-08-25",
+  "label": "V2.3.3 Stable",
+  "release_date": "2026-08-26",
   "phase": 23,
   "architecture": {
     "hosting": "Vercel",
@@ -13,5 +13,5 @@
     "vercel_hobby_function_budget": 12
   },
   "backup_format_version": 7,
-  "notes": "V2.3.2 fixes permanent deletion of stale recycle-bin entries while preserving batch-mismatch protection and audit history. Financial calculations and active records are unchanged."
+  "notes": "Final stable smoothness closeout: UI motion, frontend request coalescing, due-refresh optimization, safe GET retry, non-blocking sync recovery, action feedback, modal/mobile jank reduction, and final safe-area polish. Financial write rules and backup format are unchanged."
 }
