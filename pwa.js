@@ -283,6 +283,7 @@
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', () => {
+            addStylesheet('/ui_smoothness.css', 'data-abhi-smoothness-ui');
             loadAdminUiShell();
             loadPublicUiLayer();
             bindInstallButtons();
@@ -290,6 +291,7 @@
             registerServiceWorker();
         }, { once: true });
     } else {
+        addStylesheet('/ui_smoothness.css', 'data-abhi-smoothness-ui');
         loadAdminUiShell();
         loadPublicUiLayer();
         bindInstallButtons();
