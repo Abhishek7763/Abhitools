@@ -1,5 +1,63 @@
 import { isValidAdminSession, noStore, sendServerError, supabaseRequest } from '../server_shared.js';
 
+const TIME_ZONE = 'Asia/Kolkata';
+const DUE_REFRESH_COOLDOWN_MS = 60 * 1000;
+
+// Warm serverless instances remember only that the date-status refresh ran recently.
+// No borrower, loan, EMI, payment or other financial data is cached here.
+let dueRefreshState = { businessDate: '', refreshedAt: 0 };
+let dueRefreshInFlight = null;
+
+function indiaBusinessDate() {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(new Date());
+    const map = Object.fromEntries(parts.map(part => [part.type, part.value]));
+    return `${map.year}-${map.month}-${map.day}`;
+}
+
+async function refreshDueStatusesSmoothly() {
+    const now = Date.now();
+    const localBusinessDate = indiaBusinessDate();
+    const refreshStillFresh = dueRefreshState.businessDate === localBusinessDate
+        && (now - dueRefreshState.refreshedAt) < DUE_REFRESH_COOLDOWN_MS;
+
+    if (refreshStillFresh) {
+        return {
+            business_date: localBusinessDate,
+            updated_count: 0,
+            refresh_mode: 'cooldown'
+        };
+    }
+
+    if (dueRefreshInFlight) {
+        const shared = await dueRefreshInFlight;
+        return {
+            ...shared,
+            updated_count: 0,
+            refresh_mode: 'coalesced'
+        };
+    }
+
+    dueRefreshInFlight = (async () => {
+        const refresh = await supabaseRequest('rpc/abhi_refresh_due_statuses', 'POST', {});
+        const refreshData = Array.isArray(refresh.data) ? (refresh.data[0] || {}) : (refresh.data || {});
+        const businessDate = String(refreshData.business_date || localBusinessDate);
+        dueRefreshState = { businessDate, refreshedAt: Date.now() };
+        return {
+            business_date: businessDate,
+            updated_count: Number(refreshData.updated_count || 0),
+            refresh_mode: 'fresh'
+        };
+    })();
+
+    try {
+        return await dueRefreshInFlight;
+    } finally {
+        dueRefreshInFlight = null;
+    }
+}
+
 function dateAdd(iso, days) {
     const d = new Date(`${iso}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() + days);
@@ -31,18 +89,22 @@ export default async function handler(req, res) {
     }
 
     try {
-        const refresh = await supabaseRequest('rpc/abhi_refresh_due_statuses', 'POST', {});
-        const refreshData = Array.isArray(refresh.data) ? (refresh.data[0] || {}) : (refresh.data || {});
-        const businessDate = String(refreshData.business_date || new Intl.DateTimeFormat('en-CA', {
-            timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit'
-        }).format(new Date()));
+        const refreshStarted = Date.now();
+        const refreshData = await refreshDueStatusesSmoothly();
+        const refreshDuration = Date.now() - refreshStarted;
+        const businessDate = String(refreshData.business_date || indiaBusinessDate());
         const tomorrow = dateAdd(businessDate, 1);
         const next7End = dateAdd(businessDate, 6);
         const thisMonth = monthKey(businessDate);
 
+        const queryStarted = Date.now();
         const { data } = await supabaseRequest(
-            'loans?deleted_at=is.null&status=eq.active&select=id,loan_code,status,borrowers(name),emis(id,installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount)&order=created_at.desc'
+            'loans?deleted_at=is.null&status=eq.active&select=id,loan_code,borrowers(name),emis(id,installment_number,due_date,due_day,due_month,due_year,amount,status,paid_amount)&order=created_at.desc'
         );
+        const queryDuration = Date.now() - queryStarted;
+
+        res.setHeader('X-Abhi-Due-Refresh', String(refreshData.refresh_mode || 'fresh'));
+        res.setHeader('Server-Timing', `due-refresh;dur=${refreshDuration}, due-query;dur=${queryDuration}`);
 
         const isAdmin = isValidAdminSession(req);
         const all = [];
@@ -89,8 +151,9 @@ export default async function handler(req, res) {
 
         return res.status(200).json({
             businessDate,
-            timezone: 'Asia/Kolkata',
+            timezone: TIME_ZONE,
             refreshed: Number(refreshData.updated_count || 0),
+            refreshMode: refreshData.refresh_mode || 'fresh',
             summary: {
                 overdue: summarize(overdue),
                 today: summarize(today),
