@@ -106,6 +106,8 @@ The following areas should not be rewritten during polish work unless a verified
 
 ## V2.4 — Security & Regression Hardening
 
+- PR: #16
+- Main release commit: `6b67fc86a1774110fa52fef74d75724907c0f14a`.
 - Branch: `release/v2-4-hardening`.
 - Release metadata: `V2.4 Stable`; package semver `2.4.0`; backup format remains `v7`.
 - Database-level normalized unique UTR/reference index prevents the same UTR from being linked to multiple UPI payment requests, including concurrent submissions.
@@ -124,7 +126,11 @@ The following areas should not be rewritten during polish work unless a verified
 - Public direct-data UX changed: No.
 - EMI sequence, foreclosure, settlement, recycle and manual Loan ID behavior changed: No.
 - New serverless function: No.
-- Production verification: pending PR/CI/preview/merge.
+- GitHub Stability Checks: PASS.
+- Vercel preview: READY, 12/12 functions, errors-only build log clean, `version.json` returned `V2.4 Stable`.
+- Production deployment: `dpl_HUV3ktaKV6SpQjezzoWKc77z3iQo` — READY.
+- Production verification: 12/12 functions, errors-only build log clean, `version.json` returned `V2.4 Stable`, service worker returned V2.4 `v13`, `/api/auth` unauthenticated GET returned expected HTTP 401 with `authenticated:false`, and `/api/due` returned HTTP 200.
+- Runtime verification: no error/fatal logs were found for the V2.4 production deployment during the post-release check.
 
 ## Current known audit note
 
@@ -134,7 +140,7 @@ This warning is treated as a hosting/runtime maintenance note, not a verified Ab
 
 ## Stable-release decision
 
-V2.3.3 is the previous stable baseline. V2.4 becomes the designated stable baseline only after the V2.4 PR, automated checks, Vercel preview, production deployment, and runtime verification all pass.
+V2.4 has passed the database migration, automated checks, Vercel preview, production deployment and runtime verification and is now the designated stable baseline. Future changes should be limited to verified bug fixes, required maintenance, or explicitly requested features.
 
 ## Release verification checklist
 
