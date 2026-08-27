@@ -82,14 +82,14 @@
 
     function decoratePaidUi() {
         document.querySelectorAll('#loanList .public-loan-mini-status.paid').forEach(status => {
-            status.textContent = '✅ PAID';
+            if (String(status.textContent || '').trim() !== '✅ PAID') status.textContent = '✅ PAID';
         });
         document.querySelectorAll('#loanList .public-loan-mini-chip').forEach(chip => {
             const text = String(chip.textContent || '').trim();
             if (/^Paid\s+/i.test(text) && !text.startsWith('✅')) chip.textContent = text.replace(/^Paid\s+/i, '✅ PAID ');
         });
         document.querySelectorAll('.public-emi-row.paid .public-emi-state').forEach(status => {
-            status.textContent = '✅ PAID';
+            if (String(status.textContent || '').trim() !== '✅ PAID') status.textContent = '✅ PAID';
         });
     }
 
