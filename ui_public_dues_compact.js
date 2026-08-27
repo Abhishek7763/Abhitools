@@ -120,43 +120,48 @@
         const style = document.createElement('style');
         style.id = 'abhiPublicDuesCompactV2Styles';
         style.textContent = `
-            .public-dues-v2-body { overflow:auto; overscroll-behavior:contain; padding:7px 7px calc(14px + env(safe-area-inset-bottom)); display:grid; gap:8px; }
-            .public-dues-v2-month { overflow:hidden; border:1px solid #dbe4f0; border-radius:11px; background:#fff; }
+            .public-dues-v2-body { overflow:auto; overscroll-behavior:contain; padding:10px 9px calc(16px + env(safe-area-inset-bottom)); display:grid; gap:11px; }
+            .public-dues-v2-month { overflow:hidden; border:1px solid #d9e3f0; border-radius:14px; background:#fff; box-shadow:0 4px 14px rgba(15,23,42,.05); }
             .public-dues-v2-month-title {
-                padding:7px 9px; text-align:center; background:#eff6ff; color:#1d4ed8;
-                border-bottom:1px solid #dbeafe; font-size:14px; line-height:1.15; font-weight:850; white-space:nowrap;
+                padding:10px 12px; text-align:center; background:#eff6ff; color:#1d4ed8;
+                border-bottom:1px solid #dbeafe; font-size:16px; line-height:1.15; font-weight:850; white-space:nowrap;
+                letter-spacing:.01em;
             }
             .public-dues-v2-list { overflow-x:auto; scrollbar-width:thin; }
             .public-dues-v2-row {
-                min-width:max-content; display:flex; flex-wrap:nowrap; align-items:center; gap:6px;
-                padding:7px 9px; border-bottom:1px solid #eef2f7; font-size:11.5px; line-height:1.15;
-                white-space:nowrap; color:#334155; font-variant-numeric:tabular-nums;
+                min-width:max-content; display:flex; flex-wrap:nowrap; align-items:center; gap:9px;
+                padding:11px 13px; border-bottom:1px solid #edf2f7; font-size:13px; line-height:1.2;
+                white-space:nowrap; color:#334155; font-variant-numeric:tabular-nums; background:#fff;
             }
+            .public-dues-v2-row:nth-child(even) { background:#fbfdff; }
             .public-dues-v2-row:last-child { border-bottom:0; }
-            .public-dues-v2-row .sep { color:#94a3b8; font-weight:700; }
-            .public-dues-v2-date { min-width:44px; font-weight:850; color:#0f172a; }
+            .public-dues-v2-row .sep { color:#94a3b8; font-weight:800; }
+            .public-dues-v2-date { min-width:50px; font-weight:850; color:#0f172a; }
             .public-dues-v2-loan { font-weight:800; color:#1d4ed8; }
-            .public-dues-v2-amount { font-weight:800; color:#0f172a; }
-            .public-dues-v2-status { padding:3px 6px; border-radius:999px; background:#f1f5f9; color:#475569; font-size:9.5px; font-weight:850; }
+            .public-dues-v2-amount { min-width:62px; font-weight:850; color:#0f172a; }
+            .public-dues-v2-status { padding:5px 9px; border-radius:999px; background:#f1f5f9; color:#475569; font-size:10.5px; line-height:1.1; font-weight:850; box-shadow:inset 0 0 0 1px rgba(148,163,184,.18); }
             .public-dues-v2-row.paid .public-dues-v2-status { background:#dcfce7; color:#166534; }
             .public-dues-v2-row.overdue .public-dues-v2-status { background:#fee2e2; color:#991b1b; }
             .public-dues-v2-row.today .public-dues-v2-status { background:#fef3c7; color:#92400e; }
             .public-dues-v2-row.partial .public-dues-v2-status { background:#ffedd5; color:#9a3412; }
             .public-dues-v2-row.incomplete .public-dues-v2-status { background:#f3e8ff; color:#6b21a8; }
-            .public-dues-v2-empty { padding:18px 10px; text-align:center; color:#64748b; font-size:12px; background:#fff; border:1px solid #dbe4f0; border-radius:11px; }
+            .public-dues-v2-empty { padding:20px 12px; text-align:center; color:#64748b; font-size:13px; background:#fff; border:1px solid #dbe4f0; border-radius:13px; }
 
-            body.dark-mode .public-dues-v2-month { background:#1f1f1f; border-color:#3a3a3a; }
+            body.dark-mode .public-dues-v2-month { background:#1f1f1f; border-color:#3a3a3a; box-shadow:none; }
             body.dark-mode .public-dues-v2-month-title { background:#202a3a; border-color:#334155; color:#93c5fd; }
-            body.dark-mode .public-dues-v2-row { color:#cbd5e1; border-bottom-color:#303030; }
+            body.dark-mode .public-dues-v2-row { color:#cbd5e1; border-bottom-color:#303030; background:#1f1f1f; }
+            body.dark-mode .public-dues-v2-row:nth-child(even) { background:#232323; }
             body.dark-mode .public-dues-v2-date,
             body.dark-mode .public-dues-v2-amount { color:#f8fafc; }
 
             @media(max-width:430px) {
-                .public-dues-v2-body { padding:6px 5px calc(12px + env(safe-area-inset-bottom)); gap:6px; }
-                .public-dues-v2-month-title { padding:6px 7px; font-size:13px; }
-                .public-dues-v2-row { gap:4px; padding:6px 7px; font-size:10.5px; }
-                .public-dues-v2-date { min-width:39px; }
-                .public-dues-v2-status { padding:3px 5px; font-size:9px; }
+                .public-dues-v2-body { padding:8px 6px calc(14px + env(safe-area-inset-bottom)); gap:8px; }
+                .public-dues-v2-month { border-radius:12px; }
+                .public-dues-v2-month-title { padding:8px 9px; font-size:14.5px; }
+                .public-dues-v2-row { gap:6px; padding:9px 9px; font-size:11.5px; }
+                .public-dues-v2-date { min-width:43px; }
+                .public-dues-v2-amount { min-width:54px; }
+                .public-dues-v2-status { padding:4px 7px; font-size:9.5px; }
             }
         `;
         document.head.appendChild(style);
@@ -181,7 +186,7 @@
                     <span class="sep">/</span>
                     <span class="public-dues-v2-loan">${esc(row.loan?.loan_code || 'Loan')}</span>
                     <span class="sep">/</span>
-                    <span class="public-dues-v2-amount">${money(row.loan?.amount)}</span>
+                    <span class="public-dues-v2-amount">${money(row.emi?.amount)}</span>
                     <span class="sep">/</span>
                     <span class="public-dues-v2-status">${esc(row.state.label)}</span>
                 </div>`).join('');
