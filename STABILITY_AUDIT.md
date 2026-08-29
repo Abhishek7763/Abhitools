@@ -172,3 +172,33 @@ Before a polish/release PR is merged:
 - No Supabase write/test data was created in Phase 0.
 - No Vercel deployment command was run by this pass, and no `vercel --prod`, production promotion, or merge to `main` was performed.
 - The branch was created specifically so every later phase can remain incremental, independently revertible, preview-only, and manually reviewed before the next phase.
+
+## Recovery setup before Phase 1 — Fresh Supabase rebuild (2026-08-29)
+
+- The previous AbhiTools Supabase project was no longer available, so the user explicitly requested a fresh AbhiTools Supabase setup and planned to re-enter financial records manually.
+- New Supabase project ref: `bveseaobfkbrtczzfsds` (`Abhitools`).
+- Added `20260823000000_bootstrap_core_schema.sql` on the improvement branch to make the previously untracked foundational schema reproducible for a brand-new Supabase project.
+- The bootstrap intentionally creates only foundational tables/views/storage/RLS/service-role access and does not reimplement EMI payment, settlement, sequential UPI, UTR, recycle, or other protected financial RPC logic.
+- Existing tracked migrations were then applied in order to the fresh project, including V2.4 duplicate-UTR and DB-backed admin-login throttling hardening.
+- A duplicate bootstrap activity-log index detected by Supabase Performance Advisor was removed with `20260829143000_remove_duplicate_activity_index.sql`; no stored financial data or business rule changed.
+- Fresh financial row counts were verified at zero for borrowers, loans, EMIs, payments, settlements, documents, recycle items, follow-ups and UPI requests; only intentional default settings/config rows existed.
+- Security verification confirmed RLS on protected tables, no direct anon/authenticated table privileges in the checked protected set, and no anon/authenticated execution privilege on checked `abhi_*` functions.
+- The V2.4 rate-limit RPC was tested with one synthetic 64-character bucket, reached the expected five-failure lock threshold, was cleared immediately, and cleanup verified zero synthetic rate-limit rows remaining.
+- The user updated Vercel Supabase environment variables and performed a production redeploy themselves. Post-redeploy checks returned HTTP 200 for `/api/due`, `/api/loans`, `/api/dashboard`, `/api/borrowers` and `/api/upi-payments`; the old deleted-project `ENOTFOUND` failure was no longer present on the new deployment.
+- This recovery work was explicitly requested outside the normal polish phases; it did not authorize future production merges/promotions.
+
+## Improvement Pass Phase 1 — Safety & Regression Guard (2026-08-29)
+
+- Scope is test/audit/CI only: `tests/security-hardening.test.mjs`, `.github/workflows/stability-checks.yml`, and this audit file.
+- No application, API implementation, CSS, client JS, service worker, financial formula, or database migration is modified by Phase 1.
+- Existing 12-function count guard is strengthened to require the exact protected API filename inventory, preventing a required function from being silently replaced while the count remains 12.
+- Added a guard that `/api/upi-payments` remains a Vercel rewrite to `/api/dashboard?mode=upi-payments` and that no thirteenth `api/upi-payments.js` function appears.
+- Added a fresh-Supabase bootstrap guard requiring the five foundational core tables, RLS enablement, service-role-only borrower access, and absence of duplicated protected payment/settlement/UPI RPC definitions in the bootstrap migration.
+- Existing guards for GET-only service-worker retries, V2.4 UTR uniqueness/rate-limit wiring, auth route shape, session endpoints and V2.4 release metadata remain intact.
+- `Stability Checks` is extended to run on `improve/**` pushes as well as `main` and pull requests, so every subsequent improvement-phase push gets the same Node 24 `npm test` gate.
+- Dependency added: None.
+- Service worker/precache asset changed: No; cache remains `abhi-tools-shell-v2-4-stable-v13` and no cache bump is required in this phase.
+- Supabase data write/test data created in Phase 1: None.
+- Financial/business logic changed: No.
+- API function implementation changed: No.
+- Production merge/promotion/deploy performed by Phase 1: No.

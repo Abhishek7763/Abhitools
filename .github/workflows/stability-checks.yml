@@ -3,7 +3,9 @@ name: Stability Checks
 on:
   pull_request:
   push:
-    branches: [main]
+    branches:
+      - main
+      - 'improve/**'
 
 permissions:
   contents: read

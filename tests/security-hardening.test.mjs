@@ -10,6 +10,21 @@ const root = path.resolve(here, '..');
 process.env.ADMIN_PASS = process.env.ADMIN_PASS || 'test-only-secret';
 const { getClientAddress, securityFingerprint } = await import('../server_shared.js');
 
+const EXPECTED_API_FUNCTIONS = [
+  'auth.js',
+  'backup.js',
+  'borrowers.js',
+  'dashboard.js',
+  'documents.js',
+  'due.js',
+  'import.js',
+  'loans.js',
+  'payments.js',
+  'recycle.js',
+  'settlements.js',
+  'upload.js'
+];
+
 test('client address uses only the first forwarded address', () => {
   const req = { headers: { 'x-forwarded-for': '203.0.113.7, 10.0.0.1' } };
   assert.equal(getClientAddress(req), '203.0.113.7');
@@ -31,10 +46,32 @@ test('service worker retries reads only and still bypasses non-GET writes', () =
   assert.match(source, /abhi-tools-shell-v2-4-stable-v13/);
 });
 
-test('Vercel Hobby API function count remains exactly 12', () => {
+test('Vercel Hobby API function inventory remains the protected 12-file set', () => {
   const apiDir = path.join(root, 'api');
-  const functions = fs.readdirSync(apiDir).filter(name => name.endsWith('.js'));
+  const functions = fs.readdirSync(apiDir).filter(name => name.endsWith('.js')).sort();
   assert.equal(functions.length, 12);
+  assert.deepEqual(functions, [...EXPECTED_API_FUNCTIONS].sort());
+});
+
+test('UPI public alias stays consolidated through dashboard without a 13th function', () => {
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+  const rewrite = (config.rewrites || []).find(item => item?.source === '/api/upi-payments');
+  assert.ok(rewrite, 'Expected /api/upi-payments rewrite is missing');
+  assert.equal(rewrite.destination, '/api/dashboard?mode=upi-payments');
+  assert.equal(fs.existsSync(path.join(root, 'api', 'upi-payments.js')), false);
+});
+
+test('fresh Supabase bootstrap stays foundational and does not duplicate financial RPC logic', () => {
+  const source = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260823000000_bootstrap_core_schema.sql'), 'utf8');
+  for (const table of ['borrowers', 'loans', 'emis', 'documents', 'activity_log']) {
+    assert.match(source, new RegExp(`create table if not exists public\\.${table}`, 'i'));
+    assert.match(source, new RegExp(`alter table public\\.${table} enable row level security`, 'i'));
+  }
+  assert.match(source, /revoke all on table public\.borrowers from public, anon, authenticated/i);
+  assert.match(source, /grant all on table public\.borrowers to service_role/i);
+  assert.doesNotMatch(source, /create or replace function public\.abhi_add_emi_payment/i);
+  assert.doesNotMatch(source, /create or replace function public\.abhi_settle_loan/i);
+  assert.doesNotMatch(source, /create or replace function public\.abhi_start_upi_payment_request/i);
 });
 
 test('V2.4 migration contains duplicate UTR and DB-backed login guards', () => {
