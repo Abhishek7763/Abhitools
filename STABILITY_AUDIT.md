@@ -1,6 +1,6 @@
 # AbhiTools Stability Audit
 
-Last updated: 2026-08-26
+Last updated: 2026-08-29
 
 This file tracks the low-risk smoothness/stability passes added after the feature-complete loan/payment work. The rule for these passes is: protect working financial behavior first, improve responsiveness second, and avoid large rewrites.
 
@@ -54,7 +54,7 @@ The following areas should not be rewritten during polish work unless a verified
 - API/auth/financial responses are still never cached by the service worker.
 - Database migration: None.
 - New serverless function: None.
-- Production verification: READY, 12/12 functions, build errors 0, live service worker 200, `/api/due` fresh → cooldown behavior preserved.
+- Production verification: READY, 12/12 functions, build errors 0.
 
 ## Phase E — Loading & Error UX
 
@@ -155,3 +155,20 @@ Before a polish/release PR is merged:
 7. Merge only after PR is mergeable.
 8. Verify production deployment READY and check recent runtime errors.
 9. Record final production commit/deployment verification in the PR or this audit file.
+
+## Improvement Pass Phase 0 — Baseline Freeze & Reconciliation (2026-08-29)
+
+- Improvement branch: `improve/abhitools-safe-polish`.
+- Frozen from current `main` HEAD `429b445411c994605dfefc9f740820aa1fb66004` (`Harden paid-first observer against repeat mutations`).
+- The documented V2.4 release commit is `6b67fc86a1774110fa52fef74d75724907c0f14a`; current `main` is 12 commits ahead and 0 commits behind that release baseline.
+- Post-V2.4 file delta is limited to `STABILITY_AUDIT.md`, `index.html`, `ui_paid_first.js`, `ui_public_dues.js`, `ui_public_dues_compact.js`, and `ui_public_dues_final.js`.
+- No post-V2.4 delta exists in `/api`, `/server_routes`, `/supabase/migrations`, or `server_shared.js`; the later changes are therefore treated as the protected current public-UI baseline for this improvement pass.
+- Current `index.html` loads `ui_public_dues_final.js` and `ui_paid_first.js`; these current behaviors must be preserved unless a later phase explicitly and safely replaces presentation-only code.
+- Existing GitHub `Stability Checks` run for the exact frozen HEAD completed successfully on Node 24; the `Run stability tests` step passed.
+- `/api` contains exactly 12 JavaScript serverless functions at the frozen branch baseline.
+- Vercel production deployment `dpl_5FWDcCWN89toGZ2rvHT3S1ARoMg2` is READY on the same frozen HEAD and reports 12 Node.js functions; its errors-only build log is clean.
+- Live static baseline check returned `V2.4 Stable` from `version.json` and service-worker cache `abhi-tools-shell-v2-4-stable-v13`.
+- No application/API/business logic, service worker, dependency, security control, database schema, migration, or Supabase data was changed in Phase 0.
+- No Supabase write/test data was created in Phase 0.
+- No Vercel deployment command was run by this pass, and no `vercel --prod`, production promotion, or merge to `main` was performed.
+- The branch was created specifically so every later phase can remain incremental, independently revertible, preview-only, and manually reviewed before the next phase.
