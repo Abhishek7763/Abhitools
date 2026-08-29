@@ -202,3 +202,16 @@ Before a polish/release PR is merged:
 - Financial/business logic changed: No.
 - API function implementation changed: No.
 - Production merge/promotion/deploy performed by Phase 1: No.
+
+## Improvement Pass Phase 2 — Dead Public Dues Cleanup (2026-08-29)
+
+- Remove only the two superseded public-dues variants: `ui_public_dues.js` and `ui_public_dues_compact.js`.
+- Preserve the current protected public UI path: `index.html` continues to load `ui_public_dues_final.js` followed by `ui_paid_first.js`.
+- GitHub code search reported incomplete indexing, so deletion safety is enforced by a full-checkout Node regression test that recursively scans runtime `.html`, `.js`, `.css`, `.json`, `.yml`, and `.yaml` files for references to either deleted filename; the phase is considered valid only if that scan passes in Stability Checks.
+- The same test requires both dead files to be absent, `ui_public_dues_final.js` to remain present, and the service-worker shell to contain neither deleted filename.
+- Service-worker cache is bumped from `abhi-tools-shell-v2-4-stable-v13` to `abhi-tools-shell-v2-4-stable-v14` for this cleanup phase, per the explicit cache-discipline rule. The precache list already did not contain either dead file, so no live precache asset entry is removed; the list is explicitly re-verified by tests.
+- No financial calculation, payment ledger, sequential EMI, UPI/UTR, settlement/foreclosure, recycle, Loan ID, auth, API route, or database behavior is changed.
+- API/server/Supabase migration files changed: No.
+- Dependency added: None.
+- Supabase data write/test data created in Phase 2: None.
+- Production merge/promotion/deploy authorized by this phase: No.

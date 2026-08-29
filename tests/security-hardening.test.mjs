@@ -25,6 +25,20 @@ const EXPECTED_API_FUNCTIONS = [
   'upload.js'
 ];
 
+const DEAD_PUBLIC_DUES_FILES = ['ui_public_dues.js', 'ui_public_dues_compact.js'];
+const RUNTIME_TEXT_EXTENSIONS = new Set(['.html', '.js', '.css', '.json', '.yml', '.yaml']);
+
+function runtimeTextFiles(dir) {
+  const out = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '.git' || entry.name === 'node_modules' || entry.name === 'tests') continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) out.push(...runtimeTextFiles(full));
+    else if (RUNTIME_TEXT_EXTENSIONS.has(path.extname(entry.name))) out.push(full);
+  }
+  return out;
+}
+
 test('client address uses only the first forwarded address', () => {
   const req = { headers: { 'x-forwarded-for': '203.0.113.7, 10.0.0.1' } };
   assert.equal(getClientAddress(req), '203.0.113.7');
@@ -43,7 +57,30 @@ test('service worker retries reads only and still bypasses non-GET writes', () =
   const source = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
   assert.match(source, /if \(request\.method !== 'GET'\) return;/);
   assert.match(source, /url\.pathname\.startsWith\('\/api\/'\)/);
-  assert.match(source, /abhi-tools-shell-v2-4-stable-v13/);
+  assert.match(source, /abhi-tools-shell-v2-4-stable-v14/);
+});
+
+test('dead public dues variants are absent and unreferenced across runtime sources', () => {
+  for (const dead of DEAD_PUBLIC_DUES_FILES) {
+    assert.equal(fs.existsSync(path.join(root, dead)), false, `${dead} should be deleted`);
+  }
+
+  const references = [];
+  for (const file of runtimeTextFiles(root)) {
+    const source = fs.readFileSync(file, 'utf8');
+    for (const dead of DEAD_PUBLIC_DUES_FILES) {
+      if (source.includes(dead)) references.push(`${path.relative(root, file)} -> ${dead}`);
+    }
+  }
+  assert.deepEqual(references, []);
+
+  const indexSource = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  assert.match(indexSource, /<script src="ui_public_dues_final\.js"><\/script>/);
+  assert.match(indexSource, /<script src="ui_paid_first\.js"><\/script>/);
+  assert.equal(fs.existsSync(path.join(root, 'ui_public_dues_final.js')), true);
+
+  const serviceWorker = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
+  for (const dead of DEAD_PUBLIC_DUES_FILES) assert.equal(serviceWorker.includes(dead), false);
 });
 
 test('Vercel Hobby API function inventory remains the protected 12-file set', () => {
