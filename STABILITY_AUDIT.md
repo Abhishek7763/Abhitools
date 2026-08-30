@@ -1,6 +1,6 @@
 # AbhiTools Stability Audit
 
-Last updated: 2026-08-29
+Last updated: 2026-08-30
 
 This file tracks the low-risk smoothness/stability passes added after the feature-complete loan/payment work. The rule for these passes is: protect working financial behavior first, improve responsiveness second, and avoid large rewrites.
 
@@ -215,3 +215,21 @@ Before a polish/release PR is merged:
 - Dependency added: None.
 - Supabase data write/test data created in Phase 2: None.
 - Production merge/promotion/deploy authorized by this phase: No.
+
+## Improvement Pass Phase 3 — CSP Narrowing & Login Asset Extraction (2026-08-30)
+
+- Scope: `vercel.json`, `advanced_admin_login_panel.html`, new `admin_login.css`, new `admin_login.js`, `tests/security-hardening.test.mjs`, and this audit file.
+- The admin login page's inline `<style>` and inline `<script>` blocks were moved into same-origin external assets. Its inline form submit and password-toggle event attributes were replaced by `addEventListener`, preserving the existing login flow and user-facing text.
+- Broad CSP allowances were narrowed from `script-src 'self' 'unsafe-inline'` / `style-src 'self' 'unsafe-inline'` to `script-src 'self'` + `script-src-elem 'self'` and `style-src 'self'` + `style-src-elem 'self'`.
+- Existing legacy inline event handlers and `style=""` attributes in `index.html` and `admin.html` remain the known blocker to full inline removal. Compatibility is therefore retained only in the narrower `script-src-attr 'unsafe-inline'` and `style-src-attr 'unsafe-inline'` directives; no risky whole-app handler/style rewrite was attempted in this phase.
+- Added a dependency-free regression test that requires the broad script/style directives to remain free of `'unsafe-inline'`, requires the login page to contain no inline script/style/event/style attributes, and requires both external login assets to exist.
+- Phase 3 implementation commit: `a7caebd784276141b9bc0754ca159090cb934971` (`Tighten CSP and externalize admin login assets`).
+- GitHub Stability Checks: PASS — run #17 / ID `33294991099` on the exact implementation commit.
+- Vercel Preview deployment: `dpl_8k7qdXShEU6bxd2uhiBxiyRbFTRQ` — READY, preview target only (`target: null`), branch `improve/abhitools-safe-polish`, exact implementation SHA, 12 Node.js functions, errors-only build log clean.
+- Preview login HTML returned HTTP 200 and exposed the expected narrowed CSP header plus `admin_login.css` / `admin_login.js` references. Vercel's preview toolbar injects its own external `vercel.live` script, which the app CSP intentionally does not whitelist; no application dependency on that preview-only toolbar was introduced.
+- API/server/Supabase migration/service-worker files changed: No.
+- Dependency added: None.
+- Financial/business logic changed: No.
+- Admin authentication boundary or `/api/auth` semantics changed: No; credential verification and signed session behavior remain server-side as before.
+- Supabase data write/test data created in Phase 3: None.
+- Production merge/promotion/deploy performed by Phase 3: No.
