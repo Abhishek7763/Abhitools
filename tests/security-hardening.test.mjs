@@ -128,6 +128,32 @@ test('auth route uses rate limiter and Retry-After without changing session endp
   assert.match(source, /req\.method === 'DELETE'/);
 });
 
+test('CSP scopes legacy inline allowances to attributes and login assets are external', () => {
+  const config = JSON.parse(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8'));
+  const globalHeaders = (config.headers || []).find(item => item?.source === '/(.*)')?.headers || [];
+  const csp = globalHeaders.find(header => header?.key === 'Content-Security-Policy')?.value || '';
+
+  assert.match(csp, /script-src 'self';/);
+  assert.match(csp, /script-src-elem 'self';/);
+  assert.match(csp, /script-src-attr 'unsafe-inline';/);
+  assert.doesNotMatch(csp, /script-src [^;]*'unsafe-inline'/);
+
+  assert.match(csp, /style-src 'self';/);
+  assert.match(csp, /style-src-elem 'self';/);
+  assert.match(csp, /style-src-attr 'unsafe-inline';/);
+  assert.doesNotMatch(csp, /style-src [^;]*'unsafe-inline'/);
+
+  const login = fs.readFileSync(path.join(root, 'advanced_admin_login_panel.html'), 'utf8');
+  assert.doesNotMatch(login, /<style[\s>]/i);
+  assert.doesNotMatch(login, /<script(?![^>]*\bsrc=)[^>]*>/i);
+  assert.doesNotMatch(login, /\son[a-z]+\s*=/i);
+  assert.doesNotMatch(login, /\sstyle\s*=/i);
+  assert.match(login, /<link rel="stylesheet" href="admin_login\.css">/);
+  assert.match(login, /<script src="admin_login\.js"><\/script>/);
+  assert.equal(fs.existsSync(path.join(root, 'admin_login.css')), true);
+  assert.equal(fs.existsSync(path.join(root, 'admin_login.js')), true);
+});
+
 test('release metadata and package version are aligned to V2.4', () => {
   const version = JSON.parse(fs.readFileSync(path.join(root, 'version.json'), 'utf8'));
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
