@@ -81,6 +81,9 @@ function summarize(items) {
     };
 }
 
+// Intentional public read endpoint: the public dashboard uses this unauthenticated GET
+// to show borrower names and due amounts. Do not add an admin-login requirement here
+// unless the public dues UX is deliberately redesigned. Admin sessions only add IDs.
 export default async function handler(req, res) {
     noStore(res);
     if (req.method !== 'GET') {
