@@ -57,7 +57,25 @@ test('service worker retries reads only and still bypasses non-GET writes', () =
   const source = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
   assert.match(source, /if \(request\.method !== 'GET'\) return;/);
   assert.match(source, /url\.pathname\.startsWith\('\/api\/'\)/);
-  assert.match(source, /abhi-tools-shell-v2-4-stable-v15/);
+  assert.match(source, /abhi-tools-shell-v2-4-stable-v16/);
+});
+
+test('UI spacing scale is centralized and More shell panel consumes it', () => {
+  const source = fs.readFileSync(path.join(root, 'ui_shell.css'), 'utf8');
+  const expected = [
+    ['--ui-space-1', '4px'],
+    ['--ui-space-2', '8px'],
+    ['--ui-space-3', '12px'],
+    ['--ui-space-4', '16px'],
+    ['--ui-space-5', '24px'],
+    ['--ui-space-6', '32px']
+  ];
+  for (const [token, value] of expected) {
+    assert.match(source, new RegExp(`${token}:\\s*${value.replace('px', '\\px')}`));
+  }
+  assert.match(source, /\.ui-more-header\s*\{[\s\S]*?gap:\s*var\(--ui-space-3\);[\s\S]*?padding:\s*var\(--ui-space-4\) var\(--ui-space-4\) var\(--ui-space-3\);/);
+  assert.match(source, /\.ui-more-content\s*\{[\s\S]*?padding:\s*var\(--ui-space-2\) var\(--ui-space-3\) var\(--ui-space-5\);/);
+  assert.match(source, /\.ui-more-action\s*\{[\s\S]*?gap:\s*var\(--ui-space-2\);[\s\S]*?padding:\s*var\(--ui-space-2\) var\(--ui-space-3\);/);
 });
 
 test('dead public dues variants are absent and unreferenced across runtime sources', () => {
