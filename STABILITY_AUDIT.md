@@ -120,7 +120,7 @@ The following areas should not be rewritten during polish work unless a verified
 - Automated checks assert 12 API functions, GET-only service-worker retries, V2.4 metadata alignment, login rate-limit wiring, and migration guard presence.
 - Supabase migration `v24_security_hardening` applied successfully on 2026-08-26.
 - Pre-migration duplicate UTR audit returned zero duplicates.
-- Rate-limit RPC was exercised with a synthetic 64-character test bucket through the lock threshold and then cleared; cleanup verified zero test rows remaining.
+- Rate-limit RPC was exercised with a synthetic 64-character test bucket through the lock threshold and then cleared; cleanup verified zero synthetic rate-limit rows remaining.
 - PWA shell: V2.4 `v13`.
 - Financial calculation rules changed: No.
 - Public direct-data UX changed: No.
@@ -343,3 +343,24 @@ Before a polish/release PR is merged:
 - User-facing Hindi/Hinglish text/templates changed: No.
 - `version.json` changed: No; release metadata remains deferred to final closeout.
 - Production merge/promotion performed for the Phase 9 implementation: No.
+
+## Improvement Pass Phase 10 — Home/Collections Card & Empty-State Consistency (2026-09-05)
+
+- Scope is the second Part 2.3 visual-polish slice and is deliberately limited to existing Home/Collections presentation surfaces in `ui_home_collections.css`, the required service-worker cache bump, and a dependency-free source guard. `ui_home_collections.js` is not modified.
+- Top-level Home surfaces retain their existing structure and actions while receiving a subtle common card shadow; the Home header radius is normalized from 16px to the existing 14px card radius used by the KPI/queue surfaces.
+- Nested Home priority rows, Collections summary cards, and Collections rows are normalized from 11px to 12px radii while keeping their existing borders, semantic overdue/PTP accent borders, data, and action controls unchanged.
+- Existing `.ui-home-empty` and `.ui-collections-empty` hooks are styled as consistent empty-state surfaces with an 88px minimum height, centered content, dashed token-based border, 12px radius, `--ui-surface-2` background, and existing muted text color. No empty-state HTML or copy is rewritten.
+- Regression guards require the three existing empty-state strings to remain exactly present in `ui_home_collections.js`: `✓ No dated urgent/upcoming item in the current priority feed.`, `✓ No open Promise-to-Pay item in this view.`, and `✓ Is queue me koi dated EMI nahi hai.`
+- Service-worker cache changed `v17` → `v18` because `ui_home_collections.css` is a shell-cached asset. Existing GET-only API retry, non-GET bypass, timeout/retry status rules, and API/auth/financial no-cache behavior remain unchanged.
+- Phase 10 implementation HEAD: `4c73abfb41126932bedf92305063b0c4ab438268` (`Guard Phase 10 card and empty-state polish`). Diff from the Phase 9 final audit HEAD contains exactly three files: `ui_home_collections.css`, `service-worker.js`, and `tests/security-hardening.test.mjs`.
+- GitHub Stability Checks: PASS — run #40 / ID `33960840787` on the exact implementation HEAD.
+- Vercel preview: `dpl_5YcDqJPmhpgfzxgnFmqQVBnqDfZk` — READY, preview target only (`target: null`), exact implementation SHA, 12 Node.js functions, errors-only build log clean.
+- Visual verification attempt: a local representative light/dark fixture using the exact modified Phase 10 surface rules was launched with system Chromium, but headless Chromium hung in the current execution environment before producing screenshots. This is recorded as a verification-environment gap; no visual pass is claimed and no application failure was observed from CI/preview checks.
+- Dependency added: None.
+- Database/Supabase migration/data write: None.
+- `/api`, `/server_routes`, `/supabase/migrations`, `server_shared.js`, `ui_home_collections.js`, package/dependency files, and financial write implementations changed: No.
+- Financial/business logic changed: No.
+- EMI/payment ledger, due bucketing, sequential EMI, UPI/UTR, foreclosure/settlement, recycle, manual Loan ID, admin-authentication semantics, and API request/response behavior changed: No.
+- User-facing Hindi/Hinglish text/templates changed: No.
+- `version.json` changed: No; release metadata remains deferred to final closeout.
+- Production merge/promotion/deploy performed by Phase 10: No.
