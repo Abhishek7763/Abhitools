@@ -268,3 +268,34 @@ Before a polish/release PR is merged:
 - Financial/business logic changed: No.
 - EMI/payment ledger, due bucketing, sequential EMI, UPI/UTR, foreclosure/settlement, recycle, manual Loan ID, admin auth, and API request/response behavior changed: No.
 - Production merge/promotion/deploy performed by Phase 5: No.
+
+## Improvement Pass Phase 6 — Rollback Prep & Release Hygiene (2026-09-05)
+
+- Scope: release/rollback documentation and verification only. Added `RELEASE_ROLLBACK_CHECKLIST.md`; no runtime implementation, financial rule, API route, database schema, package/dependency, or service-worker behavior was changed by Phase 6.
+- Final Phase 6 branch HEAD: `e2db5e2463d63b8b29631c0cde5fc7f7a4ecb498` (`Record Phase 6 final release hygiene verification`).
+- At closeout the improvement branch was 13 commits ahead of `main` and 0 behind; no rebase or merge-from-main was required and no open pull request existed for the branch.
+- Primary emergency production rollback anchor documented as Vercel deployment `dpl_w6LmXeCDqHXRbgUedgb9DpRznL33`, commit `6781a2833128262738b2853718fca421f4c04cbb`, READY, production target, 12 Node.js functions.
+- GitHub Stability Checks: PASS — run #24 / ID `33951300322` on exact final Phase 6 HEAD.
+- Vercel preview: `dpl_CDuT1gLcttswEC5AF2Wuv8TDCtNA` — READY, preview target only, exact Phase 6 HEAD, 12 Node.js functions, errors-only build log clean.
+- Runtime review found no new application failure; the only grouped production diagnostic remained the pre-existing Node `DEP0169 url.parse()` deprecation warning.
+- Production merge/promotion/deploy performed by Phase 6: No.
+
+## Improvement Pass Phase 7 — UI Token Unification: Base Buttons (2026-09-05)
+
+- Scope is deliberately limited to the base `.btn` visual family as the first Part 2 styling section: `ui_shell.css`, `style.css`, required service-worker cache bump, and the matching cache regression assertion.
+- Added shared button tokens in `ui_shell.css`: primary, success, warning, secondary, text-on-fill, outline light/dark colors, and button shadow. `style.css` now consumes those tokens only for `.btn`, `.btn-danger`, `.btn-success`, `.btn-warning`, `.btn-secondary`, and `.btn-view`.
+- The token values preserve the previous exact light-mode and dark-mode colors; this phase centralizes values without redesigning controls or changing layout/spacing. Special feature controls such as report periods, reminder buckets, and other non-base button systems are intentionally deferred to later incremental styling passes.
+- No selector name, element ID, form field, onclick/action wiring, user-facing Hindi/Hinglish text, data payload, or financial calculation was changed.
+- Because both `style.css` and `ui_shell.css` are service-worker shell assets, cache discipline required `abhi-tools-shell-v2-4-stable-v14` → `abhi-tools-shell-v2-4-stable-v15`; the existing GET-only retry/non-GET bypass behavior is unchanged. The cache assertion in `tests/security-hardening.test.mjs` was updated to `v15`.
+- Phase 7 implementation HEAD: `dec3e28b5d2ba7394c68a8dc254dd4fa29bb12a1` (`Align cache guard with button token build`). Diff from Phase 6 final HEAD contains exactly four files: `ui_shell.css` (+11), `style.css` (+9/-9), `service-worker.js` (+1/-1), and `tests/security-hardening.test.mjs` (+1/-1).
+- No `/api`, `/server_routes`, `/supabase/migrations`, `server_shared.js`, package/dependency file, or financial write endpoint changed.
+- GitHub Stability Checks: PASS — run #28 / ID `33951916724` on the exact implementation HEAD.
+- Vercel Preview deployment: `dpl_94TFdpGx6uL15BpB5hLPXBNpaoQT` — READY, preview target only (`target: null`), exact implementation SHA, 12 Node.js functions, errors-only build log clean.
+- Automated browser visual verification could not be completed in the current execution environment: Chromium navigation to the authenticated preview was blocked by administrator network policy, and direct preview asset fetch remained behind Vercel SSO. This is recorded as a verification-environment gap, not as a visual pass or an application failure.
+- Source-level light/dark parity was verified: all migrated button tokens resolve to the same legacy values they replaced, so no intentional visual color change is introduced by this tokenization step.
+- Dependency added: None.
+- Database/Supabase migration/data write: None.
+- Financial/business logic changed: No.
+- EMI/payment ledger, sequential EMI, UPI/UTR, foreclosure/settlement, recycle, manual Loan ID, admin authentication, and API request/response behavior changed: No.
+- `version.json` changed: No; release metadata remains reserved for final closeout.
+- Production merge/promotion/deploy performed by Phase 7: No.
