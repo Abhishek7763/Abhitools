@@ -1,6 +1,6 @@
 # AbhiTools Stability Audit
 
-Last updated: 2026-08-26
+Last updated: 2026-09-05
 
 This file tracks the low-risk smoothness/stability passes added after the feature-complete loan/payment work. The rule for these passes is: protect working financial behavior first, improve responsiveness second, and avoid large rewrites.
 
@@ -131,6 +131,20 @@ The following areas should not be rewritten during polish work unless a verified
 - Production deployment: `dpl_HUV3ktaKV6SpQjezzoWKc77z3iQo` — READY.
 - Production verification: 12/12 functions, errors-only build log clean, `version.json` returned `V2.4 Stable`, service worker returned V2.4 `v13`, `/api/auth` unauthenticated GET returned expected HTTP 401 with `authenticated:false`, and `/api/due` returned HTTP 200.
 - Runtime verification: no error/fatal logs were found for the V2.4 production deployment during the post-release check.
+
+## Phase 11 — Modal / Form Consistency Polish (2026-09-05)
+
+- Branch: `polish/phase-11-modal-form-consistency`.
+- Scope is presentation-only and limited to the existing forms/secondary-screen CSS layer.
+- Added consistent 4/8/12/16/24/32 spacing tokens scoped to the forms/secondary UI layer.
+- Normalized focus rings, disabled-state presentation, close-button sizing/states, secondary-screen corner treatment, form/grid spacing, sticky action spacing, and dark-mode field surfaces.
+- Mobile actionable controls remain at least approximately 44px tall; full-screen mobile secondary screens intentionally keep square viewport edges.
+- Existing form IDs, classes, text, button handlers, JS behavior, API shapes, authentication boundary, and financial write behavior changed: No.
+- API/server/database files changed: No.
+- Database migration: None.
+- New npm runtime dependency: None.
+- New serverless function: None.
+- Deployment policy for this phase: one consolidated deployment only after all Phase 11 checks pass.
 
 ## Current known audit note
 
