@@ -299,3 +299,23 @@ Before a polish/release PR is merged:
 - EMI/payment ledger, sequential EMI, UPI/UTR, foreclosure/settlement, recycle, manual Loan ID, admin authentication, and API request/response behavior changed: No.
 - `version.json` changed: No; release metadata remains reserved for final closeout.
 - Production merge/promotion/deploy performed by Phase 7: No.
+
+## Improvement Pass Phase 8 — Spacing Scale Foundation: More Shell Panel (2026-09-05)
+
+- Scope follows Part 2.2 incrementally: spacing usage was reviewed across `style.css`, `ui_shell.css`, `ui_loans.css`, `ui_home_collections.css`, `ui_forms_secondary.css`, and `ui_smoothness.css`; mixed ad-hoc spacing remains intentionally for later section-by-section passes rather than a global replace.
+- Added one shared spacing scale to `ui_shell.css`: `--ui-space-1` through `--ui-space-6` = 4/8/12/16/24/32px.
+- Applied the new scale only to the existing More shell panel. Existing exact 8px/12px values were tokenized; selected off-scale values were normalized narrowly: panel bottom offset 14→16px, header padding 14/14/10→16/16/12px, content bottom padding 18→24px, grid gap 7→8px, action gap 9→8px, and action padding 9/10→8/12px. Desktop panel top/bottom remain visually 12px via token.
+- No selector/class/ID, action wiring, form field, user-facing text, data shape, or layout hook queried by JavaScript was renamed or removed.
+- Because `ui_shell.css` is a service-worker shell asset, cache changed `v15` → `v16`; GET-only retry, non-GET bypass, and API no-cache behavior are unchanged.
+- Updated the existing cache guard to `v16` and added a dependency-free source-level regression test requiring the 4/8/12/16/24/32 token scale and More-panel token usage. The test performs no network or live-data mutation.
+- Phase 8 implementation commit: `a3f4a9314cc350f053d064b87579b86418258e2c` (`Add Phase 8 spacing scale foundation`). Diff from the Phase 7 final audit HEAD contains exactly `ui_shell.css`, `service-worker.js`, and `tests/security-hardening.test.mjs`.
+- GitHub Stability Checks: PASS — run #30 / ID `33954273705` on the exact implementation SHA.
+- Vercel preview: `dpl_Cvyehu8yxoeaTaDKzTVe7AiPqr3Q` — READY, preview target only (`target: null`), exact implementation SHA, 12 Node.js functions, errors-only build log clean.
+- Visual verification: a representative More-panel fixture using the exact modified Phase 8 CSS rules was rendered with Chromium at 390×844 in both light and dark modes. Panel geometry matched in both modes (x=8, y=414, width=374, height=346), six actions were visible, and inspected screenshots showed no clipping, overlap, horizontal overflow, or dark-mode contrast regression. Live authenticated admin interaction was not exercised because that requires an app admin session.
+- Dependency added: None.
+- Database/Supabase migration/data write: None.
+- `/api`, `/server_routes`, `/supabase/migrations`, `server_shared.js`, and financial write implementations changed: No.
+- Financial/business logic changed: No.
+- EMI/payment ledger, sequential EMI, UPI/UTR, foreclosure/settlement, recycle, manual Loan ID, admin authentication, and API request/response behavior changed: No.
+- `version.json` changed: No; final release metadata remains deferred to the end of the improvement pass.
+- Production merge/promotion/deploy performed by Phase 8: No.
