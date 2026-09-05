@@ -57,7 +57,7 @@ test('service worker retries reads only and still bypasses non-GET writes', () =
   const source = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
   assert.match(source, /if \(request\.method !== 'GET'\) return;/);
   assert.match(source, /url\.pathname\.startsWith\('\/api\/'\)/);
-  assert.match(source, /abhi-tools-shell-v2-4-stable-v14/);
+  assert.match(source, /abhi-tools-shell-v2-4-stable-v15/);
 });
 
 test('dead public dues variants are absent and unreferenced across runtime sources', () => {
