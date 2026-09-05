@@ -47,8 +47,8 @@ h2 {
     margin-bottom: 15px;
 }
 .btn {
-    background-color: #1a73e8;
-    color: white;
+    background-color: var(--ui-primary);
+    color: var(--ui-on-primary);
     border: none;
     padding: 10px 15px;
     border-radius: 8px;
@@ -57,17 +57,17 @@ h2 {
     font-weight: 500;
     font-family: inherit;
     transition: 0.2s;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-shadow: var(--ui-button-shadow);
     text-decoration: none;
     display: inline-flex;
     align-items: center;
     gap: 4px;
 }
-.btn-danger  { background-color: #ea4335; }
-.btn-success { background-color: #34a853; }
-.btn-warning { background-color: #fbbc05; color: #333; }
-.btn-secondary { background-color: #5f6368; }
-.btn-view { background-color: #ffffff; color: #1a73e8; border: 1px solid #1a73e8; font-weight: 600; }
+.btn-danger  { background-color: var(--ui-accent); }
+.btn-success { background-color: var(--ui-success); }
+.btn-warning { background-color: var(--ui-warning); color: var(--ui-on-warning); }
+.btn-secondary { background-color: var(--ui-secondary); }
+.btn-view { background-color: var(--ui-button-outline-bg); color: var(--ui-button-outline-color); border: 1px solid var(--ui-button-outline-color); font-weight: 600; }
 .btn:hover  { opacity: 0.9; transform: translateY(-1px); }
 .btn:active { transform: scale(0.95); }
 
@@ -403,7 +403,7 @@ body.dark-mode { background-color: #121212; color: #e0e0e0; }
 .dark-mode .month-header { background: #333 !important; color: #66b2ff !important; border: 1px solid #444; }
 .dark-mode h2,
 .dark-mode #currentFolderName { color: #66b2ff; }
-.dark-mode .btn-view { color: #66b2ff; border-color: #66b2ff; background: #1e1e1e; }
+.dark-mode .btn-view { color: var(--ui-button-outline-color); border-color: var(--ui-button-outline-color); background: var(--ui-button-outline-bg); }
 .dark-mode .clickable-badge { background: #333 !important; border-color: #66b2ff !important; color: #66b2ff !important; }
 .dark-mode #todayDueBadge { background: #3a3000 !important; color: #ffc107 !important; border-color: #ffc107 !important; }
 
