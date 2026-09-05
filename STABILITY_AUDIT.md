@@ -251,3 +251,20 @@ Before a polish/release PR is merged:
 - EMI/payment ledger, sequential EMI, UPI/UTR, foreclosure/settlement, recycle, manual Loan ID, and admin-authentication behavior changed: No.
 - API request/response field names or shapes changed: No.
 - Production merge/promotion/deploy performed by Phase 4: No.
+
+## Improvement Pass Phase 5 — Financial Calculation Regression Tests (2026-09-05)
+
+- Scope: new `tests/financial-calculations.test.mjs` plus this audit file; no production implementation file is changed.
+- Added 8 dependency-free `node --test` regression tests covering protected EMI remaining calculation, due/overdue/today/tomorrow/next7/month bucketing, sequential next-unpaid EMI eligibility/order, and foreclosure/settlement outstanding/final/waiver calculations.
+- Test fixtures are pure in-memory data. Tests make no HTTP request, Supabase request, database connection, payment, settlement, delete, recycle, UPI, or other live-data mutation.
+- Because sequential/foreclosure/settlement authoritative rules live in existing Supabase SQL RPC migrations, production SQL was not refactored merely for testability. Source guards verify the protected formulas/order/error guards remain present in `api/due.js`, `20260825170000_upi_next_emi_foreclosure_utr.sql`, and `20260824092529_phase11_loan_settlement_closing.sql`.
+- Phase 5 implementation commit: `13694a15faf5b911390c2299ced0d39084696016` (`Add Phase 5 financial regression tests`).
+- Diff from the Phase 4 audit HEAD contains exactly one implementation file: new `tests/financial-calculations.test.mjs` (215 additions, 0 deletions). No `/api`, `/server_routes`, `/supabase/migrations`, `server_shared.js`, frontend runtime asset, service worker, or package/dependency file changed.
+- GitHub Stability Checks: PASS — run #21 / ID `33950277974` on the exact implementation commit.
+- Vercel Preview deployment: `dpl_9fjHJc4oGm6wuE3RC6nTwjpuXeSm` — READY, preview target only (`target: null`), exact implementation SHA, 12 Node.js functions, errors-only build log clean.
+- Dependency added: None.
+- Service worker/precache changed: No; this is a tests/audit-only phase, so no cache bump is required.
+- Database/Supabase migration/data write: None.
+- Financial/business logic changed: No.
+- EMI/payment ledger, due bucketing, sequential EMI, UPI/UTR, foreclosure/settlement, recycle, manual Loan ID, admin auth, and API request/response behavior changed: No.
+- Production merge/promotion/deploy performed by Phase 5: No.
