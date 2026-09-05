@@ -57,7 +57,7 @@ test('service worker retries reads only and still bypasses non-GET writes', () =
   const source = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
   assert.match(source, /if \(request\.method !== 'GET'\) return;/);
   assert.match(source, /url\.pathname\.startsWith\('\/api\/'\)/);
-  assert.match(source, /abhi-tools-shell-v2-4-stable-v17/);
+  assert.match(source, /abhi-tools-shell-v2-4-stable-v18/);
 });
 
 test('UI spacing scale is centralized and More shell panel consumes it', () => {
@@ -99,6 +99,21 @@ test('Phase 9 interaction polish keeps shared tokens, focus rings, and 44px targ
   assert.match(forms, /outline:\s*3px solid var\(--ui-focus-ring/);
   assert.match(forms, /\.ui-form-close-btn\s*\{[\s\S]*?width:\s*44px;[\s\S]*?height:\s*44px;/);
   assert.match(forms, /\.ui-secondary-screen \.btn,[\s\S]*?\.ui-secondary-screen button\s*\{[\s\S]*?min-height:\s*44px;/);
+});
+
+test('Phase 10 home and collections cards keep consistent surfaces and unchanged empty-state copy', () => {
+  const css = fs.readFileSync(path.join(root, 'ui_home_collections.css'), 'utf8');
+  const js = fs.readFileSync(path.join(root, 'ui_home_collections.js'), 'utf8');
+
+  assert.match(css, /\.ui-home-head\s*\{[\s\S]*?border-radius:\s*14px;/);
+  assert.match(css, /\.ui-home-priority\s*\{[\s\S]*?border-radius:\s*12px;/);
+  assert.match(css, /\.ui-collections-summary button\s*\{[\s\S]*?border-radius:\s*12px;/);
+  assert.match(css, /\.ui-collection-row\s*\{[\s\S]*?border-radius:\s*12px;/);
+  assert.match(css, /\.ui-home-empty,[\s\S]*?\.ui-collections-empty\s*\{[\s\S]*?min-height:\s*88px;[\s\S]*?border:\s*1px dashed[\s\S]*?border-radius:\s*12px;[\s\S]*?background:\s*var\(--ui-surface-2/);
+
+  assert.match(js, /✓ No dated urgent\/upcoming item in the current priority feed\./);
+  assert.match(js, /✓ No open Promise-to-Pay item in this view\./);
+  assert.match(js, /✓ Is queue me koi dated EMI nahi hai\./);
 });
 
 test('dead public dues variants are absent and unreferenced across runtime sources', () => {
