@@ -115,4 +115,16 @@ A release is ready for manual merge review only when:
 - no new dependency or serverless function appears,
 - no production promotion/deployment has been performed automatically.
 
+## Phase 6 verification record
+
+- Phase 6 implementation commit: `4533ab3c0e312101f1042a7d4393173d43fbbfd2` (`Add Phase 6 release rollback checklist`).
+- The implementation commit changed only this documentation file; no runtime, API, frontend, service-worker, Supabase migration, package, or financial implementation file changed in Phase 6.
+- GitHub Stability Checks run #23 / ID `33951213488`: PASS on the exact implementation commit.
+- Fresh Vercel preview: `dpl_B18HPoGGRdASqReNpuPK4Q2DJWDN` — READY, preview target only, exact implementation SHA, 12 Node.js functions, errors-only build log clean.
+- Preview error/fatal runtime-log query returned no matching logs.
+- Final branch review after the implementation commit: 12 commits ahead of `main`, 0 commits behind, with only the intended improvement files plus this Phase 6 checklist in the diff.
+- Open pull requests from `improve/abhitools-safe-polish`: none at verification time.
+- Production runtime diagnostics still show only the pre-existing Node `DEP0169 url.parse()` deprecation warning group; no new application failure was identified.
+- Production merge, promotion, rollback, or deployment performed by Phase 6: No.
+
 This checklist authorizes no production merge or deployment by itself.
