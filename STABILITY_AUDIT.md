@@ -319,3 +319,27 @@ Before a polish/release PR is merged:
 - EMI/payment ledger, sequential EMI, UPI/UTR, foreclosure/settlement, recycle, manual Loan ID, admin authentication, and API request/response behavior changed: No.
 - `version.json` changed: No; final release metadata remains deferred to the end of the improvement pass.
 - Production merge/promotion/deploy performed by Phase 8: No.
+
+## Improvement Pass Phase 9 — Focus, Disabled States & Touch Targets (2026-09-05)
+
+- Scope is the first Part 2.3 visual-polish slice only: shared focus/disabled interaction states and minimum touch-target consistency. Card and empty-state polish are intentionally deferred to the next incremental phase.
+- Corrected the Phase 7 public token dependency by loading `ui_shell.css` before `style.css` in `index.html`. This makes the existing shared `--ui-*` button variables available on the public page without duplicating or forking token values.
+- Added shared `--ui-focus-ring`, `--ui-focus-border`, and `--ui-disabled-opacity` tokens in `ui_shell.css`, including a dark-mode focus-ring variant. No business/action selector or user-facing text changed.
+- Unified focus presentation in `ui_smoothness.css` and `ui_forms_secondary.css` around the shared focus ring. Disabled buttons now use a consistent not-allowed cursor, reduced opacity, and no pressed transform; the existing processing state retains progress cursor/spinner semantics.
+- Raised selected base interactive targets to 44px: admin shell header controls, base shell `.btn`, `.ui-icon-btn`, primary form close control, and secondary-screen buttons. Existing form inputs/selects/textareas were already 44px and remain so.
+- Service-worker cache changed `v16` → `v17` because shell CSS/HTML assets changed. GET-only API retry, non-GET bypass, API/auth/financial no-cache behavior, timeout, and retry status rules are unchanged.
+- Updated the dependency-free regression guard to require `v17`, public token stylesheet ordering, shared focus/disabled tokens, and the selected 44px targets. Tests perform no network, database, payment, settlement, UPI, recycle, or other live-data mutation.
+- Phase 9 implementation commit: `f04e6f96849ad96f19057f58a251fbbfe3635995` (`Add Phase 9 focus and touch target polish`). The implementation diff contains exactly six files: `index.html`, `ui_shell.css`, `ui_smoothness.css`, `ui_forms_secondary.css`, `service-worker.js`, and `tests/security-hardening.test.mjs`.
+- GitHub Stability Checks: PASS — run #36 / ID `33957317678` on the exact implementation SHA.
+- Vercel preview: `dpl_HJWGRQomZwgYzBa31Zh8mCovQA6v` — READY, preview target only (`target: null`), exact implementation SHA, 12 Node.js functions, errors-only build log clean.
+- Preview root returned HTTP 200 and showed `ui_shell.css` immediately before `style.css`. Direct protected CSS asset fetch redirected through Vercel SSO, so CSS correctness is grounded in the exact commit diff plus passing source guards rather than claimed as a direct live-asset pass.
+- Execution-hygiene note: during connector probing, a temporary unreferenced file was accidentally committed and immediately deleted on the improvement branch (`4442f375...` then `731c078...`). The cleanup commit's tree is exactly the Phase 8 tree, so this pair contributes no Phase 9 file delta.
+- Execution-hygiene note: a separate temporary unreferenced file was also accidentally written to `main` and immediately deleted (`11a39605...` then `ee18552c...`). Comparison from the frozen baseline `429b445...` to the cleanup `main` HEAD showed zero file differences. Vercel auto-deployed both commits; the final cleanup production deployment `dpl_BsPXZdMNFmgseAjhz41NoeV8GA4j` is READY with 12 functions, clean build logs, and live `/api/due` returned HTTP 200. No manual production promote/rollback was performed.
+- Dependency added: None.
+- Database/Supabase migration/data write: None.
+- `/api`, `/server_routes`, `/supabase/migrations`, `server_shared.js`, package/dependency files, and financial write implementations changed by the Phase 9 implementation: No.
+- Financial/business logic changed: No.
+- EMI/payment ledger, due bucketing, sequential EMI, UPI/UTR, foreclosure/settlement, recycle, manual Loan ID, admin-authentication semantics, and API request/response behavior changed: No.
+- User-facing Hindi/Hinglish text/templates changed: No.
+- `version.json` changed: No; release metadata remains deferred to final closeout.
+- Production merge/promotion performed for the Phase 9 implementation: No.
