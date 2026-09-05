@@ -534,3 +534,112 @@ body.dark-mode.ui-forms-secondary-ready :is(#borrowerFormContainer,#loanFormCont
         display: none !important;
     }
 }
+
+/* Phase 11 — modal/form consistency polish. Presentation-only overrides. */
+body.ui-forms-secondary-ready {
+    --ui-space-1: 4px;
+    --ui-space-2: 8px;
+    --ui-space-3: 12px;
+    --ui-space-4: 16px;
+    --ui-space-5: 24px;
+    --ui-space-6: 32px;
+}
+
+body.ui-forms-secondary-ready :is(
+    #borrowerFormContainer,
+    #loanFormContainer,
+    .ui-secondary-screen
+) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
+    transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+
+body.ui-forms-secondary-ready :is(
+    #borrowerFormContainer,
+    #loanFormContainer,
+    .ui-secondary-screen
+) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea):focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--ui-accent, #ea4335) 64%, var(--ui-border, #e5e7eb));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-accent, #ea4335) 14%, transparent);
+}
+
+body.ui-forms-secondary-ready :is(
+    #borrowerFormContainer,
+    #loanFormContainer,
+    .ui-secondary-screen
+) :is(input, select, textarea, button):disabled {
+    cursor: not-allowed;
+    opacity: .62;
+}
+
+body.ui-forms-secondary-ready .ui-form-close-btn,
+body.ui-forms-secondary-ready .ui-secondary-screen :is(.btn, button) {
+    min-height: 44px;
+}
+
+body.ui-forms-secondary-ready .ui-form-close-btn {
+    min-width: 44px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    transition: background-color .16s ease, border-color .16s ease, transform .12s ease;
+}
+
+body.ui-forms-secondary-ready .ui-form-close-btn:hover {
+    background: color-mix(in srgb, var(--ui-accent, #ea4335) 7%, var(--ui-surface-2, #f8fafc));
+    border-color: color-mix(in srgb, var(--ui-accent, #ea4335) 26%, var(--ui-border, #e5e7eb));
+}
+
+body.ui-forms-secondary-ready .ui-form-close-btn:active {
+    transform: scale(.97);
+}
+
+body.ui-forms-secondary-ready .ui-secondary-screen {
+    border-radius: var(--ui-radius, 14px) !important;
+}
+
+body.ui-forms-secondary-ready .ui-responsive-fields,
+body.ui-forms-secondary-ready .ui-borrower-fields,
+body.ui-forms-secondary-ready .ui-loan-core-fields {
+    gap: var(--ui-space-3) !important;
+}
+
+body.ui-forms-secondary-ready .ui-form-action-bar,
+body.ui-forms-secondary-ready .settings-footer,
+body.ui-forms-secondary-ready .followup-form-footer,
+body.ui-forms-secondary-ready .dq-apply-bar {
+    gap: var(--ui-space-2) !important;
+}
+
+body.ui-forms-secondary-ready :is(.settings-panel,.reports-filters,.audit-filters,.followup-form-grid,.settlement-form-grid,.dq-meta-grid) {
+    border-color: var(--ui-border, #e5e7eb);
+}
+
+body.dark-mode.ui-forms-secondary-ready :is(
+    #borrowerFormContainer,
+    #loanFormContainer,
+    .ui-secondary-screen
+) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea) {
+    background: var(--ui-surface-2, #24282d);
+    color: var(--ui-text, #f3f4f6);
+    border-color: var(--ui-border, #333941);
+}
+
+@media (max-width: 760px) {
+    body.ui-forms-secondary-ready .ui-secondary-screen {
+        border-radius: 0 !important;
+    }
+
+    body.ui-forms-secondary-ready .ui-form-action-bar .btn,
+    body.ui-forms-secondary-ready :is(
+        .payment-form-actions,
+        .wa-actions,
+        .reports-filter-actions,
+        .audit-filter-actions,
+        .settings-footer-actions,
+        .recycle-head-actions,
+        .followup-head-actions
+    ) > * {
+        min-height: 44px;
+    }
+}
