@@ -1,6 +1,6 @@
 # AbhiTools Stability Audit
 
-Last updated: 2026-08-30
+Last updated: 2026-09-05
 
 This file tracks the low-risk smoothness/stability passes added after the feature-complete loan/payment work. The rule for these passes is: protect working financial behavior first, improve responsiveness second, and avoid large rewrites.
 
@@ -233,3 +233,21 @@ Before a polish/release PR is merged:
 - Admin authentication boundary or `/api/auth` semantics changed: No; credential verification and signed session behavior remain server-side as before.
 - Supabase data write/test data created in Phase 3: None.
 - Production merge/promotion/deploy performed by Phase 3: No.
+
+## Improvement Pass Phase 4 — Intentional Public Due Endpoint Documentation (2026-09-05)
+
+- Scope: `api/due.js` comment-only documentation plus this audit file.
+- Confirmed `public_script.js` intentionally calls unauthenticated `GET /api/due` before loading `/api/loans`, and uses its public summary/business-date response for the public dashboard.
+- Added a short comment immediately above the `/api/due` handler stating that the unauthenticated public read exposure is intentional for borrower names/due amounts and must not be converted to admin-only access accidentally; existing admin sessions still only add internal `emi_id` / `loan_id` fields.
+- Phase 4 implementation commit: `f969e6d46a4a092a6b2c86d5464be649f3cbef0d` (`Document intentional public due endpoint`).
+- Diff verification against the Phase 3 audit HEAD showed exactly one executable file changed, `api/due.js`, with 3 comment lines added and 0 deletions; no runtime statement, formula, request field, response field, method guard, auth check, or financial write endpoint changed.
+- GitHub Stability Checks: PASS — run #19 / ID `33949805414` on the exact implementation commit.
+- Vercel Preview deployment: `dpl_2A4D7P2sGqeZjFCp9D6tgUgj7HWa` — READY, preview target only (`target: null`), exact Phase 4 implementation SHA, 12 Node.js functions, errors-only build log clean.
+- Direct preview `/api/due` smoke fetch is gated by Vercel preview authentication and returned the expected preview-auth redirect rather than exercising application auth; production `/api/due` remained publicly reachable and returned HTTP 200 with the established response shape on 2026-09-05.
+- Service worker/precache changed: No; this is a server-comment/audit-only phase, so no cache bump is required.
+- Dependency added: None.
+- Database/Supabase migration/data write: None.
+- Financial/business logic changed: No.
+- EMI/payment ledger, sequential EMI, UPI/UTR, foreclosure/settlement, recycle, manual Loan ID, and admin-authentication behavior changed: No.
+- API request/response field names or shapes changed: No.
+- Production merge/promotion/deploy performed by Phase 4: No.
