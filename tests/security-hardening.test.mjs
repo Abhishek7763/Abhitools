@@ -57,7 +57,7 @@ test('service worker retries reads only and still bypasses non-GET writes', () =
   const source = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
   assert.match(source, /if \(request\.method !== 'GET'\) return;/);
   assert.match(source, /url\.pathname\.startsWith\('\/api\/'\)/);
-  assert.match(source, /abhi-tools-shell-v2-4-stable-v16/);
+  assert.match(source, /abhi-tools-shell-v2-4-stable-v17/);
 });
 
 test('UI spacing scale is centralized and More shell panel consumes it', () => {
@@ -76,6 +76,29 @@ test('UI spacing scale is centralized and More shell panel consumes it', () => {
   assert.match(source, /\.ui-more-header\s*\{[\s\S]*?gap:\s*var\(--ui-space-3\);[\s\S]*?padding:\s*var\(--ui-space-4\) var\(--ui-space-4\) var\(--ui-space-3\);/);
   assert.match(source, /\.ui-more-content\s*\{[\s\S]*?padding:\s*var\(--ui-space-2\) var\(--ui-space-3\) var\(--ui-space-5\);/);
   assert.match(source, /\.ui-more-action\s*\{[\s\S]*?gap:\s*var\(--ui-space-2\);[\s\S]*?padding:\s*var\(--ui-space-2\) var\(--ui-space-3\);/);
+});
+
+test('Phase 9 interaction polish keeps shared tokens, focus rings, and 44px targets aligned', () => {
+  const index = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const shell = fs.readFileSync(path.join(root, 'ui_shell.css'), 'utf8');
+  const smooth = fs.readFileSync(path.join(root, 'ui_smoothness.css'), 'utf8');
+  const forms = fs.readFileSync(path.join(root, 'ui_forms_secondary.css'), 'utf8');
+
+  const shellLink = index.indexOf('<link rel="stylesheet" href="ui_shell.css">');
+  const styleLink = index.indexOf('<link rel="stylesheet" href="style.css">');
+  assert.ok(shellLink >= 0 && styleLink > shellLink, 'public page must load shared UI tokens before style.css');
+
+  assert.match(shell, /--ui-focus-ring:/);
+  assert.match(shell, /--ui-focus-border:\s*#2563eb;/);
+  assert.match(shell, /--ui-disabled-opacity:\s*\.58;/);
+  assert.match(shell, /body\.ui-shell-ready \.btn\s*\{[\s\S]*?min-height:\s*44px;/);
+  assert.match(shell, /\.ui-icon-btn\s*\{[\s\S]*?width:\s*44px;[\s\S]*?height:\s*44px;/);
+
+  assert.match(smooth, /button:disabled,[\s\S]*?\.btn:disabled\s*\{[\s\S]*?cursor:\s*not-allowed;[\s\S]*?var\(--ui-disabled-opacity, \.58\)/);
+  assert.match(smooth, /outline:\s*3px solid var\(--ui-focus-ring/);
+  assert.match(forms, /outline:\s*3px solid var\(--ui-focus-ring/);
+  assert.match(forms, /\.ui-form-close-btn\s*\{[\s\S]*?width:\s*44px;[\s\S]*?height:\s*44px;/);
+  assert.match(forms, /\.ui-secondary-screen \.btn,[\s\S]*?\.ui-secondary-screen button\s*\{[\s\S]*?min-height:\s*44px;/);
 });
 
 test('dead public dues variants are absent and unreferenced across runtime sources', () => {

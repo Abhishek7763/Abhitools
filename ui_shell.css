@@ -12,6 +12,9 @@
     --ui-button-outline-bg: #ffffff;
     --ui-button-outline-color: #1a73e8;
     --ui-button-shadow: 0 2px 5px rgba(0, 0, 0, .10);
+    --ui-focus-ring: color-mix(in srgb, #2563eb 34%, transparent);
+    --ui-focus-border: #2563eb;
+    --ui-disabled-opacity: .58;
     --ui-space-1: 4px;
     --ui-space-2: 8px;
     --ui-space-3: 12px;
@@ -34,6 +37,8 @@
 body.dark-mode {
     --ui-button-outline-bg: #1e1e1e;
     --ui-button-outline-color: #66b2ff;
+    --ui-focus-ring: color-mix(in srgb, #66b2ff 46%, transparent);
+    --ui-focus-border: #66b2ff;
     --ui-bg: #111315;
     --ui-surface: #1b1e22;
     --ui-surface-2: #24282d;
@@ -79,7 +84,7 @@ body.ui-shell-ready #releaseVersionBadge,
 body.ui-shell-ready #lastUpdatedBadge,
 body.ui-shell-ready #darkModeBtn,
 body.ui-shell-ready #installAdminAppBtn {
-    min-height: 38px;
+    min-height: 44px;
 }
 
 body.ui-shell-ready #dashboard {
@@ -134,7 +139,7 @@ body.ui-shell-ready .tab {
 }
 
 body.ui-shell-ready .btn {
-    min-height: 42px;
+    min-height: 44px;
     padding: 9px 12px;
     border-radius: 10px;
     box-shadow: none;
@@ -271,8 +276,8 @@ body.ui-shell-ready .btn {
 }
 
 .ui-icon-btn {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     border: 1px solid var(--ui-border);
     border-radius: 12px;
     background: var(--ui-surface-2);

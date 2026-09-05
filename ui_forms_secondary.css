@@ -13,7 +13,7 @@ body.ui-forms-secondary-ready :is(input, select, textarea, button) {
 body.ui-forms-secondary-ready :is(input, select, textarea):focus-visible,
 body.ui-forms-secondary-ready button:focus-visible,
 body.ui-forms-secondary-ready a:focus-visible {
-    outline: 2px solid color-mix(in srgb, var(--ui-accent, #ea4335) 70%, #2563eb);
+    outline: 3px solid var(--ui-focus-ring, color-mix(in srgb, #2563eb 32%, transparent));
     outline-offset: 2px;
 }
 
@@ -71,9 +71,9 @@ body.ui-forms-secondary-ready .ui-form-header {
 }
 
 body.ui-forms-secondary-ready .ui-form-close-btn {
-    flex: 0 0 42px;
-    width: 42px;
-    height: 42px;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
     display: grid;
     place-items: center;
     border: 1px solid var(--ui-border, #e5e7eb);
@@ -187,7 +187,7 @@ body.ui-forms-secondary-ready :is(
 
 body.ui-forms-secondary-ready .ui-secondary-screen .btn,
 body.ui-forms-secondary-ready .ui-secondary-screen button {
-    min-height: 42px;
+    min-height: 44px;
 }
 
 body.ui-forms-secondary-ready .ui-responsive-fields {
