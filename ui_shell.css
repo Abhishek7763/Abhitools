@@ -3,6 +3,24 @@
 
 :root {
     --ui-accent: #ea4335;
+    --ui-primary: #1a73e8;
+    --ui-success: #34a853;
+    --ui-warning: #fbbc05;
+    --ui-secondary: #5f6368;
+    --ui-on-primary: #ffffff;
+    --ui-on-warning: #333333;
+    --ui-button-outline-bg: #ffffff;
+    --ui-button-outline-color: #1a73e8;
+    --ui-button-shadow: 0 2px 5px rgba(0, 0, 0, .10);
+    --ui-focus-ring: color-mix(in srgb, #2563eb 34%, transparent);
+    --ui-focus-border: #2563eb;
+    --ui-disabled-opacity: .58;
+    --ui-space-1: 4px;
+    --ui-space-2: 8px;
+    --ui-space-3: 12px;
+    --ui-space-4: 16px;
+    --ui-space-5: 24px;
+    --ui-space-6: 32px;
     --ui-bg: #f4f6f8;
     --ui-surface: #ffffff;
     --ui-surface-2: #f8fafc;
@@ -17,6 +35,10 @@
 }
 
 body.dark-mode {
+    --ui-button-outline-bg: #1e1e1e;
+    --ui-button-outline-color: #66b2ff;
+    --ui-focus-ring: color-mix(in srgb, #66b2ff 46%, transparent);
+    --ui-focus-border: #66b2ff;
     --ui-bg: #111315;
     --ui-surface: #1b1e22;
     --ui-surface-2: #24282d;
@@ -62,7 +84,7 @@ body.ui-shell-ready #releaseVersionBadge,
 body.ui-shell-ready #lastUpdatedBadge,
 body.ui-shell-ready #darkModeBtn,
 body.ui-shell-ready #installAdminAppBtn {
-    min-height: 38px;
+    min-height: 44px;
 }
 
 body.ui-shell-ready #dashboard {
@@ -117,7 +139,7 @@ body.ui-shell-ready .tab {
 }
 
 body.ui-shell-ready .btn {
-    min-height: 42px;
+    min-height: 44px;
     padding: 9px 12px;
     border-radius: 10px;
     box-shadow: none;
@@ -212,9 +234,9 @@ body.ui-shell-ready .btn {
 
 .ui-more-panel {
     position: absolute;
-    left: 8px;
-    right: 8px;
-    bottom: calc(var(--ui-nav-height) + env(safe-area-inset-bottom) + 14px);
+    left: var(--ui-space-2);
+    right: var(--ui-space-2);
+    bottom: calc(var(--ui-nav-height) + env(safe-area-inset-bottom) + var(--ui-space-4));
     max-height: min(76dvh, 680px);
     display: flex;
     flex-direction: column;
@@ -236,8 +258,8 @@ body.ui-shell-ready .btn {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 14px 14px 10px;
+    gap: var(--ui-space-3);
+    padding: var(--ui-space-4) var(--ui-space-4) var(--ui-space-3);
     border-bottom: 1px solid var(--ui-border);
 }
 
@@ -254,8 +276,8 @@ body.ui-shell-ready .btn {
 }
 
 .ui-icon-btn {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
     border: 1px solid var(--ui-border);
     border-radius: 12px;
     background: var(--ui-surface-2);
@@ -267,11 +289,11 @@ body.ui-shell-ready .btn {
 .ui-more-content {
     overflow: auto;
     overscroll-behavior: contain;
-    padding: 8px 12px 18px;
+    padding: var(--ui-space-2) var(--ui-space-3) var(--ui-space-5);
 }
 
 .ui-more-group {
-    padding: 8px 0;
+    padding: var(--ui-space-2) 0;
 }
 
 .ui-more-group + .ui-more-group {
@@ -279,7 +301,7 @@ body.ui-shell-ready .btn {
 }
 
 .ui-more-group h4 {
-    margin: 2px 2px 8px;
+    margin: 2px 2px var(--ui-space-2);
     color: var(--ui-muted);
     font-size: 11px;
     letter-spacing: .06em;
@@ -289,15 +311,15 @@ body.ui-shell-ready .btn {
 .ui-more-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 7px;
+    gap: var(--ui-space-2);
 }
 
 .ui-more-action {
     min-height: 50px;
     display: flex;
     align-items: center;
-    gap: 9px;
-    padding: 9px 10px;
+    gap: var(--ui-space-2);
+    padding: var(--ui-space-2) var(--ui-space-3);
     border: 1px solid var(--ui-border);
     border-radius: 12px;
     background: var(--ui-surface-2);
@@ -555,8 +577,8 @@ body.ui-shell-ready .btn {
     .ui-more-panel {
         left: calc(var(--ui-sidebar-width) + 20px);
         right: auto;
-        top: 12px;
-        bottom: 12px;
+        top: var(--ui-space-3);
+        bottom: var(--ui-space-3);
         width: min(390px, calc(100vw - 120px));
         max-height: none;
         border-radius: 18px;
