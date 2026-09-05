@@ -54,7 +54,7 @@ The following areas should not be rewritten during polish work unless a verified
 - API/auth/financial responses are still never cached by the service worker.
 - Database migration: None.
 - New serverless function: None.
-- Production verification: READY, 12/12 functions, build errors 0, live service worker 200, `/api/due` fresh → cooldown behavior preserved.
+- Production verification: READY, 12/12 functions, build errors 0.
 
 ## Phase E — Loading & Error UX
 
@@ -144,7 +144,22 @@ The following areas should not be rewritten during polish work unless a verified
 - Database migration: None.
 - New npm runtime dependency: None.
 - New serverless function: None.
-- Deployment policy for this phase: one consolidated deployment only after all Phase 11 checks pass.
+- Production deployment: `dpl_9UEYcTrW46mDJqzav7YfhKDgZB78` — READY, 12/12 functions, errors-only build log clean, live CSS and `/api/due` HTTP 200, no new error/fatal runtime logs observed.
+
+## Phase 12 — Visual System Consolidation / Closeout (2026-09-05)
+
+- Branch: `polish/phase-12-visual-system-closeout`.
+- Purpose: bring the previously verified visual-only Phase 7–10 foundation onto the current `main` baseline without merging the old divergent work branch wholesale.
+- Consolidates shared button/state tokens, the 4/8/12/16/24/32 spacing scale, shared focus/disabled tokens, 44px shell touch targets, tokenized More-panel spacing, and public loading of `ui_shell.css` before `style.css`.
+- Consolidates the verified Home/Collections card-shadow, radius, and empty-state presentation pass.
+- Phase 11 modal/form polish remains preserved on top of the shared token system.
+- Existing Hindi/Hinglish labels, WhatsApp templates, element IDs/classes, form names, button handlers, and submitted data are unchanged.
+- API/server/database/Supabase migration files changed: No.
+- Financial/business logic, EMI/payment/UPI/sequential eligibility/foreclosure/settlement/recycle/manual Loan ID/auth behavior changed: No.
+- New npm runtime dependency: None.
+- New serverless function: None; Hobby function budget remains 12.
+- Release label remains `V2.4 Stable`; only the `version.json` notes field is expanded to document this visual pass.
+- Verification gate: GitHub Stability Checks, Vercel preview READY, errors-only build log clean, 12/12 functions, touched assets HTTP 200, `/api/due` HTTP 200, and no new error/fatal runtime logs before merge.
 
 ## Current known audit note
 
