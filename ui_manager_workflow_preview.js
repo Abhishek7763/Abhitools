@@ -19,6 +19,36 @@ function enhanceBorrower(){
  if(!b){b=document.createElement('div');b.id='mgrBorrower';b.className='mgr-borrower';h.insertAdjacentElement('afterend',b)}
  b.innerHTML=`<div><small>EMI Remaining</small><b>${M(r)}</b></div><div><small>Next Due</small><b>${p?M(rem(p.e)):'₹0'}</b><span>${p?(p.d===0?'Today':p.d===1?'Tomorrow':p.d>1?p.d+' days left':Math.abs(p.d)+' days overdue'):'All paid'}</span></div><div><small>Active Loans</small><b>${ls.length}</b></div>`;
 }
+function monthCardAmount(card){
+ const match=String(card?.textContent||'').match(/Total\s*:\s*₹\s*([\d,]+(?:\.\d+)?)/i);
+ return match?Number(match[1].replace(/,/g,''))||0:0;
+}
+function sortMonthCards(){
+ const view=document.getElementById('monthView'); if(!view)return;
+ const cards=[...view.querySelectorAll('.month-folder')]; if(!cards.length)return;
+ cards.forEach((card,index)=>{if(card.dataset.monthOriginalIndex==null)card.dataset.monthOriginalIndex=String(index)});
+ const mode=document.getElementById('sortSelect')?.value||'name';
+ if(mode==='highest')cards.sort((a,b)=>monthCardAmount(b)-monthCardAmount(a));
+ else if(mode==='lowest')cards.sort((a,b)=>monthCardAmount(a)-monthCardAmount(b));
+ else cards.sort((a,b)=>(+a.dataset.monthOriginalIndex||0)-(+b.dataset.monthOriginalIndex||0));
+ cards.forEach(card=>view.appendChild(card));
+}
+function syncBrowseControls(){
+ const search=document.querySelector('.search-container');
+ const view=document.getElementById('monthView');
+ const btn=document.getElementById('layoutToggleBtn');
+ const sort=document.getElementById('sortSelect');
+ const first=sort?.querySelector('option[value="name"]');
+ if(typeof currentTab!=='undefined'&&currentTab==='month'){
+   if(search)search.style.display='flex';
+   if(first)first.textContent='📅 Sort by Month';
+   if(view)view.classList.toggle('grid-view',!!isGridView);
+   sortMonthCards();
+ }else{
+   if(first)first.textContent='🔤 Sort by Name';
+ }
+ if(btn)btn.innerText=isGridView?'📜 List View':'🔲 Grid View';
+}
 function css(){
  if(document.getElementById('mgrCss'))return;
  const s=document.createElement('style');s.id='mgrCss';
@@ -31,12 +61,16 @@ function css(){
 .dark-mode .mgr-borrower>div{background:#1f2937;color:#f8fafc;border-color:#334155}
 .dark-mode .mgr-borrower small,.dark-mode .mgr-borrower span{color:#94a3b8}
 
-/* Compact public search/sort/layout toolbar. */
-.public-search-toolbar{display:grid!important;grid-template-columns:minmax(0,1fr) 136px 112px;gap:8px;align-items:stretch}
-.public-search-toolbar #searchInput{min-width:0;width:100%}
-.public-sort-compact{width:136px!important;min-width:0!important;padding:10px 8px!important;font-size:13px!important;overflow:hidden;text-overflow:ellipsis}
-.public-view-inline{display:flex!important;justify-content:stretch!important;margin:0!important;min-width:0}
-.public-view-inline #layoutToggleBtn{width:100%;min-width:0;justify-content:center;padding:10px 8px;font-size:12px;white-space:nowrap}
+/* Compact browse controls: search + sort + grid/list stay in one row. */
+.search-container{align-items:stretch!important;gap:7px!important}
+#sortSelect{flex:0 1 34%!important;min-width:0!important}
+#layoutToggleBtn{flex:0 0 auto!important;min-width:118px!important;white-space:nowrap!important;padding-left:12px!important;padding-right:12px!important}
+#viewControlsContainer{display:none!important}
+
+/* By Month gets the same list/grid layout control as By Name. */
+#monthView.grid-view{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+#monthView.grid-view .month-folder{margin:0!important;min-width:0;min-height:118px;padding:14px 10px!important;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:8px}
+#monthView.grid-view .month-folder>div{text-align:center!important;min-width:0}
 
 /* Dark-mode month/detail readability hardening. Presentation only. */
 body.dark-mode{color-scheme:dark}
@@ -54,17 +88,15 @@ body.dark-mode #monthDateList .monthly-item{box-shadow:0 1px 0 rgba(255,255,255,
 
 @media(max-width:520px){.mgr-borrower{padding:0 12px;gap:6px}.mgr-borrower>div{padding:7px}.mgr-borrower b{font-size:13px}}
 @media(max-width:430px){
- .public-search-toolbar{grid-template-columns:minmax(0,1fr) 126px 104px;gap:6px}
- .public-sort-compact{width:126px!important;padding:9px 6px!important;font-size:12px!important}
- .public-view-inline #layoutToggleBtn{padding:9px 6px;font-size:11px}
+ .search-container{gap:5px!important}
+ .search-container #searchInput{min-width:0!important}
+ #sortSelect{flex-basis:35%!important;padding-left:8px!important;padding-right:22px!important;font-size:11px!important}
+ #layoutToggleBtn{min-width:108px!important;padding:8px 9px!important;font-size:11px!important}
+ #monthView.grid-view{gap:9px}
+ #monthView.grid-view .month-folder{min-height:108px;padding:11px 8px!important}
  .monthly-item{padding:11px 10px;align-items:flex-start}
  .monthly-item>div:last-child{font-size:13px!important;line-height:1.35}
  .monthly-item>div:last-child small{font-size:11px;white-space:nowrap}
-}
-@media(max-width:360px){
- .public-search-toolbar{grid-template-columns:minmax(0,1fr) 116px 96px;gap:5px}
- .public-sort-compact{width:116px!important;font-size:11px!important}
- .public-view-inline #layoutToggleBtn{font-size:10.5px;padding-left:5px;padding-right:5px}
 }
 @media(max-width:340px){
  .monthly-item{flex-direction:column}
@@ -73,6 +105,22 @@ body.dark-mode #monthDateList .monthly-item{box-shadow:0 1px 0 rgba(255,255,255,
 `;
  document.head.appendChild(s);
 }
-function install(){css();document.getElementById('mgrSmartDue')?.remove();document.getElementById('mgrModal')?.remove();const o=window.openFolder;if(typeof o==='function'&&!o.__mgr){const w=function(...a){const r=o.apply(this,a);setTimeout(enhanceBorrower,60);return r};w.__mgr=1;window.openFolder=w}if(currentOpenFolder)enhanceBorrower()}
+function install(){
+ css();
+ document.getElementById('mgrSmartDue')?.remove();
+ document.getElementById('mgrModal')?.remove();
+ const o=window.openFolder;
+ if(typeof o==='function'&&!o.__mgr){const w=function(...a){const r=o.apply(this,a);setTimeout(enhanceBorrower,60);return r};w.__mgr=1;window.openFolder=w}
+ const sw=window.switchTab;
+ if(typeof sw==='function'&&!sw.__mgrBrowse){const w=function(...a){const r=sw.apply(this,a);setTimeout(syncBrowseControls,0);return r};w.__mgrBrowse=1;window.switchTab=w}
+ const hs=window.handleSearch;
+ if(typeof hs==='function'&&!hs.__mgrBrowse){const w=function(...a){if(typeof currentTab!=='undefined'&&currentTab==='month'){sortMonthCards();return}return hs.apply(this,a)};w.__mgrBrowse=1;window.handleSearch=w}
+ const tl=window.toggleLayout;
+ if(typeof tl==='function'&&!tl.__mgrBrowse){const w=function(...a){const r=tl.apply(this,a);setTimeout(syncBrowseControls,0);return r};w.__mgrBrowse=1;window.toggleLayout=w}
+ const rm=window.renderMonthFolders;
+ if(typeof rm==='function'&&!rm.__mgrBrowse){const w=function(...a){const r=rm.apply(this,a);setTimeout(syncBrowseControls,0);return r};w.__mgrBrowse=1;window.renderMonthFolders=w}
+ if(currentOpenFolder)enhanceBorrower();
+ syncBrowseControls();
+}
 let n=0,t=setInterval(()=>{install();if(++n>100)clearInterval(t)},100);install();
 })();
