@@ -31,6 +31,13 @@ function css(){
 .dark-mode .mgr-borrower>div{background:#1f2937;color:#f8fafc;border-color:#334155}
 .dark-mode .mgr-borrower small,.dark-mode .mgr-borrower span{color:#94a3b8}
 
+/* Compact public search/sort/layout toolbar. */
+.public-search-toolbar{display:grid!important;grid-template-columns:minmax(0,1fr) 136px 112px;gap:8px;align-items:stretch}
+.public-search-toolbar #searchInput{min-width:0;width:100%}
+.public-sort-compact{width:136px!important;min-width:0!important;padding:10px 8px!important;font-size:13px!important;overflow:hidden;text-overflow:ellipsis}
+.public-view-inline{display:flex!important;justify-content:stretch!important;margin:0!important;min-width:0}
+.public-view-inline #layoutToggleBtn{width:100%;min-width:0;justify-content:center;padding:10px 8px;font-size:12px;white-space:nowrap}
+
 /* Dark-mode month/detail readability hardening. Presentation only. */
 body.dark-mode{color-scheme:dark}
 body.dark-mode .monthly-item{background:#2b2b2b!important;color:#e5e7eb!important;border-color:#444!important}
@@ -47,9 +54,17 @@ body.dark-mode #monthDateList .monthly-item{box-shadow:0 1px 0 rgba(255,255,255,
 
 @media(max-width:520px){.mgr-borrower{padding:0 12px;gap:6px}.mgr-borrower>div{padding:7px}.mgr-borrower b{font-size:13px}}
 @media(max-width:430px){
+ .public-search-toolbar{grid-template-columns:minmax(0,1fr) 126px 104px;gap:6px}
+ .public-sort-compact{width:126px!important;padding:9px 6px!important;font-size:12px!important}
+ .public-view-inline #layoutToggleBtn{padding:9px 6px;font-size:11px}
  .monthly-item{padding:11px 10px;align-items:flex-start}
  .monthly-item>div:last-child{font-size:13px!important;line-height:1.35}
  .monthly-item>div:last-child small{font-size:11px;white-space:nowrap}
+}
+@media(max-width:360px){
+ .public-search-toolbar{grid-template-columns:minmax(0,1fr) 116px 96px;gap:5px}
+ .public-sort-compact{width:116px!important;font-size:11px!important}
+ .public-view-inline #layoutToggleBtn{font-size:10.5px;padding-left:5px;padding-right:5px}
 }
 @media(max-width:340px){
  .monthly-item{flex-direction:column}
