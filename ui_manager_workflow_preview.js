@@ -22,7 +22,40 @@ function enhanceBorrower(){
 function css(){
  if(document.getElementById('mgrCss'))return;
  const s=document.createElement('style');s.id='mgrCss';
- s.textContent=`.mgr-borrower{max-width:660px;margin:-8px auto 12px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}.mgr-borrower>div{padding:8px;border-radius:12px;background:#f8fbff;border:1px solid #dbeafe;display:grid;min-width:0}.mgr-borrower small{font-size:9px;color:#64748b}.mgr-borrower b{color:#1d4ed8;font-size:14px}.mgr-borrower span{font-size:9px;color:#64748b}.dark-mode .mgr-borrower>div{background:#1f2937;color:#f8fafc;border-color:#334155}.dark-mode .mgr-borrower small,.dark-mode .mgr-borrower span{color:#94a3b8}@media(max-width:520px){.mgr-borrower{padding:0 12px;gap:6px}.mgr-borrower>div{padding:7px}.mgr-borrower b{font-size:13px}}`;
+ s.textContent=`
+.mgr-borrower{max-width:660px;margin:-8px auto 12px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+.mgr-borrower>div{padding:8px;border-radius:12px;background:#f8fbff;border:1px solid #dbeafe;display:grid;min-width:0}
+.mgr-borrower small{font-size:9px;color:#64748b}
+.mgr-borrower b{color:#1d4ed8;font-size:14px}
+.mgr-borrower span{font-size:9px;color:#64748b}
+.dark-mode .mgr-borrower>div{background:#1f2937;color:#f8fafc;border-color:#334155}
+.dark-mode .mgr-borrower small,.dark-mode .mgr-borrower span{color:#94a3b8}
+
+/* Dark-mode month/detail readability hardening. Presentation only. */
+body.dark-mode{color-scheme:dark}
+body.dark-mode .monthly-item{background:#2b2b2b!important;color:#e5e7eb!important;border-color:#444!important}
+body.dark-mode .monthly-item>div:last-child{color:#f3f4f6!important}
+body.dark-mode .monthly-item>div:last-child small{color:#cbd5e1!important}
+body.dark-mode .monthly-item>div:first-child small{color:#b8c0cc!important}
+body.dark-mode .monthly-item strong{color:#79b8ff!important}
+body.dark-mode .month-header{background:#2b2b2b!important;color:#7db7ff!important;border-color:#4b5563!important}
+body.dark-mode #monthDateList .monthly-item{box-shadow:0 1px 0 rgba(255,255,255,.03)}
+#currentMonthName{overflow-wrap:anywhere;line-height:1.4}
+.monthly-item{gap:10px;min-width:0}
+.monthly-item>div:first-child{min-width:0;overflow-wrap:anywhere}
+.monthly-item>div:last-child{flex:0 0 auto;min-width:max-content}
+
+@media(max-width:520px){.mgr-borrower{padding:0 12px;gap:6px}.mgr-borrower>div{padding:7px}.mgr-borrower b{font-size:13px}}
+@media(max-width:430px){
+ .monthly-item{padding:11px 10px;align-items:flex-start}
+ .monthly-item>div:last-child{font-size:13px!important;line-height:1.35}
+ .monthly-item>div:last-child small{font-size:11px;white-space:nowrap}
+}
+@media(max-width:340px){
+ .monthly-item{flex-direction:column}
+ .monthly-item>div:last-child{min-width:0;width:100%;text-align:left!important}
+}
+`;
  document.head.appendChild(s);
 }
 function install(){css();document.getElementById('mgrSmartDue')?.remove();document.getElementById('mgrModal')?.remove();const o=window.openFolder;if(typeof o==='function'&&!o.__mgr){const w=function(...a){const r=o.apply(this,a);setTimeout(enhanceBorrower,60);return r};w.__mgr=1;window.openFolder=w}if(currentOpenFolder)enhanceBorrower()}
