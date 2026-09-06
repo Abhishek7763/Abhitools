@@ -31,23 +31,32 @@ function sortMonthCards(){
  if(mode==='highest')cards.sort((a,b)=>monthCardAmount(b)-monthCardAmount(a));
  else if(mode==='lowest')cards.sort((a,b)=>monthCardAmount(a)-monthCardAmount(b));
  else cards.sort((a,b)=>(+a.dataset.monthOriginalIndex||0)-(+b.dataset.monthOriginalIndex||0));
- cards.forEach(card=>view.appendChild(card));
+ const frag=document.createDocumentFragment();
+ cards.forEach(card=>frag.appendChild(card));
+ view.appendChild(frag);
 }
-function syncBrowseControls(){
- const search=document.querySelector('.search-container');
+function applyMonthLayout(){
  const view=document.getElementById('monthView');
+ if(view)view.classList.toggle('grid-view',!!isGridView);
  const btn=document.getElementById('layoutToggleBtn');
+ if(btn)btn.innerText=isGridView?'📜 List View':'🔲 Grid View';
+}
+function syncBrowseControls({sortMonth=false}={}){
+ const search=document.querySelector('.search-container');
+ const viewControls=document.getElementById('viewControlsContainer');
  const sort=document.getElementById('sortSelect');
  const first=sort?.querySelector('option[value="name"]');
- if(typeof currentTab!=='undefined'&&currentTab==='month'){
-   if(search)search.style.display='flex';
-   if(first)first.textContent='📅 Sort by Month';
-   if(view)view.classList.toggle('grid-view',!!isGridView);
-   sortMonthCards();
+ const monthMode=typeof currentTab!=='undefined'&&currentTab==='month';
+ if(search)search.style.display='flex';
+ if(viewControls)viewControls.style.display='flex';
+ if(first)first.textContent=monthMode?'📅 Sort by Month':'🔤 Sort by Name';
+ if(monthMode){
+   applyMonthLayout();
+   if(sortMonth)sortMonthCards();
  }else{
-   if(first)first.textContent='🔤 Sort by Name';
+   const btn=document.getElementById('layoutToggleBtn');
+   if(btn)btn.innerText=isGridView?'📜 List View':'🔲 Grid View';
  }
- if(btn)btn.innerText=isGridView?'📜 List View':'🔲 Grid View';
 }
 function css(){
  if(document.getElementById('mgrCss'))return;
@@ -55,53 +64,25 @@ function css(){
  s.textContent=`
 .mgr-borrower{max-width:660px;margin:-8px auto 12px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
 .mgr-borrower>div{padding:8px;border-radius:12px;background:#f8fbff;border:1px solid #dbeafe;display:grid;min-width:0}
-.mgr-borrower small{font-size:9px;color:#64748b}
-.mgr-borrower b{color:#1d4ed8;font-size:14px}
-.mgr-borrower span{font-size:9px;color:#64748b}
-.dark-mode .mgr-borrower>div{background:#1f2937;color:#f8fafc;border-color:#334155}
-.dark-mode .mgr-borrower small,.dark-mode .mgr-borrower span{color:#94a3b8}
-
-/* Compact browse controls: search + sort + grid/list stay in one row. */
+.mgr-borrower small{font-size:9px;color:#64748b}.mgr-borrower b{color:#1d4ed8;font-size:14px}.mgr-borrower span{font-size:9px;color:#64748b}
+.dark-mode .mgr-borrower>div{background:#1f2937;color:#f8fafc;border-color:#334155}.dark-mode .mgr-borrower small,.dark-mode .mgr-borrower span{color:#94a3b8}
 .search-container{align-items:stretch!important;gap:7px!important}
 #sortSelect{flex:0 1 34%!important;min-width:0!important}
-#layoutToggleBtn{flex:0 0 auto!important;min-width:118px!important;white-space:nowrap!important;padding-left:12px!important;padding-right:12px!important}
-#viewControlsContainer{display:none!important}
-
-/* By Month gets the same list/grid layout control as By Name. */
+#viewControlsContainer{flex:0 0 auto!important;margin:0!important}
+#layoutToggleBtn{min-width:118px!important;white-space:nowrap!important;padding-left:12px!important;padding-right:12px!important}
 #monthView.grid-view{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
 #monthView.grid-view .month-folder{margin:0!important;min-width:0;min-height:118px;padding:14px 10px!important;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:8px}
 #monthView.grid-view .month-folder>div{text-align:center!important;min-width:0}
-
-/* Dark-mode month/detail readability hardening. Presentation only. */
 body.dark-mode{color-scheme:dark}
 body.dark-mode .monthly-item{background:#2b2b2b!important;color:#e5e7eb!important;border-color:#444!important}
-body.dark-mode .monthly-item>div:last-child{color:#f3f4f6!important}
-body.dark-mode .monthly-item>div:last-child small{color:#cbd5e1!important}
-body.dark-mode .monthly-item>div:first-child small{color:#b8c0cc!important}
-body.dark-mode .monthly-item strong{color:#79b8ff!important}
+body.dark-mode .monthly-item>div:last-child{color:#f3f4f6!important}body.dark-mode .monthly-item>div:last-child small{color:#cbd5e1!important}
+body.dark-mode .monthly-item>div:first-child small{color:#b8c0cc!important}body.dark-mode .monthly-item strong{color:#79b8ff!important}
 body.dark-mode .month-header{background:#2b2b2b!important;color:#7db7ff!important;border-color:#4b5563!important}
 body.dark-mode #monthDateList .monthly-item{box-shadow:0 1px 0 rgba(255,255,255,.03)}
-#currentMonthName{overflow-wrap:anywhere;line-height:1.4}
-.monthly-item{gap:10px;min-width:0}
-.monthly-item>div:first-child{min-width:0;overflow-wrap:anywhere}
-.monthly-item>div:last-child{flex:0 0 auto;min-width:max-content}
-
+#currentMonthName{overflow-wrap:anywhere;line-height:1.4}.monthly-item{gap:10px;min-width:0}.monthly-item>div:first-child{min-width:0;overflow-wrap:anywhere}.monthly-item>div:last-child{flex:0 0 auto;min-width:max-content}
 @media(max-width:520px){.mgr-borrower{padding:0 12px;gap:6px}.mgr-borrower>div{padding:7px}.mgr-borrower b{font-size:13px}}
-@media(max-width:430px){
- .search-container{gap:5px!important}
- .search-container #searchInput{min-width:0!important}
- #sortSelect{flex-basis:35%!important;padding-left:8px!important;padding-right:22px!important;font-size:11px!important}
- #layoutToggleBtn{min-width:108px!important;padding:8px 9px!important;font-size:11px!important}
- #monthView.grid-view{gap:9px}
- #monthView.grid-view .month-folder{min-height:108px;padding:11px 8px!important}
- .monthly-item{padding:11px 10px;align-items:flex-start}
- .monthly-item>div:last-child{font-size:13px!important;line-height:1.35}
- .monthly-item>div:last-child small{font-size:11px;white-space:nowrap}
-}
-@media(max-width:340px){
- .monthly-item{flex-direction:column}
- .monthly-item>div:last-child{min-width:0;width:100%;text-align:left!important}
-}
+@media(max-width:430px){.search-container{gap:5px!important}.search-container #searchInput{min-width:0!important}#sortSelect{flex-basis:35%!important;padding-left:8px!important;padding-right:22px!important;font-size:11px!important}#layoutToggleBtn{min-width:108px!important;padding:8px 9px!important;font-size:11px!important}#monthView.grid-view{gap:9px}#monthView.grid-view .month-folder{min-height:108px;padding:11px 8px!important}.monthly-item{padding:11px 10px;align-items:flex-start}.monthly-item>div:last-child{font-size:13px!important;line-height:1.35}.monthly-item>div:last-child small{font-size:11px;white-space:nowrap}}
+@media(max-width:340px){.monthly-item{flex-direction:column}.monthly-item>div:last-child{min-width:0;width:100%;text-align:left!important}}
 `;
  document.head.appendChild(s);
 }
@@ -110,17 +91,27 @@ function install(){
  document.getElementById('mgrSmartDue')?.remove();
  document.getElementById('mgrModal')?.remove();
  const o=window.openFolder;
- if(typeof o==='function'&&!o.__mgr){const w=function(...a){const r=o.apply(this,a);setTimeout(enhanceBorrower,60);return r};w.__mgr=1;window.openFolder=w}
+ if(typeof o==='function'&&!o.__mgr){const w=function(...a){const r=o.apply(this,a);requestAnimationFrame(enhanceBorrower);return r};w.__mgr=1;window.openFolder=w}
  const sw=window.switchTab;
- if(typeof sw==='function'&&!sw.__mgrBrowse){const w=function(...a){const r=sw.apply(this,a);setTimeout(syncBrowseControls,0);return r};w.__mgrBrowse=1;window.switchTab=w}
+ if(typeof sw==='function'&&!sw.__mgrBrowse){const w=function(...a){const r=sw.apply(this,a);requestAnimationFrame(()=>syncBrowseControls({sortMonth:currentTab==='month'}));return r};w.__mgrBrowse=1;window.switchTab=w}
  const hs=window.handleSearch;
  if(typeof hs==='function'&&!hs.__mgrBrowse){const w=function(...a){if(typeof currentTab!=='undefined'&&currentTab==='month'){sortMonthCards();return}return hs.apply(this,a)};w.__mgrBrowse=1;window.handleSearch=w}
  const tl=window.toggleLayout;
- if(typeof tl==='function'&&!tl.__mgrBrowse){const w=function(...a){const r=tl.apply(this,a);setTimeout(syncBrowseControls,0);return r};w.__mgrBrowse=1;window.toggleLayout=w}
+ if(typeof tl==='function'&&!tl.__mgrBrowse){const w=function(...a){
+   if(typeof currentTab!=='undefined'&&currentTab==='month'){
+     isGridView=!isGridView;
+     localStorage.setItem('abhishek_layout_pref',isGridView?'grid':'list');
+     applyMonthLayout();
+     return;
+   }
+   const r=tl.apply(this,a);
+   requestAnimationFrame(()=>syncBrowseControls());
+   return r;
+ };w.__mgrBrowse=1;window.toggleLayout=w}
  const rm=window.renderMonthFolders;
- if(typeof rm==='function'&&!rm.__mgrBrowse){const w=function(...a){const r=rm.apply(this,a);setTimeout(syncBrowseControls,0);return r};w.__mgrBrowse=1;window.renderMonthFolders=w}
- if(currentOpenFolder)enhanceBorrower();
- syncBrowseControls();
+ if(typeof rm==='function'&&!rm.__mgrBrowse){const w=function(...a){const r=rm.apply(this,a);requestAnimationFrame(()=>syncBrowseControls({sortMonth:true}));return r};w.__mgrBrowse=1;window.renderMonthFolders=w}
+ if(currentOpenFolder)requestAnimationFrame(enhanceBorrower);
+ syncBrowseControls({sortMonth:typeof currentTab!=='undefined'&&currentTab==='month'});
 }
-let n=0,t=setInterval(()=>{install();if(++n>100)clearInterval(t)},100);install();
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});else install();
 })();
