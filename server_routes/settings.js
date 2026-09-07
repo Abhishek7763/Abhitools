@@ -7,6 +7,8 @@ import {
     normalizeAppSettings
 } from './settings_config.js';
 
+const PUSH_SETTINGS_ROW_ID = 'admin_push_subscription';
+
 function describeChanges(before, after) {
     const changed = [];
     for (const key of ['business_name','message_signature','default_payment_method','reminder_window_days','reminder_default_bucket','default_contact_channel','default_layout','home_command_default','browser_alerts_default']) {
@@ -34,7 +36,18 @@ export default async function handler(req, res) {
     if (!requireAdmin(req, res)) return;
 
     try {
+        const action = String(req.query?.action || req.body?.action || '').trim().toLowerCase();
+
         if (req.method === 'GET') {
+            if (action === 'push-public-key') {
+                const publicKey = String(process.env.VAPID_PUBLIC_KEY || '').trim();
+                const privateKey = String(process.env.VAPID_PRIVATE_KEY || '').trim();
+                return res.status(200).json({
+                    public_key: publicKey,
+                    configured: Boolean(publicKey && privateKey)
+                });
+            }
+
             const current = await loadAppSettings(supabaseRequest);
             return res.status(200).json({
                 ...current,
@@ -67,7 +80,37 @@ export default async function handler(req, res) {
         }
 
         if (req.method === 'POST') {
-            const action = String(req.body?.action || '').toLowerCase();
+            if (action === 'push-subscribe') {
+                const subscription = req.body?.subscription;
+                const endpoint = String(subscription?.endpoint || '').trim();
+                const p256dh = String(subscription?.keys?.p256dh || '').trim();
+                const auth = String(subscription?.keys?.auth || '').trim();
+                const expirationRaw = subscription?.expirationTime;
+                const expirationNumber = expirationRaw == null ? null : Number(expirationRaw);
+
+                if (!endpoint.startsWith('https://') || endpoint.length > 2048 || !p256dh || p256dh.length > 512 || !auth || auth.length > 512) {
+                    return res.status(400).json({ error: 'Valid push subscription is required' });
+                }
+
+                const normalizedSubscription = {
+                    endpoint,
+                    expirationTime: Number.isFinite(expirationNumber) ? expirationNumber : null,
+                    keys: { p256dh, auth }
+                };
+                const now = new Date().toISOString();
+                const rowRes = await supabaseRequest('app_settings?on_conflict=id', 'POST', {
+                    id: PUSH_SETTINGS_ROW_ID,
+                    config: { subscription: normalizedSubscription },
+                    updated_at: now
+                }, { Prefer: 'resolution=merge-duplicates,return=representation' });
+
+                return res.status(200).json({
+                    success: true,
+                    subscribed: true,
+                    updated_at: rowRes.data?.[0]?.updated_at || now
+                });
+            }
+
             if (action !== 'reset') return res.status(400).json({ error: 'Unsupported settings action' });
             if (String(req.body?.confirm || '') !== 'RESET SETTINGS') {
                 return res.status(400).json({ error: 'Type RESET SETTINGS to reset defaults' });

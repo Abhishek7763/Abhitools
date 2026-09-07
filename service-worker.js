@@ -120,6 +120,27 @@ self.addEventListener('fetch', event => {
   })());
 });
 
+self.addEventListener('push', event => {
+  let payload = {};
+  try {
+    payload = event.data?.json() || {};
+  } catch {
+    payload = { body: event.data?.text() || '' };
+  }
+
+  event.waitUntil(self.registration.showNotification(
+    payload.title || 'AbhiTools • Payment Claim',
+    {
+      body: payload.body || 'Naya payment claim aaya hai',
+      icon: '/icon-192.png',
+      badge: '/icon-192.png',
+      tag: payload.tag || 'abhi-upi-payment-claim',
+      renotify: true,
+      data: { url: payload.url || '/admin.html' }
+    }
+  ));
+});
+
 self.addEventListener('notificationclick', event => {
   event.notification.close();
   const targetUrl = event.notification?.data?.url || '/admin.html';

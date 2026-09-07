@@ -8,5 +8,8 @@
   "version": "2.4.0",
   "scripts": {
     "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "web-push": "3.6.7"
   }
 }

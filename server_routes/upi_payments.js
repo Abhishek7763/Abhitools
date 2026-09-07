@@ -1,9 +1,11 @@
+import webpush from 'web-push';
 import { noStore, requireAdmin, sendServerError, supabaseRequest } from '../server_shared.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const UPI_RE = /^[A-Za-z0-9._+-]{1,80}@[A-Za-z0-9.-]{2,40}$/;
 const REF_RE = /^[A-Za-z0-9][A-Za-z0-9._\/-]{5,79}$/;
+const PUSH_SETTINGS_ROW_ID = 'admin_push_subscription';
 
 function requestError(message, status = 400) { return Object.assign(new Error(message), { status, publicMessage: message }); }
 function validUuid(value) { const text = String(value || '').trim(); return UUID_RE.test(text) ? text : null; }
@@ -67,6 +69,25 @@ export default async function handler(req,res){
                 const {data}=await supabaseRequest('rpc/abhi_start_upi_payment_request','POST',{p_loan_code:loanCode,p_installment_number:installment,p_request_type:type});
                 const result=Array.isArray(data)?data[0]:data;
                 if(!result?.request_id||!result?.upi_id)throw requestError('UPI payment request could not be created',500);
+
+                const publicKey=String(process.env.VAPID_PUBLIC_KEY||'').trim();
+                const privateKey=String(process.env.VAPID_PRIVATE_KEY||'').trim();
+                if(publicKey&&privateKey){
+                    try{
+                        const {data:pushRows}=await supabaseRequest(`app_settings?id=eq.${encodeURIComponent(PUSH_SETTINGS_ROW_ID)}&select=config&limit=1`);
+                        const subscription=pushRows?.[0]?.config?.subscription;
+                        if(subscription?.endpoint&&subscription?.keys?.p256dh&&subscription?.keys?.auth){
+                            webpush.setVapidDetails(String(process.env.VAPID_SUBJECT||'https://abhi-tools.vercel.app').trim(),publicKey,privateKey);
+                            await webpush.sendNotification(subscription,JSON.stringify({
+                                title:'AbhiTools • Payment Claim',
+                                body:`Naya payment claim aaya hai • ${String(result.loan_code||loanCode)} • ₹${Number(result.amount||0).toLocaleString('en-IN')}`,
+                                url:'/admin.html',
+                                tag:`upi-claim-${String(result.request_id)}`
+                            }));
+                        }
+                    }catch(pushErr){console.warn('UPI start push notification failed:',pushErr?.message||pushErr);}
+                }
+
                 return res.status(201).json({success:true,request_id:result.request_id,request_type:result.request_type||type,status:'pending',loan_code:result.loan_code,installment_number:Number(result.installment_number||0),amount:Number(result.amount||0),expires_at:result.expires_at,payee_name:result.payee_name,upi_id:result.upi_id,upi_uri:buildUpiUri(result),reference_submitted:false,verification_required:true});
             }catch(err){if(err?.publicMessage)throw err;throw requestError(safeRpcMessage(err),409);}
         }
@@ -85,7 +106,27 @@ export default async function handler(req,res){
             if(!requestId||!REF_RE.test(reference))return res.status(400).json({error:'Valid request ID aur UPI UTR/transaction reference required'});
             try{
                 const {data}=await supabaseRequest('rpc/abhi_submit_upi_reference','POST',{p_request_id:requestId,p_reference:reference});
-                const result=Array.isArray(data)?data[0]:data;return res.status(200).json(result||{success:true,reference_submitted:true});
+                const result=Array.isArray(data)?data[0]:data;
+
+                const publicKey=String(process.env.VAPID_PUBLIC_KEY||'').trim();
+                const privateKey=String(process.env.VAPID_PRIVATE_KEY||'').trim();
+                if(publicKey&&privateKey){
+                    try{
+                        const {data:pushRows}=await supabaseRequest(`app_settings?id=eq.${encodeURIComponent(PUSH_SETTINGS_ROW_ID)}&select=config&limit=1`);
+                        const subscription=pushRows?.[0]?.config?.subscription;
+                        if(subscription?.endpoint&&subscription?.keys?.p256dh&&subscription?.keys?.auth){
+                            webpush.setVapidDetails(String(process.env.VAPID_SUBJECT||'https://abhi-tools.vercel.app').trim(),publicKey,privateKey);
+                            await webpush.sendNotification(subscription,JSON.stringify({
+                                title:'AbhiTools • UTR Submitted',
+                                body:`UPI UTR submit hua hai • Ref ${requestId.slice(0,8).toUpperCase()}`,
+                                url:'/admin.html',
+                                tag:`upi-utr-${requestId}`
+                            }));
+                        }
+                    }catch(pushErr){console.warn('UPI UTR push notification failed:',pushErr?.message||pushErr);}
+                }
+
+                return res.status(200).json(result||{success:true,reference_submitted:true});
             }catch(err){throw requestError(safeRpcMessage(err,'UTR submit nahi hua'),409);}
         }
 
