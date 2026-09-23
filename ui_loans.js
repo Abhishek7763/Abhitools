@@ -82,9 +82,7 @@
         const rawRemaining = Math.max(scheduled - paid, 0);
         const remaining = settlement ? Math.max(rawRemaining - waived, 0) : rawRemaining;
         if (settlement) overdue = 0;
-        const progress = scheduled > 0 ? Math.max(0, Math.min(100, (paid / scheduled) * 100)) : 0;
-
-        return { scheduled, paid, overdue, incomplete, incompleteRemaining, next, waived, rawRemaining, remaining, progress, paidCount, emiCount: emis.length, settlement };
+        return { scheduled, paid, overdue, incomplete, incompleteRemaining, next, waived, rawRemaining, remaining, paidCount, emiCount: emis.length, settlement };
     }
 
     function loanState(loan, totals) {
@@ -136,10 +134,6 @@
                 <div><small>Collected</small><strong>${money(totals.paid)}</strong></div>
                 <div><small>Outstanding</small><strong>${money(totals.remaining)}</strong></div>
                 <div><small>EMIs</small><strong>${totals.paidCount}/${totals.emiCount}</strong></div>
-            </div>
-            <div class="ui-loan-progress-block">
-                <div><span>Repayment progress</span><strong>${Math.round(totals.progress)}%</strong></div>
-                <div class="ui-loan-progress"><i style="width:${totals.progress.toFixed(1)}%"></i></div>
             </div>
             <div class="ui-loan-info-grid">
                 <div><small>Borrower</small><strong>${esc(borrower.name || 'Unknown')}</strong></div>
@@ -268,7 +262,6 @@
                     <div><small>Outstanding</small><strong>${money(totals.remaining)}</strong></div>
                 </div>
                 <div class="ui-loan-card-due ${totals.incomplete ? 'has-incomplete' : ''}"><span>${totals.incomplete ? '🧩' : '📅'}</span><strong>${esc(nextDueText(totals))}</strong>${totals.overdue ? `<b>${money(totals.overdue)} overdue</b>` : ''}</div>
-                <div class="ui-loan-card-progress"><div><span>${totals.paidCount}/${totals.emiCount} EMIs paid</span><strong>${Math.round(totals.progress)}%</strong></div><div class="ui-loan-progress"><i style="width:${totals.progress.toFixed(1)}%"></i></div></div>
                 <div class="ui-loan-card-actions no-print"><button class="btn btn-view" onclick="uiOpenLoanDetail('${esc(loan.id)}')">Open</button><button class="ui-loan-more-btn" aria-label="More loan actions" title="More actions" onclick="uiOpenLoanDetail('${esc(loan.id)}','more')">•••</button></div>`;
                 list.appendChild(card);
             });

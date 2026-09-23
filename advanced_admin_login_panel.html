@@ -28,7 +28,7 @@
             min-height: 100vh; min-height: 100dvh; display: flex; align-items: center;
             justify-content: center;
             background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%);
-            color: var(--text-main); padding: 20px; overflow-x: hidden;
+            color: var(--text-main); padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); overflow-x: hidden;
         }
         .login-container {
             width: 100%; max-width: 420px; background-color: var(--card-bg);
@@ -54,7 +54,7 @@
         .input-wrapper { position: relative; display: flex; align-items: center; }
         .input-icon { position: absolute; left: 14px; color: var(--text-muted); font-size: 18px; line-height:1; pointer-events:none; }
         .form-control {
-            width: 100%; padding: 14px 14px 14px 44px;
+            width: 100%; min-height: 48px; padding: 14px 14px 14px 44px;
             background-color: var(--input-bg); border: 1px solid var(--border-color);
             border-radius: 10px; color: var(--text-main); font-size: 15px;
             outline: none; transition: all 0.3s ease;
@@ -69,7 +69,7 @@
         }
         .toggle-password:hover { color: var(--text-main); }
         .btn-submit {
-            width: 100%; padding: 14px; background-color: var(--primary);
+            width: 100%; min-height: 48px; padding: 14px; background-color: var(--primary);
             color: white; border: none; border-radius: 10px;
             font-size: 16px; font-weight: 600; cursor: pointer;
             transition: all 0.3s ease; display: flex;
@@ -102,11 +102,19 @@
         .shape-1 { top: -100px; left: -100px; width: 300px; height: 300px; background: rgba(59,130,246,0.2); }
         .shape-2 { bottom: -150px; right: -100px; width: 400px; height: 400px; background: rgba(139,92,246,0.15); }
         @media (max-width: 520px) {
-            body { padding: 12px; align-items: center; }
+            body { padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)); align-items: center; }
             .login-container { padding: 24px 20px; border-radius: 14px; }
             .login-header { margin-bottom: 24px; }
             .login-header h2 { font-size: 24px; }
             .form-group { margin-bottom: 20px; }
+        }
+        @media (max-width: 360px), (max-height: 640px) {
+            body { align-items: flex-start; }
+            .login-container { margin: 0; padding: 18px 16px; }
+            .back-btn { margin-bottom: 14px; }
+            .login-header { margin-bottom: 18px; }
+            .login-header h2 { font-size: 22px; }
+            .form-group { margin-bottom: 15px; }
         }
         @media (prefers-reduced-motion: reduce) {
             .login-container, .error-message, .spinner { animation: none; }
@@ -120,41 +128,41 @@
 
     <div class="login-container">
         <a href="index.html" class="back-btn">
-            <span aria-hidden="true">←</span> Back to Dashboard
+            <span aria-hidden="true">←</span> Dashboard par wapas
         </a>
         <div class="login-header">
-            <h2>Admin Portal</h2>
-            <p>Enter your credentials to access the dashboard</p>
+            <h2>Admin Login</h2>
+            <p>Dashboard kholne ke liye apni details daalein</p>
         </div>
 
         <form id="adminLoginForm" onsubmit="handleLogin(event)">
             <div class="form-group">
                 <label for="userId">Admin ID</label>
                 <div class="input-wrapper">
-                    <input type="text" id="userId" name="username" class="form-control" placeholder="Enter admin ID" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="idError" required>
+                    <input type="text" id="userId" name="username" class="form-control" placeholder="Admin ID daalein" autocomplete="username" autocapitalize="none" spellcheck="false" aria-describedby="idError" required>
                     <span class="input-icon" aria-hidden="true">👤</span>
                 </div>
                 <div id="idError" class="error-message">
-                    <span aria-hidden="true">⚠️</span> Invalid Admin ID
+                    <span aria-hidden="true">⚠️</span> Admin ID sahi nahi hai
                 </div>
             </div>
 
             <div class="form-group">
                 <label for="password">Password</label>
                 <div class="input-wrapper">
-                    <input type="password" id="password" name="password" class="form-control" placeholder="Enter password" autocomplete="current-password" aria-describedby="passError" required>
+                    <input type="password" id="password" name="password" class="form-control" placeholder="Password daalein" autocomplete="current-password" aria-describedby="passError" required>
                     <span class="input-icon" aria-hidden="true">🔐</span>
                     <button type="button" class="toggle-password" onclick="togglePasswordVisibility()" aria-label="Show password" aria-controls="password">
                         <span id="eyeIcon" aria-hidden="true">👁️</span>
                     </button>
                 </div>
                 <div id="passError" class="error-message">
-                    <span aria-hidden="true">⚠️</span> Incorrect Password
+                    <span aria-hidden="true">⚠️</span> Password sahi nahi hai
                 </div>
             </div>
 
             <button type="submit" class="btn-submit" id="submitBtn">
-                <span id="btnText">Sign In</span>
+                <span id="btnText">Login Karein</span>
                 <div class="spinner" id="btnSpinner"></div>
                 <span id="btnIcon" aria-hidden="true">→</span>
             </button>
@@ -207,7 +215,7 @@
 
             // Loading state
             submitBtn.disabled = true;
-            btnText.textContent = 'Authenticating...';
+            btnText.textContent = 'Login ho raha hai...';
             btnIcon.style.display = 'none';
             btnSpinner.style.display = 'block';
 
@@ -226,7 +234,7 @@
 
                 if (response.ok && result.success) {
                     // Success
-                    btnText.textContent = 'Success!';
+                    btnText.textContent = 'Login successful!';
                     btnSpinner.style.display = 'none';
                     btnIcon.textContent = '✓';
                     btnIcon.style.display = 'block';
@@ -241,7 +249,7 @@
 
                 } else {
                     // Error
-                    btnText.textContent = 'Sign In';
+                    btnText.textContent = 'Login Karein';
                     btnSpinner.style.display = 'none';
                     btnIcon.style.display = 'block';
                     submitBtn.disabled = false;
@@ -253,7 +261,7 @@
                 }
 
             } catch (err) {
-                btnText.textContent = 'Sign In';
+                btnText.textContent = 'Login Karein';
                 btnSpinner.style.display = 'none';
                 btnIcon.style.display = 'block';
                 submitBtn.disabled = false;
