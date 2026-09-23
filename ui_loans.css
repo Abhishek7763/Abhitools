@@ -20,9 +20,7 @@ body.ui-shell-ready .ui-loan-card {
 .ui-loan-card.state-closed, .ui-loan-card.state-paid { box-shadow: inset 3px 0 #16a34a, 0 4px 16px rgba(15,23,42,.06); }
 
 .ui-loan-card-top,
-.ui-emi-head,
-.ui-loan-card-progress > div:first-child,
-.ui-loan-progress-block > div:first-child {
+.ui-emi-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -102,10 +100,6 @@ body.ui-shell-ready .ui-loan-card {
 .ui-loan-card-due b { color:#b91c1c; font-size:10px; }
 .ui-loan-card-due.has-incomplete { background: color-mix(in srgb, #7c3aed 7%, var(--ui-surface,#fff)); }
 
-.ui-loan-card-progress { display:grid; gap:5px; color:var(--ui-muted,#6b7280); font-size:10px; }
-.ui-loan-card-progress strong { color:var(--ui-text,#1f2937); }
-.ui-loan-progress { height:7px; overflow:hidden; border-radius:999px; background:color-mix(in srgb,var(--ui-muted,#6b7280) 18%,transparent); }
-.ui-loan-progress i { display:block; height:100%; border-radius:inherit; background:#16a34a; }
 
 .ui-loan-card-actions { display:flex; align-items:center; gap:7px; justify-content:flex-end; }
 .ui-loan-card-actions .btn { min-height:38px; padding:7px 14px; }
@@ -140,8 +134,6 @@ body.ui-shell-ready .ui-loan-card {
 .ui-loan-overview { display:grid; gap:10px; }
 .ui-loan-kpis { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
 .ui-loan-kpis strong { display:block; font-size:16px; }
-.ui-loan-progress-block { padding:11px; border:1px solid var(--ui-border,#e5e7eb); border-radius:12px; background:var(--ui-surface-2,#f8fafc); font-size:11px; }
-.ui-loan-progress-block .ui-loan-progress { margin-top:7px; }
 .ui-loan-info-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
 .ui-loan-info-grid strong { display:block; font-size:12px; overflow-wrap:anywhere; }
 .ui-loan-info-grid .warning { border-color:color-mix(in srgb,#7c3aed 35%,var(--ui-border,#e5e7eb)); }
@@ -253,11 +245,9 @@ body.ui-shell-ready textarea {
 .ui-loan-card-money small,.ui-loan-kpis small,.ui-loan-info-grid small { font-size:11px; line-height:1.3; font-weight:600; }
 .ui-loan-card-due,.ui-loan-card-due strong { font-size:12px; line-height:1.35; }
 .ui-loan-card-due b { font-size:11px; }
-.ui-loan-card-progress { font-size:11px; line-height:1.3; }
 .ui-loan-detail-title small { font-size:11.5px; line-height:1.3; font-weight:600; }
 .ui-loan-detail-title h3 { font-size:18px; line-height:1.2; }
 .ui-loan-tabs button { font-size:12px; font-family:inherit; }
-.ui-loan-progress-block { font-size:12px; line-height:1.4; }
 .ui-loan-info-grid strong { font-size:13px; line-height:1.3; }
 .ui-loan-note small { font-size:11px; font-weight:600; }
 .ui-loan-note p { font-size:13px; line-height:1.5; }

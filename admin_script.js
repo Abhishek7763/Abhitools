@@ -1772,16 +1772,54 @@ function hideForm() {
 function addEmiRow(day = '', month = '', year = undefined, amount = '', emiId = '') {
     const container = document.getElementById('dynamicEmiContainer');
     const row = document.createElement('div');
-    row.className = 'emi-row';
+    row.className = 'emi-row ui-emi-editor-row';
     row.dataset.emiId = emiId || '';
-    row.innerHTML = `
-        <input type="number" placeholder="Din (10)" value="${day}" style="width:20%;" min="1" max="31" inputmode="numeric">
-        <input type="text" placeholder="Mahina (AUG)" value="${month}" style="width:25%;text-transform:uppercase;" maxlength="3" autocapitalize="characters" spellcheck="false">
-        <input type="number" placeholder="Saal (2025)" value="${year === undefined ? adminBusinessDate().slice(0, 4) : (year || '')}" style="width:25%;" min="2000" max="2200" inputmode="numeric">
-        <input type="number" placeholder="Amount (₹)" value="${amount}" style="width:22%;" min="1" inputmode="numeric">
-        <button type="button" class="btn btn-danger" onclick="this.parentElement.remove()" style="padding:8px;width:8%;">❌</button>
-    `;
+    const fields = [
+        ['number', 'Din', '10', day, { min: '1', max: '31', inputMode: 'numeric' }],
+        ['text', 'Mahina', 'AUG', month, { maxLength: 3, autoCapitalize: 'characters', spellcheck: false }],
+        ['number', 'Saal', '2025', year === undefined ? adminBusinessDate().slice(0, 4) : (year || ''), { min: '2000', max: '2200', inputMode: 'numeric' }],
+        ['number', 'Amount', '₹', amount, { min: '1', inputMode: 'numeric' }]
+    ];
+
+    fields.forEach(([type, labelText, placeholder, value, attrs]) => {
+        const field = document.createElement('label');
+        field.className = 'ui-emi-field';
+        const label = document.createElement('span');
+        label.textContent = labelText;
+        const input = document.createElement('input');
+        input.type = type;
+        input.placeholder = placeholder;
+        input.value = value;
+        Object.assign(input, attrs);
+        field.append(label, input);
+        row.appendChild(field);
+    });
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'btn btn-danger ui-remove-emi-btn';
+    removeButton.textContent = '✕';
+    removeButton.title = 'Remove EMI';
+    removeButton.setAttribute('aria-label', 'Remove EMI');
+    removeButton.addEventListener('click', () => {
+        row.remove();
+        refreshEmiEditorRows();
+    });
+    row.appendChild(removeButton);
     container.appendChild(row);
+    refreshEmiEditorRows();
+}
+
+function refreshEmiEditorRows() {
+    document.querySelectorAll('#dynamicEmiContainer .emi-row').forEach((row, index) => {
+        const number = index + 1;
+        row.dataset.uiEmiIndex = String(number);
+        row.querySelectorAll('.ui-emi-field input').forEach(input => {
+            const field = input.closest('.ui-emi-field')?.querySelector('span')?.textContent || 'field';
+            input.setAttribute('aria-label', `EMI ${number} ${field}`);
+        });
+        row.querySelector('.ui-remove-emi-btn')?.setAttribute('aria-label', `Remove EMI ${number}`);
+    });
 }
 
 async function saveLoan() {
@@ -1808,7 +1846,7 @@ async function saveLoan() {
     const emis = [];
     let invalidNewLegacyRow = false;
     document.querySelectorAll('.emi-row').forEach(row => {
-        const inputs = row.querySelectorAll('input');
+        const inputs = row.querySelectorAll('.ui-emi-field input, input');
         const day = inputs[0].value.trim();
         const month = inputs[1].value.trim().toUpperCase();
         const year = inputs[2].value.trim();

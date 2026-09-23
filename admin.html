@@ -240,7 +240,7 @@
                 <option value="">-- Borrower Chunein --</option>
             </select>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+        <div class="ui-loan-core-fields" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
             <div class="form-group">
                 <label>💰 Amount (₹) *</label>
                 <input type="number" id="loanAmount" placeholder="e.g. 10000" min="1" inputmode="numeric">
@@ -262,10 +262,11 @@
             <label>📝 Notes</label>
             <textarea id="loanNotes" rows="2" placeholder="Koi bhi zaruri baat..."></textarea>
         </div>
-        <div class="form-group">
-            <label>📅 EMI Schedule (Din | Mahina | Saal | Amount):</label>
-            <div id="dynamicEmiContainer"></div>
-            <button type="button" class="btn btn-secondary" onclick="addEmiRow()" style="margin-top:10px;width:100%;">➕ EMI Add Karo</button>
+        <div class="form-group ui-emi-schedule-group">
+            <label>📅 EMI Schedule</label>
+            <small class="ui-emi-schedule-hint">Har EMI ke liye din, mahina, saal aur amount bhar dein.</small>
+            <div id="dynamicEmiContainer" class="ui-emi-editor-list" aria-live="polite"></div>
+            <button type="button" class="btn btn-secondary ui-add-emi-btn" onclick="addEmiRow()">➕ EMI Add Karo</button>
         </div>
         <div style="display:flex;gap:10px;margin-top:15px;">
             <button type="button" id="saveLoanBtn" class="btn btn-success" style="flex:1;" onclick="saveLoan()">💾 Save Loan</button>

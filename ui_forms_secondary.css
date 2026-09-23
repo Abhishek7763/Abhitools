@@ -111,6 +111,20 @@ body.ui-forms-secondary-ready .ui-emi-editor-list {
     gap: 8px;
 }
 
+body.ui-forms-secondary-ready .ui-emi-schedule-hint {
+    display: block;
+    margin: -4px 0 8px;
+    color: var(--ui-muted, #6b7280);
+    font-size: 11px;
+    line-height: 1.35;
+}
+
+body.ui-forms-secondary-ready .ui-add-emi-btn {
+    width: 100%;
+    min-height: 42px;
+    margin-top: 9px;
+}
+
 body.ui-forms-secondary-ready .ui-emi-editor-row {
     position: relative;
     display: grid !important;
@@ -124,7 +138,20 @@ body.ui-forms-secondary-ready .ui-emi-editor-row {
     background: var(--ui-surface-2, #f8fafc);
 }
 
-body.ui-forms-secondary-ready .ui-emi-editor-row input {
+body.ui-forms-secondary-ready .ui-emi-editor-row .ui-emi-field {
+    min-width: 0;
+}
+
+body.ui-forms-secondary-ready .ui-emi-editor-row .ui-emi-field > span {
+    display: block;
+    margin: 0 0 4px;
+    color: var(--ui-muted, #6b7280);
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+body.ui-forms-secondary-ready .ui-emi-editor-row .ui-emi-field input {
     width: 100% !important;
     min-width: 0;
     margin: 0 !important;
@@ -289,22 +316,9 @@ body.dark-mode.ui-forms-secondary-ready :is(#borrowerFormContainer,#loanFormCont
 
     body.ui-forms-secondary-ready .ui-emi-editor-row {
         grid-template-columns: 1fr 1fr 1fr;
-        padding-top: 28px;
     }
 
-    body.ui-forms-secondary-ready .ui-emi-editor-row::before {
-        content: 'EMI ' attr(data-ui-emi-index);
-        position: absolute;
-        top: 7px;
-        left: 9px;
-        color: var(--ui-muted, #6b7280);
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: .04em;
-        text-transform: uppercase;
-    }
-
-    body.ui-forms-secondary-ready .ui-emi-editor-row input:nth-of-type(4) {
+    body.ui-forms-secondary-ready .ui-emi-editor-row .ui-emi-field:nth-of-type(4) {
         grid-column: 1 / span 2;
     }
 
@@ -488,11 +502,11 @@ body.dark-mode.ui-forms-secondary-ready :is(#borrowerFormContainer,#loanFormCont
         grid-template-columns: 1fr 1fr;
     }
 
-    body.ui-forms-secondary-ready .ui-emi-editor-row input:nth-of-type(3) {
+    body.ui-forms-secondary-ready .ui-emi-editor-row .ui-emi-field:nth-of-type(3) {
         grid-column: 1;
     }
 
-    body.ui-forms-secondary-ready .ui-emi-editor-row input:nth-of-type(4) {
+    body.ui-forms-secondary-ready .ui-emi-editor-row .ui-emi-field:nth-of-type(4) {
         grid-column: 2;
     }
 
