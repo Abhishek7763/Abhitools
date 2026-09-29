@@ -89,16 +89,15 @@ body.ui-forms-secondary-ready .ui-loan-core-fields {
 }
 
 body.ui-forms-secondary-ready .ui-form-action-bar {
-    position: sticky;
-    bottom: 0;
-    z-index: 20;
+    position: static;
+    z-index: auto;
     display: flex !important;
-    gap: 8px !important;
-    margin: 14px -15px -15px !important;
-    padding: 10px 15px calc(10px + env(safe-area-inset-bottom));
-    border-top: 1px solid var(--ui-border, #e5e7eb);
-    background: color-mix(in srgb, var(--ui-surface, #fff) 95%, transparent);
-    backdrop-filter: blur(14px);
+    gap: 10px !important;
+    margin: 18px 0 8px !important;
+    padding: 0 !important;
+    border-top: 0;
+    background: transparent;
+    backdrop-filter: none;
 }
 
 body.ui-forms-secondary-ready .ui-form-action-bar .btn {
@@ -120,6 +119,7 @@ body.ui-forms-secondary-ready .ui-emi-schedule-hint {
 }
 
 body.ui-forms-secondary-ready .ui-add-emi-btn {
+    display: none !important;
     width: 100%;
     min-height: 42px;
     margin-top: 9px;
@@ -315,25 +315,17 @@ body.dark-mode.ui-forms-secondary-ready :is(#borrowerFormContainer,#loanFormCont
     }
 
     body.ui-forms-secondary-ready .ui-emi-editor-row {
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: 1fr 1fr;
     }
 
+    body.ui-forms-secondary-ready .ui-emi-editor-row .ui-emi-field:nth-of-type(3),
     body.ui-forms-secondary-ready .ui-emi-editor-row .ui-emi-field:nth-of-type(4) {
-        grid-column: 1 / span 2;
-    }
-
-    body.ui-forms-secondary-ready .ui-emi-editor-row button {
-        grid-column: 3;
-        justify-self: stretch;
-        width: 100% !important;
+        grid-column: auto;
     }
 
     body.ui-forms-secondary-ready .ui-form-action-bar {
-        margin-left: -12px !important;
-        margin-right: -12px !important;
-        margin-bottom: calc(-14px - env(safe-area-inset-bottom)) !important;
-        padding-left: 12px;
-        padding-right: 12px;
+        margin: 18px 0 calc(12px + env(safe-area-inset-bottom)) !important;
+        padding: 0 !important;
     }
 
     body.ui-forms-secondary-ready .ui-secondary-overlay {
