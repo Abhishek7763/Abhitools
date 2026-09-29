@@ -269,8 +269,9 @@
             <label>📅 EMI Schedule <span class="mobile-form-step">Step 2</span></label>
             <small class="ui-emi-schedule-hint">Har EMI ke liye din, mahina, saal aur amount bhar dein.</small>
             <div id="dynamicEmiContainer" class="ui-emi-editor-list" aria-live="polite"></div>
+            <button type="button" id="addEmiRowBtn" class="btn btn-secondary ui-add-emi-btn" onclick="addEmiRow()">➕ Add EMI</button>
         </div>
-        <div style="display:flex;gap:10px;margin-top:15px;">
+        <div class="ui-form-action-bar ui-loan-action-footer" style="display:flex;gap:10px;margin-top:15px;">
             <button type="button" id="saveLoanBtn" class="btn btn-success" style="flex:1;" onclick="saveLoan()">💾 Save Loan</button>
             <button type="button" class="btn btn-danger" style="flex:1;" onclick="hideForm()">❌ Cancel</button>
         </div>
