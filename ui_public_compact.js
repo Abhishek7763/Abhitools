@@ -115,17 +115,9 @@
             .public-loan-mini-overdue { color:#991b1b; background:#fef2f2; border:1px solid #fee2e2; }
 
             .public-loan-mini-footer {
-                width:100%!important; display:grid!important; grid-template-columns:minmax(0,1fr) minmax(128px,145px)!important;
+                width:100%!important; display:grid!important; grid-template-columns:1fr!important;
                 align-items:center!important; gap:10px!important; padding-top:1px;
             }
-            .public-loan-mini-progress {
-                min-width:0; display:grid; grid-template-columns:auto minmax(80px,1fr) auto;
-                gap:7px; align-items:center;
-            }
-            .public-loan-mini-progress small,.public-loan-mini-progress b { font-size:11px; line-height:1.2; color:#64748b; white-space:nowrap; }
-            .public-loan-mini-progress b { font-weight:800; }
-            .public-loan-mini-track { height:7px; overflow:hidden; border-radius:999px; background:#e5e7eb; }
-            .public-loan-mini-track i { display:block; height:100%; border-radius:inherit; background:#16a34a; }
             .public-loan-mini-open {
                 min-height:44px; width:100%; padding:9px 12px; border:0; border-radius:10px; background:#1a73e8; color:#fff;
                 font:750 13.5px/1.15 ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; white-space:nowrap; cursor:pointer;
@@ -137,10 +129,7 @@
             body.dark-mode .public-loan-mini-metric strong { color:#f8fafc; }
             body.dark-mode .public-loan-mini-chip { background:#2a2a2a; color:#cbd5e1; }
             body.dark-mode .public-loan-mini-id small,
-            body.dark-mode .public-loan-mini-metric small,
-            body.dark-mode .public-loan-mini-progress small,
-            body.dark-mode .public-loan-mini-progress b { color:#a8b0bb; }
-            body.dark-mode .public-loan-mini-track { background:#3a3a3a; }
+            body.dark-mode .public-loan-mini-metric small { color:#a8b0bb; }
 
             #publicDateIncompleteBanner {
                 margin:8px 0 10px; padding:9px 11px; border:1px solid #e9d5ff; border-radius:11px;
@@ -180,8 +169,7 @@
                 .public-loan-mini-metric strong { font-size:16px; }
                 .public-loan-mini-info { grid-template-columns:repeat(2,minmax(0,1fr))!important; gap:6px!important; }
                 .public-loan-mini-chip,.public-loan-mini-quality,.public-loan-mini-overdue { min-height:36px; font-size:11px; line-height:1.25; padding:7px 8px; }
-                .public-loan-mini-footer { grid-template-columns:minmax(0,1fr) 132px!important; gap:8px!important; }
-                .public-loan-mini-progress small,.public-loan-mini-progress b { font-size:10.5px; }
+                .public-loan-mini-footer { grid-template-columns:1fr!important; gap:8px!important; }
                 .public-loan-mini-open { min-height:43px; font-size:13.5px; padding:8px 10px; }
             }
             @media(max-width:360px) {
@@ -189,7 +177,7 @@
                 .public-loan-mini-id strong { font-size:16px; }
                 .public-loan-mini-status { max-width:132px; font-size:10px; line-height:1.1; white-space:normal; }
                 .public-loan-mini-metric strong { font-size:15.5px; }
-                .public-loan-mini-footer { grid-template-columns:minmax(0,1fr) 122px!important; }
+                .public-loan-mini-footer { grid-template-columns:1fr!important; }
                 .public-loan-mini-open { font-size:13px; }
             }
             @media(min-width:720px) {
