@@ -119,10 +119,30 @@ body.ui-forms-secondary-ready .ui-emi-schedule-hint {
 }
 
 body.ui-forms-secondary-ready .ui-add-emi-btn {
-    display: none !important;
-    width: 100%;
-    min-height: 42px;
-    margin-top: 9px;
+    display: inline-flex !important;
+    width: auto;
+    min-height: 40px;
+    margin-top: 10px;
+    padding: 8px 14px !important;
+    font-size: 13px !important;
+}
+body.ui-forms-secondary-ready .ui-loan-action-footer {
+    position: static !important;
+    margin-top: 28px !important;
+    padding-top: 14px !important;
+    padding-bottom: calc(18px + env(safe-area-inset-bottom)) !important;
+    border-top: 1px solid var(--ui-border, #e5e7eb) !important;
+}
+body.ui-forms-secondary-ready .ui-remove-emi-btn {
+    grid-column: 1 / -1;
+    justify-self: end;
+    width: auto !important;
+    min-width: 42px !important;
+    min-height: 36px !important;
+    padding: 5px 10px !important;
+    font-size: 14px !important;
+    border-radius: 9px !important;
+    margin-top: 2px !important;
 }
 
 body.ui-forms-secondary-ready .ui-emi-editor-row {
@@ -321,6 +341,10 @@ body.dark-mode.ui-forms-secondary-ready :is(#borrowerFormContainer,#loanFormCont
     body.ui-forms-secondary-ready .ui-emi-editor-row .ui-emi-field:nth-of-type(3),
     body.ui-forms-secondary-ready .ui-emi-editor-row .ui-emi-field:nth-of-type(4) {
         grid-column: auto;
+    }
+    body.ui-forms-secondary-ready .ui-remove-emi-btn {
+        grid-column: 1 / -1;
+        justify-self: end;
     }
 
     body.ui-forms-secondary-ready .ui-form-action-bar {
