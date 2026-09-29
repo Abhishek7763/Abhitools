@@ -126,6 +126,8 @@
             <div class="home-pro-quick-actions" aria-label="Quick actions">
                 <button onclick="showBorrowerForm()">👤<span>Add Borrower</span></button>
                 <button onclick="showForm()">➕<span>Add Loan</span></button>
+                <button onclick="openQuickEmiFlow()">📅<span>Add EMI</span></button>
+                <button onclick="openDueCenter('today')">💰<span>Record Payment</span></button>
                 <button onclick="openDueCenter('overdue')">⏰<span>Due Center</span></button>
                 <button onclick="openAdvancedSearch()">🔎<span>Search</span></button>
                 <button onclick="openCollectionCalendar()">🗓️<span>Calendar</span></button>
@@ -143,6 +145,7 @@
     <div class="controls no-print">
         <button class="btn btn-success" onclick="showBorrowerForm()">👤 Add Borrower</button>
         <button class="btn btn-success" onclick="showForm()">➕ Add Loan</button>
+        <button class="btn btn-success" onclick="openQuickEmiFlow()">📅 Add EMI</button>
         <button class="btn btn-warning" onclick="downloadFullBackup()">💾 Full Backup</button>
         <button class="btn btn-view" onclick="openBorrowerDirectory()">👥 Borrower Profiles</button>
         <button class="btn btn-view" onclick="openDueCenter('overdue')">⏰ Due Center</button>
@@ -263,7 +266,7 @@
             <textarea id="loanNotes" rows="2" placeholder="Koi bhi zaruri baat..."></textarea>
         </div>
         <div class="form-group ui-emi-schedule-group">
-            <label>📅 EMI Schedule</label>
+            <label>📅 EMI Schedule <span class="mobile-form-step">Step 2</span></label>
             <small class="ui-emi-schedule-hint">Har EMI ke liye din, mahina, saal aur amount bhar dein.</small>
             <div id="dynamicEmiContainer" class="ui-emi-editor-list" aria-live="polite"></div>
             <button type="button" class="btn btn-secondary ui-add-emi-btn" onclick="addEmiRow()">➕ EMI Add Karo</button>
@@ -1308,5 +1311,13 @@
 
     <script src="pwa.js"></script>
     <script src="admin_script.js"></script>
+
+<!-- Mobile quick action dock -->
+<nav class="mobile-action-dock no-print" aria-label="Quick actions">
+  <button type="button" onclick="showBorrowerForm()"><span>👤</span><small>Borrower</small></button>
+  <button type="button" onclick="showForm()"><span>➕</span><small>Loan</small></button>
+  <button type="button" onclick="openQuickEmiFlow()"><span>📅</span><small>EMI</small></button>
+  <button type="button" onclick="openDueCenter('today')"><span>💰</span><small>Payment</small></button>
+</nav>
 </body>
 </html>
