@@ -308,8 +308,6 @@ function renderHomeCommandCenter(data) {
     homeSetText('homeRecycleText', Number(summary.recycleItems || 0) ? `${Number(summary.recycleItems || 0)} recoverable item(s)` : 'Recycle Bin empty');
 
     const rate = Math.max(0, Math.min(100, Number(money.recoveryRate || 0)));
-    const bar = document.getElementById('homeRecoveryBar');
-    if (bar) bar.style.width = `${rate}%`;
     homeSetText('homeRecoveryHint', `${homeMoney(money.outstanding)} outstanding • ${rate.toLocaleString('en-IN')}% scheduled recovery`);
 
     const backup = data?.latestBackup;
