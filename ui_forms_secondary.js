@@ -103,7 +103,6 @@
             inputs.forEach((input, i) => {
                 if (!input.getAttribute('aria-label')) input.setAttribute('aria-label', `EMI ${index + 1} ${labels[i] || 'field'}`);
             });
-            row.querySelector('button')?.setAttribute('aria-label', `Remove EMI ${index + 1}`);
         });
     }
 
