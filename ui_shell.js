@@ -430,6 +430,7 @@
         const label = (button.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
         if (!/(save|payment|record payment|add emi|sync)/i.test(label)) return;
         button.classList.add('ui-action-busy');
+        button.disabled = true;
         button.setAttribute('aria-busy', 'true');
         button.dataset.uiOriginalHtml = button.innerHTML;
         if (/sync/i.test(label)) button.innerHTML = '⏳ Syncing...';
@@ -442,6 +443,7 @@
                 delete button.dataset.uiOriginalHtml;
             }
             button.classList.remove('ui-action-busy');
+            button.disabled = false;
             button.removeAttribute('aria-busy');
         }, 9000);
     }, { passive: true });
