@@ -426,7 +426,7 @@
                     ${yearChip}${paidChip}${quality}
                 </div>
                 <div class="public-loan-mini-footer">
-                    <div class="public-loan-mini-progress"><small>Progress</small><div class="public-loan-mini-track"><i style="width:${totals.progress.toFixed(1)}%"></i></div><b>${Math.round(totals.progress)}%</b></div>
+                    
                     <button type="button" class="public-loan-mini-open no-print" onclick="publicOpenLoanCompactDetail('${esc(loan.id)}')">View EMI</button>
                 </div>`;
             list.appendChild(card);
