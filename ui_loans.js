@@ -262,7 +262,11 @@
                     <div><small>Outstanding</small><strong>${money(totals.remaining)}</strong></div>
                 </div>
                 <div class="ui-loan-card-due ${totals.incomplete ? 'has-incomplete' : ''}"><span>${totals.incomplete ? '🧩' : '📅'}</span><strong>${esc(nextDueText(totals))}</strong>${totals.overdue ? `<b>${money(totals.overdue)} overdue</b>` : ''}</div>
-                <div class="ui-loan-card-actions no-print"><button class="btn btn-view" onclick="uiOpenLoanDetail('${esc(loan.id)}')">Open</button><button class="ui-loan-more-btn" aria-label="More loan actions" title="More actions" onclick="uiOpenLoanDetail('${esc(loan.id)}','more')">•••</button></div>`;
+                <div class="ui-loan-card-actions no-print">
+                    <button class="btn btn-view" onclick="uiOpenLoanDetail('${esc(loan.id)}')">📄 Open</button>
+                    ${totals.next?.emi?.id && loan.status !== 'closed' ? `<button class="btn btn-success" onclick="openPaymentModal('${esc(totals.next.emi.id)}')">💰 Payment</button>` : ''}
+                    <button class="ui-loan-more-btn" aria-label="More loan actions" title="More actions" onclick="uiOpenLoanDetail('${esc(loan.id)}','more')">•••</button>
+                </div>`;
                 list.appendChild(card);
             });
     };
