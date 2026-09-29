@@ -669,7 +669,7 @@ function renderLoanList(nameFilter) {
                 </div>
                 ${overdueSum > 0 ? `<p style="color:#ea4335;font-size:12px;font-weight:600;">🔴 Overdue Remaining: ₹${overdueSum.toLocaleString('en-IN')}</p>` : ''}
                 <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;" class="no-print">
-                    ${loan.status !== 'closed' ? `<button class="btn btn-warning" onclick="editLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">✏️ Edit</button>` : ''}
+                    ${loan.status !== 'closed' ? `<button class="btn btn-warning" onclick="editLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">✏️ Edit</button><button class="btn btn-success" onclick="addEmiToLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">📅 Add EMI</button>` : ''}
                     <button class="btn btn-danger" onclick="deleteLoan('${loan.id}')" style="font-size:12px;padding:6px 10px;">♻️ Recycle</button>
                     <button class="btn ${loan.status === 'closed' ? 'btn-view' : 'btn-secondary'}" onclick="openSettlementCenter('${loan.id}')" style="font-size:12px;padding:6px 10px;">${loan.status === 'closed' ? '🔒 Settlement' : '🤝 Settle / Close'}</button>
                     ${whatsappNum ? `<button class="btn btn-success" onclick="openWhatsAppCenter({borrowerId:'${escapeHtml(loan.borrower_id || borrower.id || '')}',loanId:'${escapeHtml(loan.id)}',template:'due'})" style="font-size:12px;padding:6px 10px;">💬 Message</button>` : ''}
@@ -680,6 +680,15 @@ function renderLoanList(nameFilter) {
     });
 }
 
+async function addEmiToLoan(loanId) {
+  const loan = loans.find(l => l.id === loanId);
+  if (!loan || loan.status === 'closed') return;
+  await editLoan(loanId);
+  addEmiRow();
+  const container = document.getElementById('dynamicEmiContainer');
+  container?.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  container?.lastElementChild?.querySelector('input')?.focus();
+}
 function emiDisplayState(e) {
     const paid = emiPaidAmount(e);
     const scheduled = Number.parseInt(e.amount, 10) || 0;
@@ -1822,6 +1831,28 @@ function refreshEmiEditorRows() {
     });
 }
 
+async function openQuickEmiFlow() {
+  const activeLoans = loans.filter(l => l && l.status !== 'closed');
+  if (!activeLoans.length) {
+    alert('Pehle ek active loan add karein.');
+    showForm();
+    return;
+  }
+  const names = activeLoans.map((l, i) => `${i + 1}. ${l.borrowers?.name || 'Unknown'} — ${l.loan_code || 'Loan'}`).join('\n');
+  const answer = prompt(`EMI kis loan me add karni hai?\n\n${names}\n\nNumber enter karein:`);
+  if (answer === null) return;
+  const index = Number.parseInt(answer, 10) - 1;
+  const loan = activeLoans[index];
+  if (!loan) {
+    alert('Invalid loan number.');
+    return;
+  }
+  await editLoan(loan.id);
+  addEmiRow();
+  const container = document.getElementById('dynamicEmiContainer');
+  container?.lastElementChild?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  container?.lastElementChild?.querySelector('input')?.focus();
+}
 async function saveLoan() {
     const loanId = document.getElementById('editLoanId').value;
     const borrower_id = document.getElementById('loanBorrowerSelect').value;
