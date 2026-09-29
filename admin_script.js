@@ -1810,6 +1810,22 @@ function addEmiRow(day = '', month = '', year = undefined, amount = '', emiId = 
         row.appendChild(field);
     });
 
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'btn btn-danger ui-remove-emi-btn';
+    removeButton.textContent = '🗑️';
+    removeButton.title = 'Delete this EMI';
+    removeButton.setAttribute('aria-label', 'Delete this EMI');
+    removeButton.addEventListener('click', () => {
+        const rows = container.querySelectorAll('.emi-row');
+        if (rows.length <= 1) {
+            alert('Kam se kam 1 EMI row rakhein. Agar EMI nahi chahiye to fields blank chhod sakte hain.');
+            return;
+        }
+        row.remove();
+        refreshEmiEditorRows();
+    });
+    row.appendChild(removeButton);
     container.appendChild(row);
     refreshEmiEditorRows();
 }
