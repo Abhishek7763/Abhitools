@@ -1232,19 +1232,7 @@
         </div>
     </div>
 
-
-    <!-- Phase 15: Admin mobile quick navigation -->
-    <nav class="phase15-mobile-nav phase15-admin-nav no-print" aria-label="Admin mobile quick navigation">
-        <button type="button" onclick="window.scrollTo({top:0,behavior:'smooth'})"><span>🏠</span><small>Home</small></button>
-        <button type="button" onclick="openDueCenter('overdue')"><span>⏰</span><small>Due</small></button>
-        <button type="button" onclick="openFollowupCenter()"><span>📋</span><small>Follow-up</small></button>
-        <button type="button" onclick="openAdvancedSearch()"><span>🔎</span><small>Search</small></button>
-        <button type="button" onclick="openCollectionCalendar()"><span>🗓️</span><small>Calendar</small></button>
-        <button type="button" onclick="openReportsCenter()"><span>📈</span><small>Reports</small></button>
-    </nav>
-
-
-    <!-- Phase 21: V2 Stable Release & Recovery Center -->
+<!-- Phase 21: V2 Stable Release & Recovery Center -->
     <div id="releaseCenterModal" class="release-overlay no-print" style="display:none;" onclick="handleReleaseOverlayClick(event)">
         <div class="release-card" role="dialog" aria-modal="true" aria-labelledby="releaseCenterTitle">
             <div class="release-header">
@@ -1311,13 +1299,5 @@
 
     <script src="pwa.js"></script>
     <script src="admin_script.js"></script>
-
-<!-- Mobile quick action dock -->
-<nav class="mobile-action-dock no-print" aria-label="Quick actions">
-  <button type="button" onclick="showBorrowerForm()"><span>👤</span><small>Borrower</small></button>
-  <button type="button" onclick="showForm()"><span>➕</span><small>Loan</small></button>
-  <button type="button" onclick="openQuickEmiFlow()"><span>📅</span><small>EMI</small></button>
-  <button type="button" onclick="openDueCenter('today')"><span>💰</span><small>Payment</small></button>
-</nav>
 </body>
 </html>
