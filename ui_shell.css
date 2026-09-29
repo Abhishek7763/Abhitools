@@ -50,7 +50,9 @@ body.dark-mode {
 
 body.ui-shell-ready {
     background: var(--ui-bg);
-    padding-bottom: calc(var(--ui-nav-height) + env(safe-area-inset-bottom) + 18px);
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding-bottom: calc(var(--ui-nav-height) + env(safe-area-inset-bottom) + 28px);
 }
 
 body.ui-shell-ready > .controls {
