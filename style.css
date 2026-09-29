@@ -1753,19 +1753,22 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
 @media (max-width: 700px){
   html{font-size:15px}
   body{padding:10px 10px calc(96px + env(safe-area-inset-bottom))!important;overflow-x:hidden;overflow-y:auto;min-height:100dvh}
-  .header-container{gap:7px!important;margin-bottom:10px!important;align-items:center!important;flex-wrap:wrap}
-  .header-container h2{font-size:17px!important;order:2;width:100%;text-align:left!important}
+  .header-container{gap:6px!important;margin-bottom:9px!important;align-items:center!important;flex-wrap:wrap}
+  .header-container h2{font-size:17px!important;order:2;width:100%;text-align:left!important;margin:0!important}
   .header-container>div:first-child{order:1}
   #releaseVersionBadge,#lastUpdatedBadge{font-size:8px!important;padding:4px 6px!important}
   #darkModeBtn,#installAdminAppBtn{min-height:36px!important}
-  .dashboard{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px!important;padding:9px!important;border-radius:14px!important}
+  .dashboard{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px!important;padding:8px!important;border-radius:14px!important}
+  .dashboard .dash-box{border-left:0!important;padding:8px 7px!important;background:rgba(255,255,255,.08);border-radius:10px!important}
+  .dashboard .dash-box h4{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
   .dash-box{min-width:0!important;padding:8px!important;border-left:0!important;text-align:left!important}
   .dash-box h4{font-size:10px!important}.dash-box h3{font-size:17px!important}.dash-box small{font-size:9px!important}
   .home-pro{border-radius:14px!important;padding:10px!important}.home-pro-head{gap:8px!important;align-items:flex-start!important}.home-pro-head h3{font-size:15px!important}.home-pro-head small{font-size:9px!important}
   .home-pro-head-actions{display:flex!important;gap:5px!important}.home-pro-head-actions .btn{min-height:36px!important;padding:6px 8px!important;font-size:10px!important}
   .home-pro-kpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:7px!important}.home-pro-kpi{min-height:72px!important;padding:9px!important}
   .home-pro-grid,.home-pro-bottom-grid{grid-template-columns:1fr!important;gap:8px!important}.home-pro-money-grid{grid-template-columns:repeat(2,1fr)!important;gap:7px!important}
-  .home-pro-quick-actions{grid-template-columns:repeat(2,1fr)!important;gap:7px!important}.home-pro-quick-actions button{min-height:58px!important;border-radius:11px!important;font-size:11px!important}
+  .home-pro-quick-actions{grid-template-columns:repeat(2,1fr)!important;gap:7px!important;margin-top:8px!important}.home-pro-quick-actions button{min-height:56px!important;border-radius:12px!important;font-size:11px!important;padding:8px!important}.home-pro-quick-actions button span{line-height:1.15!important}
   .controls{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px!important}.controls .btn{width:100%!important;min-height:42px!important;margin:0!important;padding:8px 7px!important;font-size:11px!important}
   .search-container{display:grid!important;grid-template-columns:1fr!important;gap:7px!important}.search-box{width:100%!important;min-height:42px!important;box-sizing:border-box}
   .tabs{display:flex!important;overflow-x:auto!important;gap:5px!important}.tab{flex:1 0 46%!important;min-width:0!important;text-align:center!important;padding:10px 8px!important}
@@ -1786,4 +1789,4 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
   .payment-history-actions{display:grid!important;grid-template-columns:repeat(2,1fr)!important;gap:5px!important}.payment-history-actions .btn{min-height:40px!important}
   .dark-mode #loanFormContainer>div:last-child{background:#111827!important}
 }
-@media (max-width:380px){.dashboard{grid-template-columns:1fr 1fr!important}.emi-row.ui-emi-editor-row{grid-template-columns:1fr 1fr!important}.emi-row .ui-remove-emi-btn{grid-column:1/-1;width:100%!important}.controls{grid-template-columns:1fr!important}}
+@media (max-width:380px){.dashboard{grid-template-columns:1fr 1fr!important}.emi-row.ui-emi-editor-row{grid-template-columns:1fr 1fr!important}.emi-row .ui-remove-emi-btn{grid-column:1/-1;width:auto!important}.controls{grid-template-columns:1fr!important}.ui-loan-action-footer{grid-template-columns:1fr!important}}
