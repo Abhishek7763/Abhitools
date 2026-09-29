@@ -1800,21 +1800,16 @@ function addEmiRow(day = '', month = '', year = undefined, amount = '', emiId = 
         input.placeholder = placeholder;
         input.value = value;
         Object.assign(input, attrs);
+        if (labelText === 'Mahina') {
+            input.addEventListener('input', () => {
+                input.value = input.value.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
+            });
+            input.value = String(input.value || '').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
+        }
         field.append(label, input);
         row.appendChild(field);
     });
 
-    const removeButton = document.createElement('button');
-    removeButton.type = 'button';
-    removeButton.className = 'btn btn-danger ui-remove-emi-btn';
-    removeButton.textContent = '✕';
-    removeButton.title = 'Remove EMI';
-    removeButton.setAttribute('aria-label', 'Remove EMI');
-    removeButton.addEventListener('click', () => {
-        row.remove();
-        refreshEmiEditorRows();
-    });
-    row.appendChild(removeButton);
     container.appendChild(row);
     refreshEmiEditorRows();
 }
