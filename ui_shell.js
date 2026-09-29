@@ -372,12 +372,26 @@
             }
         };
 
+        const restoreBusyButtons = () => {
+            document.querySelectorAll('.ui-action-busy').forEach(button => {
+                if (button.dataset.uiOriginalHtml) {
+                    button.innerHTML = button.dataset.uiOriginalHtml;
+                    delete button.dataset.uiOriginalHtml;
+                }
+                button.classList.remove('ui-action-busy');
+                button.removeAttribute('aria-busy');
+            });
+        };
+
         const end = () => {
             activeRequests = Math.max(0, activeRequests - 1);
             if (activeRequests === 0) {
                 clearTimeout(showTimer);
                 clearTimeout(hideTimer);
-                hideTimer = window.setTimeout(() => setBusy(false), 160);
+                hideTimer = window.setTimeout(() => {
+                    setBusy(false);
+                    restoreBusyButtons();
+                }, 160);
             }
         };
 
@@ -417,15 +431,18 @@
         if (!/(save|payment|record payment|add emi|sync)/i.test(label)) return;
         button.classList.add('ui-action-busy');
         button.setAttribute('aria-busy', 'true');
-        const original = button.innerHTML;
+        button.dataset.uiOriginalHtml = button.innerHTML;
         if (/sync/i.test(label)) button.innerHTML = '⏳ Syncing...';
         else if (/payment/i.test(label)) button.innerHTML = '⏳ Saving Payment...';
         else if (/add emi/i.test(label)) button.innerHTML = '⏳ Adding EMI...';
         else if (/save/i.test(label)) button.innerHTML = '⏳ Saving...';
         window.setTimeout(() => {
+            if (button.isConnected && button.dataset.uiOriginalHtml) {
+                button.innerHTML = button.dataset.uiOriginalHtml;
+                delete button.dataset.uiOriginalHtml;
+            }
             button.classList.remove('ui-action-busy');
             button.removeAttribute('aria-busy');
-            if (button.isConnected && button.getAttribute('aria-busy') === null) button.innerHTML = original;
         }, 9000);
     }, { passive: true });
 
