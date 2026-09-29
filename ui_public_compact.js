@@ -27,7 +27,6 @@
                 -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility;
             }
             body.public-compact-ready .public-loan-mini-metric strong,
-            body.public-compact-ready .public-loan-mini-progress b,
             body.public-compact-ready .public-emi-row-side>strong { font-variant-numeric:tabular-nums; }
             body.public-compact-ready #folderView { gap:8px!important; }
             body.public-compact-ready #folderView .folder {
