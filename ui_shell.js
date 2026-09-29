@@ -337,6 +337,98 @@
         });
     }
 
+
+    // Lightweight global network/loading feedback.
+    // It appears only for requests that take longer than a short delay, so normal
+    // fast requests do not cause distracting flicker.
+    (() => {
+        if (window.__abhiLoadingInstalled) return;
+        window.__abhiLoadingInstalled = true;
+
+        const originalFetch = window.fetch.bind(window);
+        let activeRequests = 0;
+        let showTimer = null;
+        let hideTimer = null;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'uiGlobalLoading';
+        overlay.className = 'ui-global-loading no-print';
+        overlay.setAttribute('role', 'status');
+        overlay.setAttribute('aria-live', 'polite');
+        overlay.innerHTML = '<div class="ui-loading-card"><span class="ui-loading-spinner" aria-hidden="true"></span><span id="uiLoadingText">Loading...</span></div>';
+        body.appendChild(overlay);
+
+        const setBusy = (visible) => {
+            overlay.classList.toggle('show', visible);
+            document.body.classList.toggle('ui-network-busy', visible);
+        };
+
+        const begin = (label) => {
+            activeRequests++;
+            if (label) document.getElementById('uiLoadingText').textContent = label;
+            if (activeRequests === 1) {
+                clearTimeout(showTimer);
+                showTimer = window.setTimeout(() => setBusy(true), 220);
+            }
+        };
+
+        const end = () => {
+            activeRequests = Math.max(0, activeRequests - 1);
+            if (activeRequests === 0) {
+                clearTimeout(showTimer);
+                clearTimeout(hideTimer);
+                hideTimer = window.setTimeout(() => setBusy(false), 160);
+            }
+        };
+
+        window.fetch = (...args) => {
+            const request = args[0];
+            const url = typeof request === 'string' ? request : request?.url || '';
+            // Version metadata is intentionally silent.
+            const silent = String(url).includes('/version.json');
+            if (!silent) begin('Data load ho raha hai...');
+            return originalFetch(...args).finally(() => {
+                if (!silent) end();
+            });
+        };
+
+        window.__abhiSetLoadingText = (message) => {
+            const node = document.getElementById('uiLoadingText');
+            if (node) node.textContent = message || 'Loading...';
+        };
+    })();
+
+    // Subtle content entrance after major navigation actions.
+    document.addEventListener('click', (event) => {
+        const nav = event.target.closest('[data-ui-destination]');
+        const action = event.target.closest('.ui-more-action');
+        if (!nav && !action) return;
+        const target = nav || action;
+        if (target?.dataset?.uiDestination === 'more') return;
+        document.body.classList.remove('ui-page-enter');
+        requestAnimationFrame(() => document.body.classList.add('ui-page-enter'));
+    }, { passive: true });
+
+    // Prevent accidental double-submit on common save/payment actions while work is running.
+    document.addEventListener('click', (event) => {
+        const button = event.target.closest('button');
+        if (!button || button.disabled) return;
+        const label = (button.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
+        if (!/(save|payment|record payment|add emi|sync)/i.test(label)) return;
+        button.classList.add('ui-action-busy');
+        button.setAttribute('aria-busy', 'true');
+        const original = button.innerHTML;
+        if (/sync/i.test(label)) button.innerHTML = '⏳ Syncing...';
+        else if (/payment/i.test(label)) button.innerHTML = '⏳ Saving Payment...';
+        else if (/add emi/i.test(label)) button.innerHTML = '⏳ Adding EMI...';
+        else if (/save/i.test(label)) button.innerHTML = '⏳ Saving...';
+        window.setTimeout(() => {
+            button.classList.remove('ui-action-busy');
+            button.removeAttribute('aria-busy');
+            if (button.isConnected && button.getAttribute('aria-busy') === null) button.innerHTML = original;
+        }, 9000);
+    }, { passive: true });
+
     syncStableReleaseMeta();
 
     // Hide the old giant top-level controls only after the replacement shell is fully available.
