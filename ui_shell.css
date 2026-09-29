@@ -640,3 +640,81 @@ body.ui-shell-ready .btn {
         padding: 0 !important;
     }
 }
+
+
+/* ==========================================
+   Lightweight feedback / motion polish
+   ========================================== */
+.ui-global-loading {
+    position: fixed;
+    inset: 0;
+    z-index: 32000;
+    display: grid;
+    place-items: center;
+    background: rgba(15, 23, 42, .10);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .16s ease;
+}
+.ui-global-loading.show {
+    opacity: 1;
+}
+.ui-loading-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    max-width: min(88vw, 320px);
+    padding: 10px 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--ui-surface) 96%, transparent);
+    color: var(--ui-text);
+    box-shadow: 0 12px 36px rgba(15, 23, 42, .18);
+    font: 600 12px/1.2 system-ui, sans-serif;
+}
+.ui-loading-spinner {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    border: 2px solid color-mix(in srgb, var(--ui-accent) 22%, transparent);
+    border-top-color: var(--ui-accent);
+    border-radius: 50%;
+    animation: uiSpin .7s linear infinite;
+}
+@keyframes uiSpin {
+    to { transform: rotate(360deg); }
+}
+.ui-action-busy {
+    opacity: .78 !important;
+    cursor: wait !important;
+}
+body.ui-page-enter #mainContent,
+body.ui-page-enter #folderView,
+body.ui-page-enter #detailView,
+body.ui-page-enter #monthView,
+body.ui-page-enter #monthDetailView {
+    animation: uiPageEnter .18s ease-out;
+}
+@keyframes uiPageEnter {
+    from { opacity: .72; transform: translateY(5px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.dark-mode .ui-global-loading {
+    background: rgba(2, 6, 23, .18);
+}
+.dark-mode .ui-loading-card {
+    background: color-mix(in srgb, var(--ui-surface) 94%, transparent);
+}
+@media (prefers-reduced-motion: reduce) {
+    .ui-global-loading,
+    .ui-page-enter #mainContent,
+    .ui-page-enter #folderView,
+    .ui-page-enter #detailView,
+    .ui-page-enter #monthView,
+    .ui-page-enter #monthDetailView {
+        animation: none !important;
+        transition: none !important;
+    }
+    .ui-loading-spinner { animation: none !important; }
+}
