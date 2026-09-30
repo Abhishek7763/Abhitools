@@ -13,6 +13,7 @@
     const validIso = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').slice(0, 10));
     let collectionTab = 'priority';
     let collectionRefreshing = false;
+    let collectionModeIndex = 0;
     let corePatched = false;
 
     function formatDate(value) {
@@ -186,6 +187,70 @@
         </article>`;
     }
 
+    function collectionModeItems() {
+        const buckets = (typeof dueCenterData !== 'undefined' && dueCenterData?.buckets) ? dueCenterData.buckets : {};
+        const source = [
+            ...(buckets.overdue || []),
+            ...(buckets.today || []),
+            ...(buckets.tomorrow || []),
+            ...(buckets.next7 || [])
+        ];
+        const seen = new Set();
+        return source.filter(item => {
+            const remaining = Number(item?.remaining || 0);
+            if (remaining <= 0) return false;
+            const key = item?.emi_id || `${item?.loan_code || ''}-${item?.installment_number || ''}-${item?.due_date || ''}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        }).sort((a,b) => {
+            const ad = String(a?.due_date || '9999-12-31').slice(0,10);
+            const bd = String(b?.due_date || '9999-12-31').slice(0,10);
+            if (ad !== bd) return ad.localeCompare(bd);
+            return Number(a?.installment_number || 0) - Number(b?.installment_number || 0);
+        });
+    }
+
+    function renderCollectionMode() {
+        const list = document.getElementById('uiCollectionsList');
+        if (!list) return;
+        const items = collectionModeItems();
+        if (!items.length) {
+            list.innerHTML = '<div class="ui-collection-mode-empty">✓ Collection queue clear hai. Koi pending dated EMI nahi mili.</div>';
+            return;
+        }
+        collectionModeIndex = Math.min(Math.max(collectionModeIndex, 0), items.length - 1);
+        const item = items[collectionModeIndex];
+        const ctx = dueContext(item);
+        const paid = Math.max(0, Number(item?.paid_amount || item?.paid || 0));
+        const remaining = Math.max(0, Number(item?.remaining || 0));
+        const overdue = validIso(item?.due_date) && validIso(typeof dueCenterData !== 'undefined' ? dueCenterData?.businessDate : '') && String(item.due_date).slice(0,10) < String(dueCenterData.businessDate).slice(0,10);
+        const hasContact = Boolean(item?.has_contact || ctx.borrower?.whatsapp || ctx.borrower?.phone || item?.whatsapp || item?.phone);
+        list.innerHTML = `
+            <section class="ui-collection-mode-card">
+                <div class="ui-collection-mode-top">
+                    <div><small>COLLECTION MODE • ${collectionModeIndex + 1} / ${items.length}</small><h4>${esc(item?.borrower_name || ctx.borrower?.name || 'Borrower')}</h4><span>${esc(item?.loan_code || ctx.loan?.loan_code || '')} • EMI #${Number(item?.installment_number || 0)}</span></div>
+                    <strong class="${overdue ? 'overdue' : ''}">${overdue ? 'OVERDUE' : 'DUE'}</strong>
+                </div>
+                <div class="ui-collection-mode-money"><div><small>Due Date</small><b>${esc(formatDate(item?.due_date))}</b></div><div><small>Remaining</small><b>${money(remaining)}</b></div>${paid ? `<div><small>Paid</small><b>${money(paid)}</b></div>` : ''}</div>
+                <div class="ui-collection-mode-actions">
+                    ${item?.emi_id ? `<button class="btn btn-success" onclick="uiHomeCollectionsAction('pay','${esc(item.emi_id)}')">💰 Record Payment</button>` : ''}
+                    ${hasContact && item?.emi_id ? `<button class="btn btn-view" onclick="uiHomeCollectionsAction('whatsapp','${esc(item.emi_id)}','${esc(ctx.borrowerId)}','${overdue ? 'overdue' : 'due'}')">💬 WhatsApp</button>` : ''}
+                    ${ctx.borrowerId ? `<button class="btn btn-secondary" onclick="uiHomeCollectionsAction('followup','${esc(ctx.borrowerId)}','${esc(ctx.loanId)}','${esc(item?.emi_id || '')}')">📋 Follow-up</button>` : ''}
+                    ${ctx.borrowerId ? `<button class="btn btn-secondary" onclick="uiHomeCollectionsAction('profile','${esc(ctx.borrowerId)}')">👤 Profile</button>` : ''}
+                </div>
+                <div class="ui-collection-mode-nav"><button class="btn btn-secondary" onclick="uiCollectionModeMove(-1)" ${collectionModeIndex === 0 ? 'disabled' : ''}>← Previous</button><button class="btn btn-warning" onclick="uiCollectionModeMove(1)" ${collectionModeIndex >= items.length - 1 ? 'disabled' : ''}>Next Borrower →</button></div>
+            </section>`;
+    }
+
+    function moveCollectionMode(step) {
+        const items = collectionModeItems();
+        if (!items.length) return;
+        collectionModeIndex = Math.min(Math.max(collectionModeIndex + Number(step || 0), 0), items.length - 1);
+        renderCollectionMode();
+        document.getElementById('uiCollectionsList')?.scrollTo({ top:0, behavior:'smooth' });
+    }
+
     function ptpRows() {
         const items = (typeof followupCenterData !== 'undefined' && Array.isArray(followupCenterData?.items)) ? followupCenterData.items : [];
         return items.filter(item => item.promise_status && item.promise_status !== 'none' && (item.status === 'open' || ['pending','broken'].includes(item.promise_status)))
@@ -221,6 +286,11 @@
         const list = document.getElementById('uiCollectionsList');
         if (!list) return;
         let rows = '';
+        if (collectionTab === 'mode') {
+            renderCollectionMode();
+            document.querySelectorAll('[data-ui-collection-tab]').forEach(btn => btn.classList.toggle('active', btn.dataset.uiCollectionTab === collectionTab));
+            return;
+        }
         if (collectionTab === 'ptp') {
             const items = ptpRows();
             rows = items.length ? items.map(ptpRow).join('') : '<div class="ui-collections-empty">✓ No open Promise-to-Pay item in this view.</div>';
@@ -250,6 +320,7 @@
             </div>
             <nav class="ui-collections-tabs" aria-label="Collections filters">
                 <button data-ui-collection-tab="priority" onclick="uiSetCollectionsTab('priority')">Priority</button>
+                <button data-ui-collection-tab="mode" onclick="uiSetCollectionsTab('mode')">⚡ Collection Mode</button>
                 <button data-ui-collection-tab="overdue" onclick="uiSetCollectionsTab('overdue')">Overdue</button>
                 <button data-ui-collection-tab="today" onclick="uiSetCollectionsTab('today')">Today</button>
                 <button data-ui-collection-tab="upcoming" onclick="uiSetCollectionsTab('upcoming')">Upcoming</button>
@@ -258,7 +329,7 @@
             ${Number(counts.legacy.count || 0) > 0 ? `<div class="ui-collections-legacy">🧩 ${Number(counts.legacy.count)} legacy EMI date incomplete • ${money(counts.legacy.amount)} remaining. These records are intentionally excluded from automatic overdue/today queues.</div>` : ''}
             <div id="uiCollectionsLoading" class="ui-collections-loading" hidden>Refreshing collection data…</div>
             <div id="uiCollectionsList" class="ui-collections-list"></div>
-            <footer class="ui-collections-footer"><button class="btn btn-view" onclick="uiHomeCollectionsAction('reminders')">🔔 Reminder Center</button><button class="btn btn-secondary" onclick="uiHomeCollectionsAction('followups')">📋 Follow-up Center</button><button class="btn btn-view" onclick="uiHomeCollectionsAction('calendar')">🗓️ Calendar</button></footer>
+            <footer class="ui-collections-footer"><button class="btn btn-warning" onclick="uiSetCollectionsTab('mode')">⚡ Start Collection</button><button class="btn btn-view" onclick="uiHomeCollectionsAction('reminders')">🔔 Reminder Center</button><button class="btn btn-secondary" onclick="uiHomeCollectionsAction('followups')">📋 Follow-up Center</button><button class="btn btn-view" onclick="uiHomeCollectionsAction('calendar')">🗓️ Calendar</button></footer>
         `;
         renderCollectionsBody();
     }
@@ -287,7 +358,7 @@
     }
 
     function openCollectionsHub(tab = 'priority') {
-        collectionTab = ['priority','overdue','today','upcoming','ptp'].includes(tab) ? tab : 'priority';
+        collectionTab = ['priority','mode','overdue','today','upcoming','ptp'].includes(tab) ? tab : 'priority';
         ensureCollectionsOverlay();
         renderCollectionsHub();
         refreshCollectionsHub();
@@ -295,7 +366,8 @@
     }
 
     function setCollectionsTab(tab) {
-        collectionTab = ['priority','overdue','today','upcoming','ptp'].includes(tab) ? tab : 'priority';
+        collectionTab = ['priority','mode','overdue','today','upcoming','ptp'].includes(tab) ? tab : 'priority';
+        if (collectionTab === 'mode') collectionModeIndex = 0;
         renderCollectionsBody();
     }
 
@@ -316,6 +388,7 @@
     window.uiOpenCollectionsHub = openCollectionsHub;
     window.uiCloseCollectionsHub = closeCollectionsHub;
     window.uiSetCollectionsTab = setCollectionsTab;
+    window.uiCollectionModeMove = moveCollectionMode;
     window.uiRefreshCollectionsHub = refreshCollectionsHub;
     window.uiRefreshHomeCollections = refreshHomeCollections;
     window.uiHomeCollectionsAction = function(action, id = '', aux = '', extra = '') {
