@@ -1812,9 +1812,46 @@ function updateEmiScheduleSummary() {
     }
 }
 
+function getNextEmiDateFromLastRow(container) {
+    const rows = [...container.querySelectorAll('.emi-row')];
+    const last = rows.at(-1);
+    if (!last) return null;
+
+    const inputs = last.querySelectorAll('.ui-emi-field input');
+    const lastDay = Number.parseInt(inputs[0]?.value || '', 10);
+    const lastMonth = String(inputs[1]?.value || '').trim().toUpperCase();
+    const lastYear = Number.parseInt(inputs[2]?.value || '', 10);
+
+    const months = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+    const monthIndex = months.indexOf(lastMonth);
+    if (!Number.isInteger(lastDay) || monthIndex < 0 || !Number.isInteger(lastYear)) return null;
+
+    const nextMonthIndex = (monthIndex + 1) % 12;
+    const nextYear = lastYear + (nextMonthIndex === 0 ? 1 : 0);
+    const maxDay = new Date(nextYear, nextMonthIndex + 1, 0).getDate();
+
+    return {
+        day: String(Math.min(lastDay, maxDay)),
+        month: months[nextMonthIndex],
+        year: String(nextYear)
+    };
+}
+
 function addEmiRow(day = '', month = '', year = undefined, amount = '', emiId = '') {
     const container = document.getElementById('dynamicEmiContainer');
     if (!container) return;
+
+    // New EMI rows get only the next calendar date. Amount intentionally stays blank.
+    // Existing/edit rows pass explicit values and are left untouched.
+    const isNewAutoRow = !day && !month && year === undefined && !amount && !emiId;
+    if (isNewAutoRow) {
+        const nextDate = getNextEmiDateFromLastRow(container);
+        if (nextDate) {
+            day = nextDate.day;
+            month = nextDate.month;
+            year = nextDate.year;
+        }
+    }
 
     const row = document.createElement('div');
     row.className = 'emi-row ui-emi-editor-row';
