@@ -1870,3 +1870,30 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
     font-size: 12px !important;
   }
 }
+
+
+/* Destructive confirmations: uppercase ABHISHEK entry, mobile-friendly. */
+.abhi-confirm-overlay {
+  position: fixed; inset: 0; z-index: 100000;
+  display: flex; align-items: center; justify-content: center;
+  padding: 18px; background: rgba(15,23,42,.58);
+}
+.abhi-confirm-card {
+  width: min(430px, 100%); box-sizing: border-box;
+  padding: 20px; border-radius: 18px; background: #fff;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+}
+.abhi-confirm-card h3 { margin: 0 0 10px; }
+.abhi-confirm-card p { margin: 0 0 14px; line-height: 1.45; }
+.abhi-confirm-card label { display:block; margin-bottom:7px; font-size:13px; font-weight:700; }
+.abhi-confirm-input {
+  width:100%; box-sizing:border-box; min-height:48px; padding:10px 12px;
+  border:1px solid #cbd5e1; border-radius:10px; font-size:18px;
+  font-weight:800; letter-spacing:1px; text-transform:uppercase;
+}
+.abhi-confirm-actions { display:flex; gap:10px; margin-top:14px; }
+.abhi-confirm-actions .btn { flex:1; min-height:46px; }
+@media (prefers-color-scheme: dark) {
+  .abhi-confirm-card { background:#111827; color:#f8fafc; }
+  .abhi-confirm-input { background:#0f172a; color:#f8fafc; border-color:#475569; }
+}

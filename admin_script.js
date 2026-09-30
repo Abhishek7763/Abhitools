@@ -3567,12 +3567,14 @@ async function restoreRecycleItem(recycleId) {
 async function purgeRecycleItem(recycleId) {
     const item = recycleBinItems.find(x => x.id === recycleId);
     if (!item) return;
-    if (!confirm(`PERMANENT DELETE: ${item.entity_type} “${item.label || ''}” aur uski dependent history/files permanently delete ho sakti hain. Continue?`)) return;
-    const typed = prompt('Permanent delete confirm karne ke liye PURGE type karein:');
-    if (String(typed || '').trim().toUpperCase() !== 'PURGE') return alert('Permanent delete cancel hua.');
+    const ok = await askAbhishekConfirmation(
+        `PERMANENT DELETE: ${item.entity_type} “${item.label || ''}” aur uski dependent history/files permanently delete ho sakti hain.`,
+        'Permanent Delete Confirmation'
+    );
+    if (!ok) return;
     try {
         const response = await adminFetch('/api/recycle?action=purge', {
-            method:'DELETE', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ recycle_id:recycleId, confirm:'PURGE' })
+            method:'DELETE', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify({ recycle_id:recycleId, confirm:'ABHISHEK' })
         });
         const result = await response.json();
         if (result.storage_cleanup_warning) alert('Database item permanently delete ho gaya. Kuch storage cleanup entries retry/later cleanup ke liye reh sakti hain.');
@@ -3694,6 +3696,66 @@ function resetActivityFilters() {
     activityHistoryState.page = 1;
     document.querySelectorAll('.audit-period').forEach(el => el.classList.toggle('active', el.dataset.period === '30d'));
     loadActivityHistory();
+}
+
+function askAbhishekConfirmation(message, title = 'Confirmation') {
+    return new Promise(resolve => {
+        const overlay = document.createElement('div');
+        overlay.className = 'abhi-confirm-overlay';
+        overlay.innerHTML = `
+            <div class="abhi-confirm-card" role="dialog" aria-modal="true">
+                <h3>${auditEsc(title)}</h3>
+                <p>${auditEsc(message)}</p>
+                <label>Type <b>ABHISHEK</b> to continue</label>
+                <input class="abhi-confirm-input" type="text" inputmode="text" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Type ABHISHEK">
+                <div class="abhi-confirm-actions">
+                    <button type="button" class="btn btn-secondary" data-confirm-cancel>Cancel</button>
+                    <button type="button" class="btn btn-danger" data-confirm-ok disabled>Continue</button>
+                </div>
+            </div>`;
+        document.body.appendChild(overlay);
+        const input = overlay.querySelector('.abhi-confirm-input');
+        const ok = overlay.querySelector('[data-confirm-ok]');
+        const cancel = overlay.querySelector('[data-confirm-cancel]');
+        const finish = value => {
+            overlay.remove();
+            resolve(value);
+        };
+        input.addEventListener('input', () => {
+            input.value = input.value.toUpperCase();
+            ok.disabled = input.value !== 'ABHISHEK';
+        });
+        cancel.addEventListener('click', () => finish(false));
+        ok.addEventListener('click', () => finish(true));
+        overlay.addEventListener('click', e => {
+            if (e.target === overlay) finish(false);
+        });
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Escape') finish(false);
+            if (e.key === 'Enter' && input.value === 'ABHISHEK') finish(true);
+        });
+        setTimeout(() => input.focus(), 0);
+    });
+}
+
+async function clearActivityHistory() {
+    const ok = await askAbhishekConfirmation(
+        'Activity History ke saare audit events permanently delete ho jayenge. Loans, borrowers aur EMI data delete nahi hoga.',
+        'Clear Activity History'
+    );
+    if (!ok) return;
+    try {
+        await adminFetch('/api/dashboard?mode=activity', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ confirm: 'ABHISHEK' })
+        });
+        activityHistoryState.page = 1;
+        await loadActivityHistory();
+        alert('Activity History clear ho gayi.');
+    } catch (err) {
+        alert(err.message || 'Activity History clear nahi hui.');
+    }
 }
 
 async function refreshActivityHistory() {

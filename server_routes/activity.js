@@ -191,8 +191,17 @@ function filterEvents(events, opts) {
 export default async function handler(req, res) {
     noStore(res);
     if (!requireAdmin(req, res)) return;
+    if (req.method === 'DELETE') {
+        const confirm = safeText(req.body?.confirm).toUpperCase();
+        if (confirm !== 'ABHISHEK') {
+            return res.status(400).json({ error: 'Type ABHISHEK to clear activity history' });
+        }
+        await supabaseRequest('activity_log?id=not.is.null', 'DELETE');
+        return res.status(200).json({ success: true, cleared: true });
+    }
+
     if (req.method !== 'GET') {
-        res.setHeader('Allow', 'GET');
+        res.setHeader('Allow', 'GET, DELETE');
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
