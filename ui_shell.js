@@ -428,14 +428,13 @@
         const button = event.target.closest('button');
         if (!button || button.disabled) return;
         const label = (button.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
-        if (!/(save|payment|record payment|add emi|sync)/i.test(label)) return;
+        if (!/(save|payment|record payment|sync)/i.test(label)) return;
         button.classList.add('ui-action-busy');
         button.disabled = true;
         button.setAttribute('aria-busy', 'true');
         button.dataset.uiOriginalHtml = button.innerHTML;
         if (/sync/i.test(label)) button.innerHTML = '⏳ Syncing...';
         else if (/payment/i.test(label)) button.innerHTML = '⏳ Saving Payment...';
-        else if (/add emi/i.test(label)) button.innerHTML = '⏳ Adding EMI...';
         else if (/save/i.test(label)) button.innerHTML = '⏳ Saving...';
         window.setTimeout(() => {
             if (button.isConnected && button.dataset.uiOriginalHtml) {
