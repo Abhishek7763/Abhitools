@@ -1776,8 +1776,46 @@ function hideForm() {
     document.getElementById('loanFormContainer').style.display = 'none';
 }
 
+function updateEmiScheduleSummary() {
+    const rows = [...document.querySelectorAll('#dynamicEmiContainer .emi-row')];
+    let ready = 0;
+    let scheduledTotal = 0;
+    let incomplete = 0;
+
+    rows.forEach(row => {
+        const inputs = row.querySelectorAll('.ui-emi-field input');
+        const day = String(inputs[0]?.value || '').trim();
+        const month = String(inputs[1]?.value || '').trim().toUpperCase();
+        const year = String(inputs[2]?.value || '').trim();
+        const amount = Number(inputs[3]?.value || 0);
+        const id = String(row.dataset.emiId || '').trim();
+        const anyValue = Boolean(day || month || year || String(inputs[3]?.value || '').trim());
+        const valid = Boolean(day && month && amount > 0 && (id || year));
+
+        row.classList.toggle('ui-emi-row-incomplete', anyValue && !valid);
+        if (valid) {
+            ready += 1;
+            scheduledTotal += amount;
+        } else if (anyValue) {
+            incomplete += 1;
+        }
+    });
+
+    const summary = document.getElementById('emiScheduleSummary');
+    if (!summary) return;
+    if (incomplete > 0) {
+        summary.textContent = `${ready} EMI ready • ₹${scheduledTotal.toLocaleString('en-IN')} scheduled • ⚠️ ${incomplete} line incomplete`;
+        summary.classList.add('is-warning');
+    } else {
+        summary.textContent = `${ready} EMI ready • ₹${scheduledTotal.toLocaleString('en-IN')} scheduled`;
+        summary.classList.remove('is-warning');
+    }
+}
+
 function addEmiRow(day = '', month = '', year = undefined, amount = '', emiId = '') {
     const container = document.getElementById('dynamicEmiContainer');
+    if (!container) return;
+
     const row = document.createElement('div');
     row.className = 'emi-row ui-emi-editor-row';
     row.dataset.emiId = emiId || '';
@@ -1801,9 +1839,12 @@ function addEmiRow(day = '', month = '', year = undefined, amount = '', emiId = 
         if (labelText === 'Mahina') {
             input.addEventListener('input', () => {
                 input.value = input.value.replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
+                updateEmiScheduleSummary();
             });
             input.value = String(input.value || '').replace(/[^a-zA-Z]/g, '').slice(0, 3).toUpperCase();
         }
+        input.addEventListener('input', updateEmiScheduleSummary);
+        input.addEventListener('change', updateEmiScheduleSummary);
         field.append(label, input);
         row.appendChild(field);
     });
@@ -1822,10 +1863,12 @@ function addEmiRow(day = '', month = '', year = undefined, amount = '', emiId = 
         }
         row.remove();
         refreshEmiEditorRows();
+        updateEmiScheduleSummary();
     });
     row.appendChild(removeButton);
     container.appendChild(row);
     refreshEmiEditorRows();
+    updateEmiScheduleSummary();
 }
 
 function refreshEmiEditorRows() {
@@ -1838,6 +1881,7 @@ function refreshEmiEditorRows() {
         });
         row.querySelector('.ui-remove-emi-btn')?.setAttribute('aria-label', `Remove EMI ${number}`);
     });
+    updateEmiScheduleSummary();
 }
 
 async function openQuickEmiFlow() {
@@ -1900,8 +1944,13 @@ async function saveLoan() {
         emis.push({ id, day, month, year: year || null, amount: amt });
     });
 
+    updateEmiScheduleSummary();
     if (invalidNewLegacyRow) {
-        alert('New EMI ke liye Din, Mahina, Saal aur Amount required hain. Purani imported EMI ka blank year preserve kiya ja sakta hai.');
+        const badRow = [...document.querySelectorAll('#dynamicEmiContainer .emi-row')]
+            .find(row => row.classList.contains('ui-emi-row-incomplete'));
+        badRow?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        badRow?.querySelector('input')?.focus();
+        alert('New EMI ke liye Din, Mahina, Saal aur Amount required hain. Incomplete line ko pehle complete karein.');
         return;
     }
 
