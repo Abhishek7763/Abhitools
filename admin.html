@@ -265,10 +265,18 @@
             <textarea id="loanNotes" rows="2" placeholder="Koi bhi zaruri baat..."></textarea>
         </div>
         <div class="form-group ui-emi-schedule-group">
-            <label>📅 EMI Schedule <span class="mobile-form-step">Step 2</span></label>
-            <small class="ui-emi-schedule-hint">Har EMI ke liye din, mahina, saal aur amount bhar dein.</small>
+            <div class="ui-emi-schedule-toolbar">
+                <div class="ui-emi-schedule-title">
+                    <label>📅 EMI Schedule <span class="mobile-form-step">Step 2</span></label>
+                    <small class="ui-emi-schedule-hint">Add EMI ko jitni baar dabayenge utni lines banengi. 6 EMI = 6 taps.</small>
+                </div>
+                <button type="button" id="addEmiRowBtn" class="btn btn-secondary ui-add-emi-btn" onclick="addEmiRow()">＋ Add EMI</button>
+            </div>
+            <div class="ui-emi-table-head" aria-hidden="true">
+                <span>#</span><span>Din</span><span>Mahina</span><span>Saal</span><span>Amount</span><span></span>
+            </div>
             <div id="dynamicEmiContainer" class="ui-emi-editor-list" aria-live="polite"></div>
-            <button type="button" id="addEmiRowBtn" class="btn btn-secondary ui-add-emi-btn" onclick="addEmiRow()">➕ Add EMI</button>
+            <div id="emiScheduleSummary" class="ui-emi-schedule-summary" role="status" aria-live="polite">1 EMI line ready • ₹0 scheduled</div>
         </div>
         <div class="ui-form-action-bar ui-loan-action-footer" style="display:flex;gap:10px;margin-top:15px;">
             <button type="button" id="saveLoanBtn" class="btn btn-success" style="flex:1;" onclick="saveLoan()">💾 Save Loan</button>
