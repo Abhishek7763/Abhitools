@@ -113,8 +113,8 @@ export default async function handler(req, res) {
         if (req.method === 'DELETE' && action === 'purge') {
             const id = String(req.body?.recycle_id || '').trim();
             if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Valid recycle_id required' });
-            if (String(req.body?.confirm || '').trim().toUpperCase() !== 'PURGE') {
-                return res.status(400).json({ error: 'Type PURGE to permanently delete' });
+            if (String(req.body?.confirm || '').trim().toUpperCase() !== 'ABHISHEK') {
+                return res.status(400).json({ error: 'Type ABHISHEK to permanently delete' });
             }
             const { data: rows } = await supabaseRequest(
                 `recycle_bin?id=eq.${encodeURIComponent(id)}&restored_at=is.null&purged_at=is.null&select=id,entity_type,record_id,label`
