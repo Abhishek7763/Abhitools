@@ -1897,3 +1897,11 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
   .abhi-confirm-card { background:#111827; color:#f8fafc; }
   .abhi-confirm-input { background:#0f172a; color:#f8fafc; border-color:#475569; }
 }
+
+
+/* Subtle motion for the public app title. */
+.abhi-brand-title{position:relative;overflow:hidden;isolation:isolate;animation:abhiTitleFloat 5s ease-in-out infinite}
+.abhi-brand-title::after{content:"";position:absolute;top:-25%;bottom:-25%;left:-35%;width:22%;transform:skewX(-18deg);background:linear-gradient(90deg,transparent,rgba(255,255,255,.78),transparent);opacity:0;pointer-events:none;animation:abhiTitleShine 6s ease-in-out infinite}
+@keyframes abhiTitleFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
+@keyframes abhiTitleShine{0%,62%{left:-35%;opacity:0}68%{opacity:.7}78%,100%{left:115%;opacity:0}}
+@media (prefers-reduced-motion:reduce){.abhi-brand-title,.abhi-brand-title::after{animation:none!important}}
