@@ -1921,3 +1921,81 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
   .header-container h2 { order: 3; flex-basis: 100%; }
   .dash-box { flex-basis: calc(50% - 8px); }
 }
+
+
+/* AbhiTools classic borrower cards — subtle pastel gradients + clearer loan amount */
+.folder.old-folder-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f1f6ff 100%);
+    border-left: 5px solid #8ba9f8;
+    border-radius: 12px;
+}
+.folder.old-folder-card:nth-child(4n + 2) {
+    background: linear-gradient(135deg, #ffffff 0%, #f4efff 100%);
+    border-left-color: #b39ae8;
+}
+.folder.old-folder-card:nth-child(4n + 3) {
+    background: linear-gradient(135deg, #ffffff 0%, #eafaf4 100%);
+    border-left-color: #79c9ad;
+}
+.folder.old-folder-card:nth-child(4n + 4) {
+    background: linear-gradient(135deg, #ffffff 0%, #fff3e9 100%);
+    border-left-color: #efb27f;
+}
+.folder.old-folder-card .old-folder-title {
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 750;
+    color: #26344d;
+    overflow-wrap: anywhere;
+}
+.folder.old-folder-card .old-folder-summary {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    text-align: right;
+}
+.folder.old-folder-card .old-folder-summary small {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    color: #69758b;
+    font-size: 10px;
+    font-weight: 600;
+}
+.folder.old-folder-card .old-folder-summary strong {
+    color: #174ea6;
+    font-size: 19px;
+    line-height: 1.2;
+    font-weight: 850;
+    letter-spacing: -.35px;
+    white-space: nowrap;
+}
+#folderView.grid-view .folder.old-folder-card {
+    align-items: center;
+    gap: 12px;
+    min-height: 132px;
+    border-left: 0;
+    border-top: 5px solid #8ba9f8;
+}
+#folderView.grid-view .folder.old-folder-card .old-folder-summary {
+    align-items: center;
+    text-align: center;
+}
+#folderView.grid-view .folder.old-folder-card .old-folder-summary strong {
+    font-size: 21px;
+}
+#folderView.grid-view .folder.old-folder-card:nth-child(4n + 2) { border-top-color: #b39ae8; }
+#folderView.grid-view .folder.old-folder-card:nth-child(4n + 3) { border-top-color: #79c9ad; }
+#folderView.grid-view .folder.old-folder-card:nth-child(4n + 4) { border-top-color: #efb27f; }
+.dark-mode .folder.old-folder-card { background: linear-gradient(135deg, #202b3d 0%, #27364c 100%); }
+.dark-mode .folder.old-folder-card .old-folder-title { color: #edf3ff; }
+.dark-mode .folder.old-folder-card .old-folder-summary small { color: #c0ccdf; }
+.dark-mode .folder.old-folder-card .old-folder-summary strong { color: #a9c8ff; }
+@media (max-width: 560px) {
+    .folder.old-folder-card { padding: 12px 10px; gap: 8px; }
+    .folder.old-folder-card .old-folder-title { font-size: 13px; }
+    .folder.old-folder-card .old-folder-summary strong { font-size: 17px; }
+    #folderView.grid-view .folder.old-folder-card { min-height: 124px; padding: 14px 8px; }
+    #folderView.grid-view .folder.old-folder-card .old-folder-summary strong { font-size: 18px; }
+}
