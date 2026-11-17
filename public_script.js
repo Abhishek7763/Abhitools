@@ -244,13 +244,11 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
         const loanLabel = f.count === 1 ? 'Loan' : 'Loans';
         folderButton.type = 'button';
         folderButton.className = 'folder';
-        folderButton.setAttribute('aria-label', `${name}: ${f.count} ${loanLabel}, active loan total ₹${f.sum.toLocaleString('en-IN')}`);
+        folderButton.setAttribute('aria-label', `${name}: ${f.count} active ${loanLabel}, total loan amount ₹${f.sum.toLocaleString('en-IN')}`);
         folderButton.onclick = () => openFolder(name);
         folderButton.innerHTML = `
-            <div>📁 ${publicEscapeHtml(name)}</div>
-            <div>
-                <span>${f.count} ${loanLabel} • ₹${f.sum.toLocaleString('en-IN')}</span>
-            </div>
+            <div>👤 ${publicEscapeHtml(name)}</div>
+            <div><span>${f.count} Active ${loanLabel} &nbsp;•&nbsp; Total Loan Amount: ₹${f.sum.toLocaleString('en-IN')}</span></div>
         `;
         folderDiv.appendChild(folderButton);
     });
