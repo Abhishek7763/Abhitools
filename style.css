@@ -1905,3 +1905,19 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
 @keyframes abhiTitleFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
 @keyframes abhiTitleShine{0%,62%{left:-35%;opacity:0}68%{opacity:.7}78%,100%{left:115%;opacity:0}}
 @media (prefers-reduced-motion:reduce){.abhi-brand-title,.abhi-brand-title::after{animation:none!important}}
+
+
+/* V2.5 admin dashboard readability + local privacy mode. This is visual masking, not access control. */
+.dashboard { gap: 12px; }
+.dash-box { flex: 1 1 130px; min-width: 112px; padding: 9px 8px; border-radius: 10px; background: rgba(255,255,255,.075); }
+.dash-box h4 { font-size: 12px; letter-spacing: .25px; }
+.dash-box h3 { font-size: clamp(19px, 2.4vw, 25px); font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.35px; }
+.home-pro-money-grid strong { font-variant-numeric: tabular-nums; letter-spacing: -.25px; }
+.admin-amounts-hidden [data-private-amount] { filter: blur(8px); user-select: none; }
+.admin-amounts-hidden [data-private-amount]::selection { background: transparent; }
+#privacyModeBtn { white-space: nowrap; }
+@media (max-width: 560px) {
+  .header-container { flex-wrap: wrap; gap: 7px; }
+  .header-container h2 { order: 3; flex-basis: 100%; }
+  .dash-box { flex-basis: calc(50% - 8px); }
+}

@@ -197,7 +197,7 @@ export default async function handler(req, res) {
                 legacyMissingDates,
                 recycleItems: (recycleRes.data || []).length
             },
-            money: { todayCollected, monthCollected, outstanding, recoveryRate },
+            money: { todayCollected, monthCollected, collectedTotal: collectedScheduled, scheduledTotal, outstanding, recoveryRate },
             latestBackup: (backupRes.data || [])[0] || null,
             priorities: priorityItems.slice(0, 6),
             recentActivity

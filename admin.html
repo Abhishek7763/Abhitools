@@ -19,6 +19,7 @@
     <div class="header-container no-print" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
         <div style="display:flex;gap:5px;align-items:center;">
             <button id="darkModeBtn" class="btn btn-secondary" onclick="toggleDarkMode()" style="font-size:11px;padding:5px 10px;">🌙 Dark</button>
+            <button id="privacyModeBtn" class="btn btn-secondary" onclick="togglePrivacyMode()" style="font-size:11px;padding:5px 10px;" aria-pressed="false" title="Admin screen par financial figures hide/show karein">👁️ Hide</button>
             <button id="installAdminAppBtn" data-pwa-install class="btn btn-success" style="display:none;font-size:11px;padding:5px 10px;align-items:center;">⬇️ App</button>
         </div>
         <h2 class="no-print" style="margin:0;flex-grow:1;text-align:center;color:#ea4335;">Admin Panel 🔐</h2>
@@ -37,30 +38,30 @@
         </div>
         <div class="dash-box">
             <h4>Total Out</h4>
-            <h3 id="totalAmountSum">₹0</h3>
+            <h3 id="totalAmountSum" data-private-amount>₹0</h3>
         </div>
         <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
             <h4 id="dueThisMonthLabel">Due This Month</h4>
-            <h3 id="dueThisMonthSum">₹0</h3>
+            <h3 id="dueThisMonthSum" data-private-amount>₹0</h3>
         </div>
         <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
             <h4>Overdue</h4>
-            <h3 id="overdueDueSum" style="color:#ffeb3b;">₹0</h3>
+            <h3 id="overdueDueSum" data-private-amount style="color:#ffeb3b;">₹0</h3>
             <small id="overdueCount">0 EMI</small>
         </div>
         <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
             <h4>Aaj Due</h4>
-            <h3 id="todayDueSum">₹0</h3>
+            <h3 id="todayDueSum" data-private-amount>₹0</h3>
             <small id="todayDueCount">0 EMI</small>
         </div>
         <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
             <h4>Kal Due</h4>
-            <h3 id="tomorrowDueSum">₹0</h3>
+            <h3 id="tomorrowDueSum" data-private-amount>₹0</h3>
             <small id="tomorrowDueCount">0 EMI</small>
         </div>
         <div class="dash-box" style="border-left:1px solid rgba(255,255,255,0.3);padding-left:15px;">
             <h4>Next 7 Days</h4>
-            <h3 id="next7DueSum">₹0</h3>
+            <h3 id="next7DueSum" data-private-amount>₹0</h3>
             <small id="next7DueCount">0 EMI</small>
         </div>
     </div>
@@ -92,9 +93,10 @@
                 <div class="home-pro-panel">
                     <div class="home-pro-panel-head"><h4>💰 Collection Pulse</h4><button class="home-pro-link" onclick="openAdvancedDashboard()">Details →</button></div>
                     <div class="home-pro-money-grid">
-                        <div><small>Today Collected</small><strong id="homeTodayCollected">₹0</strong></div>
-                        <div><small>This Month</small><strong id="homeMonthCollected">₹0</strong></div>
-                        <div><small>Outstanding</small><strong id="homeOutstanding">₹0</strong></div>
+                        <div><small>Today Collected</small><strong id="homeTodayCollected" data-private-amount>₹0</strong></div>
+                        <div><small>This Month</small><strong id="homeMonthCollected" data-private-amount>₹0</strong></div>
+                        <div><small>Total Collected</small><strong id="homeTotalCollected" data-private-amount>₹0</strong></div>
+                        <div><small>Outstanding</small><strong id="homeOutstanding" data-private-amount>₹0</strong></div>
                         <div><small>Recovery</small><strong id="homeRecoveryRate">0%</strong></div>
                     </div>
                     

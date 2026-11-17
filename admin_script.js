@@ -239,6 +239,22 @@ function updateDashboard() {
 // ==========================================
 // PHASE 19 - DASHBOARD UX PRO / COMMAND CENTER
 // ==========================================
+function togglePrivacyMode(forceHidden) {
+    const key = 'abhitools_admin_amounts_hidden_v25';
+    const hidden = typeof forceHidden === 'boolean'
+        ? forceHidden
+        : !document.body.classList.contains('admin-amounts-hidden');
+    document.body.classList.toggle('admin-amounts-hidden', hidden);
+    try { localStorage.setItem(key, hidden ? 'yes' : 'no'); } catch {}
+    const button = document.getElementById('privacyModeBtn');
+    if (button) {
+        button.textContent = hidden ? '🙈 Show' : '👁️ Hide';
+        button.setAttribute('aria-pressed', hidden ? 'true' : 'false');
+        button.title = hidden ? 'Financial figures abhi hidden hain' : 'Admin screen par financial figures hide karein';
+    }
+    return hidden;
+}
+
 function homeMoney(value) {
     return `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN')}`;
 }
@@ -300,6 +316,7 @@ function renderHomeCommandCenter(data) {
     homeSetText('homeRecycleCount', Number(summary.recycleItems || 0));
     homeSetText('homeTodayCollected', homeMoney(money.todayCollected));
     homeSetText('homeMonthCollected', homeMoney(money.monthCollected));
+    homeSetText('homeTotalCollected', homeMoney(money.collectedTotal));
     homeSetText('homeOutstanding', homeMoney(money.outstanding));
     homeSetText('homeRecoveryRate', `${Number(money.recoveryRate || 0).toLocaleString('en-IN')}%`);
     homeSetText('homeFollowupCount', `${Number(summary.uncontactedUrgent || 0)} urgent follow-up${Number(summary.uncontactedUrgent || 0) === 1 ? '' : 's'}`);
@@ -5323,3 +5340,7 @@ function applySettingsToThisDevice() {
     updateHomeCommandToggle();
     alert('✅ Current device par layout aur Command Center defaults apply ho gaye. Browser notification permission ko app automatically change nahi karti.');
 }
+
+
+// Restore the admin-only privacy preference on this browser/device.
+try { togglePrivacyMode(localStorage.getItem('abhitools_admin_amounts_hidden_v25') === 'yes'); } catch { togglePrivacyMode(false); }
