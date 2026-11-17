@@ -1999,3 +1999,125 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
     #folderView.grid-view .folder.old-folder-card { min-height: 124px; padding: 14px 8px; }
     #folderView.grid-view .folder.old-folder-card .old-folder-summary strong { font-size: 18px; }
 }
+
+
+/* ==========================================
+   ABHITOOLS — CLASSIC UI MOTION POLISH
+   Visual-only enhancement. No layout, data, or
+   business-logic changes. Added 2026-11-17.
+   ========================================== */
+:root {
+  --abhi-motion-fast: 160ms;
+  --abhi-motion-smooth: 240ms;
+  --abhi-shadow-soft: 0 5px 16px rgba(40, 70, 120, .09);
+  --abhi-shadow-hover: 0 10px 24px rgba(40, 70, 120, .15);
+}
+
+/* Smooth, restrained feedback on existing interactive elements */
+.folder,
+.month-folder,
+.card,
+.btn,
+.contact-btn,
+.tab,
+.search-box,
+.form-group input,
+.form-group textarea,
+.form-group select,
+.emi-row input {
+  transition:
+    transform var(--abhi-motion-smooth) cubic-bezier(.2,.75,.25,1),
+    box-shadow var(--abhi-motion-smooth) ease,
+    border-color var(--abhi-motion-smooth) ease,
+    background-color var(--abhi-motion-smooth) ease,
+    color var(--abhi-motion-smooth) ease;
+}
+
+.folder.old-folder-card {
+  box-shadow: 0 3px 12px rgba(66, 92, 140, .08);
+  border-color: #91adf5;
+}
+.folder.old-folder-card:nth-child(4n + 2) { border-left-color: #b8a2ec; }
+.folder.old-folder-card:nth-child(4n + 3) { border-left-color: #83cfb4; }
+.folder.old-folder-card:nth-child(4n + 4) { border-left-color: #f0bb91; }
+
+@media (hover: hover) and (pointer: fine) {
+  .folder.old-folder-card:hover {
+    transform: translateX(3px) translateY(-1px);
+    box-shadow: var(--abhi-shadow-hover);
+    filter: saturate(1.035);
+  }
+  #folderView.grid-view .folder.old-folder-card:hover {
+    transform: translateY(-4px);
+  }
+  #loanList .card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--abhi-shadow-hover);
+  }
+  .btn:hover,
+  .contact-btn:hover {
+    filter: brightness(1.035) saturate(1.04);
+    box-shadow: 0 6px 16px rgba(35, 75, 140, .16);
+  }
+}
+
+.folder:active,
+.month-folder:active,
+.card:active,
+.btn:active,
+.contact-btn:active {
+  transform: scale(.985);
+}
+
+/* Gentle entrance motion for lists; keeps the familiar card geometry */
+@keyframes abhiSoftRiseIn {
+  from { opacity: 0; transform: translateY(9px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+#folderView > .folder,
+#loanList > .card,
+#monthlyView .monthly-item {
+  animation: abhiSoftRiseIn 360ms cubic-bezier(.2,.7,.25,1) both;
+}
+#folderView > .folder:nth-child(2),
+#loanList > .card:nth-child(2) { animation-delay: 35ms; }
+#folderView > .folder:nth-child(3),
+#loanList > .card:nth-child(3) { animation-delay: 70ms; }
+#folderView > .folder:nth-child(4),
+#loanList > .card:nth-child(4) { animation-delay: 105ms; }
+#folderView > .folder:nth-child(5),
+#loanList > .card:nth-child(5) { animation-delay: 140ms; }
+
+/* Clear but soft keyboard focus */
+.folder:focus-visible,
+.month-folder:focus-visible,
+.card:focus-visible,
+.btn:focus-visible,
+.tab:focus-visible {
+  outline: 3px solid rgba(91, 139, 235, .38);
+  outline-offset: 3px;
+}
+
+/* Dark-mode shadows stay subtle instead of glowing harshly */
+.dark-mode .folder.old-folder-card,
+.dark-mode #loanList .card {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .2);
+}
+@media (hover: hover) and (pointer: fine) {
+  .dark-mode .folder.old-folder-card:hover,
+  .dark-mode #loanList .card:hover {
+    box-shadow: 0 10px 24px rgba(0, 0, 0, .34);
+  }
+}
+
+/* Respect device accessibility settings and battery-friendly motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
