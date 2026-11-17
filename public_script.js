@@ -12,7 +12,7 @@
 let loans = [];
 let currentTab = 'folder';
 let currentOpenFolder = null;
-let isGridView = true;
+let isGridView = false;
 let autoSyncInterval = null;
 let publicDueData = null;
 
@@ -39,10 +39,13 @@ async function initApp() {
         if (btn) { btn.innerText = '☀️ Light'; btn.style.background = '#fbbc05'; btn.style.color = '#333'; }
     }
 
-    // Restore the preferred borrower layout; use the visual grid by default.
-    const savedLayout = localStorage.getItem('abhishek_layout_pref');
-    isGridView = savedLayout ? savedLayout === 'grid' : true;
-    applyFolderLayout();
+    // Layout restore
+    if (localStorage.getItem('abhishek_layout_pref') === 'grid') {
+        isGridView = true;
+        document.getElementById('folderView')?.classList.add('grid-view');
+        const lb = document.getElementById('layoutToggleBtn');
+        if (lb) lb.innerText = '📜 List View';
+    }
 
     await fetchFromCloud();
 
@@ -159,22 +162,19 @@ function toggleDarkMode() {
     else { btn.innerText = '🌙 Dark'; btn.style.background = '#5f6368'; btn.style.color = 'white'; }
 }
 
-function applyFolderLayout() {
-    const folderView = document.getElementById('folderView');
-    const btn = document.getElementById('layoutToggleBtn');
-    if (!folderView) return;
-    folderView.classList.toggle('grid-view', isGridView);
-    folderView.classList.toggle('list-view', !isGridView);
-    if (btn) {
-        btn.innerText = isGridView ? '☷ List View' : '▦ Grid View';
-        btn.setAttribute('aria-pressed', String(isGridView));
-        btn.setAttribute('aria-label', isGridView ? 'Switch to list view' : 'Switch to grid view');
-    }
-}
 function toggleLayout() {
     isGridView = !isGridView;
-    localStorage.setItem('abhishek_layout_pref', isGridView ? 'grid' : 'list');
-    applyFolderLayout();
+    const folderView = document.getElementById('folderView');
+    const btn = document.getElementById('layoutToggleBtn');
+    if (isGridView) {
+        folderView.classList.add('grid-view');
+        btn.innerText = '📜 List View';
+        localStorage.setItem('abhishek_layout_pref', 'grid');
+    } else {
+        folderView.classList.remove('grid-view');
+        btn.innerText = '🔲 Grid View';
+        localStorage.setItem('abhishek_layout_pref', 'list');
+    }
 }
 
 // ==========================================
@@ -224,53 +224,37 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
         if (searchQuery && !name.includes(searchQuery) && !loan.loan_code?.toUpperCase().includes(searchQuery)) return;
         if (!folders[name]) folders[name] = { count: 0, sum: 0 };
         folders[name].count++;
-        folders[name].sum += Number.parseInt(loan.amount, 10) || 0;
+        folders[name].sum += parseInt(loan.amount) || 0;
     });
-
     const folderDiv = document.getElementById('folderView');
     folderDiv.innerHTML = '';
-    applyFolderLayout();
-
     let names = Object.keys(folders);
     if (sortMode === 'highest') names.sort((a, b) => folders[b].sum - folders[a].sum);
     else if (sortMode === 'lowest') names.sort((a, b) => folders[a].sum - folders[b].sum);
     else names.sort();
-
     names.forEach(name => {
         const f = folders[name];
         const folderButton = document.createElement('button');
         const loanLabel = f.count === 1 ? 'Active Loan' : 'Active Loans';
         const amount = '₹' + f.sum.toLocaleString('en-IN');
         folderButton.type = 'button';
-        folderButton.className = 'folder borrower-summary-card';
+        folderButton.className = 'folder old-folder-card';
         folderButton.setAttribute('aria-label', `${name}: ${f.count} active loans, total loan amount ${amount}`);
-        folderButton.setAttribute('title', `Open ${name}'s loan accounts`);
         folderButton.onclick = () => openFolder(name);
         folderButton.innerHTML = `
-            <div class="borrower-card-head">
-                <span class="borrower-avatar" aria-hidden="true">${publicEscapeHtml(name.trim().charAt(0) || '?')}</span>
-                <span class="borrower-title-wrap">
-                    <strong class="borrower-card-name">${publicEscapeHtml(name)}</strong>
-                    <small>${f.count} ${loanLabel}</small>
-                </span>
-                <span class="borrower-active-pill">Active</span>
-            </div>
-            <div class="borrower-amount-block">
-                <small>Total Loan Amount</small>
+            <div class="old-folder-title">📁 ${publicEscapeHtml(name)}</div>
+            <div class="old-folder-summary">
+                <small>${f.count} ${loanLabel} · Total Loan Amount</small>
                 <strong>${amount}</strong>
-            </div>
-            <div class="borrower-card-foot">
-                <span>Loan account summary</span>
-                <span class="borrower-open-label">View Details <b aria-hidden="true">→</b></span>
             </div>
         `;
         folderDiv.appendChild(folderButton);
     });
-
     if (names.length === 0) {
-        folderDiv.innerHTML = '<p class="borrower-empty-state">No borrower records found. Try another name or Loan ID.</p>';
+        folderDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;grid-column:1/-1;">Koi record nahi mila.</p>';
     }
 }
+
 function openFolder(name) {
     currentOpenFolder = name;
     document.body.classList.add('public-detail-active');
