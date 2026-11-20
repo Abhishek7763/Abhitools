@@ -413,6 +413,7 @@
                 <button class="btn btn-warning" onclick="downloadFullBackup()">⬇️ Download Backup</button>
                 <button class="btn btn-success" onclick="createManualBackup()">🛡️ Create Snapshot</button>
                 <button class="btn btn-secondary" onclick="showSafetySection('restore')">♻️ Restore</button>
+                <button class="btn btn-danger" onclick="showSafetySection('filerestore')">🔁 Full Restore (File)</button>
             </div>
 
             <section id="smartImportSection" class="safety-section">
@@ -430,6 +431,15 @@
                     <button id="applyImportBtn" class="btn btn-success safety-primary" onclick="applySmartImport()">✅ Apply Import</button>
                 </div>
                 <div id="importResult" class="safety-status" style="display:none;"></div>
+            </section>
+
+            <section id="fileRestoreSection" class="safety-section" style="display:none;">
+                <h4>🔁 Full Restore from Backup File</h4>
+                <p class="safety-help">Download kiye hue Full JSON backup se poora database exact replace hota hai: purana Borrowers, Loans, EMIs, Payments, Settlements, Follow-ups, Recycle Bin aur Settings pehle delete honge, phir file ka data same IDs ke saath aayega. Pehle automatic safety snapshot banta hai, isliye galti ho to "Restore" tab se wapas ja sakte ho.</p>
+                <input id="fileRestoreInput" type="file" accept="application/json,.json" onchange="handleFileRestoreSelect(event)">
+                <div id="fileRestoreInfo" class="safety-status" style="white-space:pre-line;">Koi JSON file select nahi hui.</div>
+                <button id="fileRestoreBtn" class="btn btn-danger safety-primary" onclick="applyFileRestore()" disabled>⚠️ Delete All &amp; Restore This File</button>
+                <div id="fileRestoreResult" class="safety-status" style="display:none;white-space:pre-line;"></div>
             </section>
 
             <section id="backupRestoreSection" class="safety-section" style="display:none;">

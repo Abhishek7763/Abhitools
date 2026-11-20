@@ -2229,12 +2229,13 @@ function handleSafetyOverlayClick(event) {
 }
 
 function showSafetySection(section) {
-    const importSection = document.getElementById('smartImportSection');
-    const restoreSection = document.getElementById('backupRestoreSection');
-    const isRestore = section === 'restore';
-    if (importSection) importSection.style.display = isRestore ? 'none' : 'block';
-    if (restoreSection) restoreSection.style.display = isRestore ? 'block' : 'none';
-    if (isRestore) loadBackupHistory();
+    const sections = { import: 'smartImportSection', restore: 'backupRestoreSection', filerestore: 'fileRestoreSection' };
+    const active = Object.prototype.hasOwnProperty.call(sections, section) ? section : 'import';
+    Object.entries(sections).forEach(([key, id]) => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = key === active ? 'block' : 'none';
+    });
+    if (active === 'restore') loadBackupHistory();
 }
 
 async function downloadFullBackup() {
@@ -2461,6 +2462,101 @@ async function applySmartImport() {
     } finally {
         if (button) button.disabled = false;
     }
+}
+
+
+// ==========================================
+// FULL RESTORE FROM BACKUP FILE (exact replace)
+// ==========================================
+let selectedFileRestorePayload = null;
+let selectedFileRestoreName = '';
+
+async function handleFileRestoreSelect(event) {
+    const file = event.target.files?.[0];
+    const info = document.getElementById('fileRestoreInfo');
+    const button = document.getElementById('fileRestoreBtn');
+    const resultBox = document.getElementById('fileRestoreResult');
+    selectedFileRestorePayload = null;
+    selectedFileRestoreName = '';
+    if (button) button.disabled = true;
+    if (resultBox) resultBox.style.display = 'none';
+
+    if (!file) {
+        if (info) info.textContent = 'Koi JSON file select nahi hui.';
+        return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+        if (info) info.textContent = '❌ File 2 MB se badi hai. Is build me maximum 2 MB JSON supported hai.';
+        event.target.value = '';
+        return;
+    }
+    try {
+        const payload = JSON.parse(await file.text());
+        const data = payload?.data;
+        if (payload?.format !== 'abhitools-backup' || !data || typeof data !== 'object') {
+            if (info) info.textContent = '❌ Ye AbhiTools Full Backup JSON nahi lagti (format: abhitools-backup chahiye).';
+            event.target.value = '';
+            return;
+        }
+        const n = key => (Array.isArray(data[key]) ? data[key].length : 0);
+        selectedFileRestorePayload = payload;
+        selectedFileRestoreName = file.name;
+        if (info) {
+            info.textContent = `✅ ${file.name} read ho gayi.\n` +
+                `Backup date: ${payload.created_at ? String(payload.created_at).slice(0, 10) : 'unknown'} (version ${payload.version ?? '?'})\n` +
+                `Borrowers: ${n('borrowers')} • Loans: ${n('loans')} • EMIs: ${n('emis')} • Payments: ${n('emi_payments')}\n` +
+                `Settlements: ${n('loan_settlements')} • Follow-ups: ${n('collection_followups')} • Documents: ${n('documents')}`;
+        }
+        if (button) button.disabled = false;
+    } catch (err) {
+        console.error('Restore file read failed:', err);
+        if (info) info.textContent = '❌ JSON read nahi hui: ' + err.message;
+    }
+}
+
+async function applyFileRestore() {
+    if (!selectedFileRestorePayload) {
+        alert('Pehle backup JSON file select karein.');
+        return;
+    }
+    if (!confirm('⚠️ Current poora database delete hoga aur is file ka data aayega. Pehle automatic safety snapshot banega. Aage badhein?')) return;
+    const typed = prompt('Confirm karne ke liye FULL RESTORE type karein:');
+    if (typed !== 'FULL RESTORE') {
+        alert('Full restore cancel ho gaya.');
+        return;
+    }
+
+    const button = document.getElementById('fileRestoreBtn');
+    const resultBox = document.getElementById('fileRestoreResult');
+    if (button) button.disabled = true;
+    if (resultBox) {
+        resultBox.style.display = 'block';
+        resultBox.textContent = 'Restore chal raha hai... page close mat karein.';
+    }
+    try {
+        const response = await adminFetch('/api/backup?action=restore_file', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payload: selectedFileRestorePayload, confirm: true, label: selectedFileRestoreName || 'JSON file' })
+        });
+        const data = await response.json();
+        const s = data?.summary || {};
+        if (resultBox) {
+            resultBox.textContent = `✅ Full restore complete\n` +
+                `Borrowers: ${s.borrowers ?? '-'} • Loans: ${s.loans ?? '-'} • EMIs: ${s.emis ?? '-'} • Payments: ${s.emi_payments ?? s.payments ?? 0}\n` +
+                `Purana data "Backup History" me safety snapshot ke roop me bacha hai.`;
+        }
+        currentOpenFolder = null;
+        await loadAllData();
+    } catch (err) {
+        console.error('Full restore failed:', err);
+        if (resultBox) resultBox.textContent = '❌ Full restore nahi hua (database badla nahi): ' + err.message;
+        if (button) button.disabled = false;
+        return;
+    }
+    selectedFileRestorePayload = null;
+    const input = document.getElementById('fileRestoreInput');
+    if (input) input.value = '';
 }
 
 
