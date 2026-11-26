@@ -143,6 +143,25 @@ export default async function handler(req, res) {
             return res.status(200).json(data || []);
         }
 
+        if (req.method === 'POST' && action === 'public_khata') {
+            const raw = String(req.body?.phone ?? '').trim();
+            const digits = raw.replace(/[\s()-]/g, '').match(/^(?:\+?91|0)?([0-9]{10})$/)?.[1];
+            if (!digits || raw.length > 32) return res.status(400).json({ error: '10 digit mobile number daalein.' });
+
+            // Match older records containing country codes, spaces, parentheses or dashes.
+            const sep = '[[:space:]()-]*';
+            const pattern = '^' + sep + '([+]?91' + sep + '|0' + sep + ')?' + digits.split('').join(sep) + sep + '$';
+            const query = new URLSearchParams({
+                select: 'loan_code,amount,status,borrowers!inner(name),emis(installment_number,amount,paid_amount,status,due_date)',
+                deleted_at: 'is.null',
+                'borrowers.phone': 'match.' + pattern,
+                order: 'created_at.desc',
+                'emis.order': 'installment_number.asc'
+            });
+            const { data } = await supabaseRequest('loans?' + query);
+            return res.status(200).json(data || []);
+        }
+
         if (!requireAdmin(req, res)) return;
 
         if (req.method === 'GET' && action === 'dashboard') {
