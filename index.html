@@ -2,7 +2,7 @@
 <html lang="hi">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Abhishek Management | Apna Khata</title><meta name="description" content="Borrower loan account details, due updates and statements in one simple place."><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1a73e8"><link rel="apple-touch-icon" href="icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="AbhiTools"><link rel="stylesheet" href="ui_shell.css"><link rel="stylesheet" href="style.css">
+    <title>Abhishek Management | Loan Dashboard</title><meta name="description" content="Borrower loan account details, due updates and statements in one simple place."><link rel="manifest" href="manifest.json"><meta name="theme-color" content="#1a73e8"><link rel="apple-touch-icon" href="icon-192.png"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="apple-mobile-web-app-title" content="AbhiTools"><link rel="stylesheet" href="ui_shell.css"><link rel="stylesheet" href="style.css">
 </head>
 <body class="has-mobile-app-nav public-page">
 <header class="brand-bar no-print">
@@ -30,24 +30,24 @@
     <p id="syncStatus" role="status"></p>
     <div id="todayDueBadge" style="display:none"></div>
 </section>
-<h2 class="directory-heading no-print">Apna khata</h2>
+<h2 class="directory-heading no-print">Profiles</h2>
 <div class="search-container no-print public-search-toolbar"><input type="search" id="searchInput" aria-label="Borrower ka naam" class="search-box" placeholder="Apna naam dhoondhein…" oninput="handleSearch()"><select id="sortSelect" aria-label="Sort order" class="search-box public-sort-compact" onchange="handleSearch()"><option value="name">🔤 Sort by Name</option><option value="reverse">Z–A</option></select><div class="view-controls public-view-inline" id="viewControlsContainer"><button class="btn btn-view" onclick="toggleLayout()" id="layoutToggleBtn">🔲 Grid View</button></div></div>
 <div class="tabs no-print" role="tablist" aria-label="Browse loans"><button type="button" class="tab active" id="tabFolder" role="tab" aria-selected="true" aria-controls="folderView" onclick="switchTab('folder')">📁 By Name</button><button type="button" class="tab" id="tabMonth" role="tab" aria-selected="false" aria-controls="monthView" onclick="switchTab('month')">📅 By Month</button></div>
 <div id="contactPageContainer" class="no-print"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;"><h3 style="margin:0;color:#1a73e8;">🎧 Help &amp; Support</h3><button class="btn btn-danger" style="padding:4px 8px;font-size:11px;" onclick="hideContactPage()">❌ Close</button></div><div class="contact-compact-container"><a href="tel:9301270671" class="contact-btn phone-btn"><span class="icon">📱</span><div class="details"><span class="label">Call Admin</span><span class="value">+91 9301270671</span></div></a><a href="mailto:Abhishekbhardwaj7763@gmail.com" class="contact-btn email-btn"><span class="icon">✉️</span><div class="details"><span class="label">Email Admin</span><span class="value">Abhishekbhardwaj...</span></div></a></div></div>
-<div id="mainContent"><div id="folderView"><p class="directory-loading" role="status">Khate load ho rahe hain…</p></div><div id="detailView" style="display:none;"><div class="controls no-print public-detail-actions" style="justify-content:space-between;"><div><button class="btn btn-secondary" onclick="goBackToFolders()">🔙 Back</button><button class="btn btn-warning" onclick="printStatement()">🖨️ Print</button></div></div><h3 id="currentFolderName" style="text-align:center;color:#1a73e8;margin-top:15px;margin-bottom:15px;"></h3><div id="loanList"></div><section id="khataPayments" hidden></section></div><div id="monthView" style="display:none;"></div><div id="monthDetailView" style="display:none;"><div class="controls no-print" style="justify-content:flex-start;"><button class="btn btn-secondary" onclick="goBackToMonths()">🔙 Back</button></div><div class="month-header" id="currentMonthName"></div><div id="monthDateList"></div></div></div>
+<div id="mainContent"><div id="folderView"><p class="directory-loading" role="status">Profiles load ho rahi hain…</p></div><div id="detailView" style="display:none;"><div class="controls no-print public-detail-actions" style="justify-content:space-between;"><div><button class="btn btn-secondary" onclick="goBackToFolders()">🔙 Back</button><button class="btn btn-warning" onclick="printStatement()">🖨️ Print</button></div></div><h3 id="currentFolderName" style="text-align:center;color:#1a73e8;margin-top:15px;margin-bottom:15px;"></h3><div id="loanList"></div><section id="khataPayments" hidden></section></div><div id="monthView" style="display:none;"></div><div id="monthDetailView" style="display:none;"><div class="controls no-print" style="justify-content:flex-start;"><button class="btn btn-secondary" onclick="goBackToMonths()">🔙 Back</button></div><div class="month-header" id="currentMonthName"></div><div id="monthDateList"></div></div></div>
 
 <div class="controls no-print" id="mainControls"><button class="btn btn-view" onclick="showContactPage()">🎧 Contact</button><button class="btn btn-danger" onclick="window.location.href='advanced_admin_login_panel.html'">🔐 Admin Login</button></div>
 <nav class="phase15-mobile-nav no-print" aria-label="Mobile quick navigation"><button type="button" onclick="switchTab('folder');window.scrollTo({top:0,behavior:'instant'})"><span>🏠</span><small>Home</small></button><button type="button" onclick="switchTab('month');window.scrollTo({top:0,behavior:'instant'})"><span>📅</span><small>Month</small></button><button type="button" onclick="manualSync()"><span>🔄</span><small>Sync</small></button><button type="button" onclick="showContactPage()"><span>🎧</span><small>Contact</small></button><button type="button" onclick="window.location.href='advanced_admin_login_panel.html'"><span>🔐</span><small>Admin</small></button></nav>
 <dialog id="khataDialog" aria-labelledby="khataHeading">
-    <form id="khataForm">
+    <form id="khataForm" novalidate>
         <div class="khata-header">
             <h3 id="khataHeading"></h3>
             <button type="button" id="khataCancel" aria-label="Band karein">×</button>
         </div>
-        <label for="khataPhone">Is profile ka mobile number daalein</label>
+        <label for="khataPhone">Profile mein saved mobile number</label>
         <input class="search-box" id="khataPhone" type="tel" inputmode="tel" placeholder="10 digit mobile number" autocomplete="off" aria-describedby="khataStatus" maxlength="32" required>
         <p id="khataStatus" role="status"></p>
-        <button class="btn btn-view" type="submit">Khata kholein</button>
+        <button class="btn btn-view" type="submit">Profile kholein</button>
     </form>
 </dialog>
 <script src="pwa.js"></script><script src="khata_lookup.js"></script><script src="public_script.js"></script><script src="ui_public_compact.js"></script><script src="ui_public_dues_final.js"></script><script src="ui_upi_payments.js"></script><script src="ui_emi_clarity_preview.js"></script><script src="ui_emi_due_priority_preview.js"></script><script src="ui_manager_workflow_preview.js"></script>

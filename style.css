@@ -2093,3 +2093,83 @@ body.public-page #folderView.grid-view .old-folder-card { display: flex; flex-di
 
 #syncStatus { margin: 8px 0 0; color: #ffdfae; font-size: .85rem; }
 #syncStatus:empty { display: none; }
+
+/* Colour and feedback for the public directory */
+body.public-page {
+    background-image: radial-gradient(ellipse at 4% 0%, #a9bff931, transparent 45rem),
+                      radial-gradient(ellipse at 100% 8%, #aba2e92a, transparent 38rem);
+}
+.public-page .brand-mark {
+    background: linear-gradient(145deg, #297aa1, #45409e 72%, #714793);
+    box-shadow: inset 0 1px #ffffff55;
+}
+#portfolioSummary {
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 103% -24%, #3f7d94 0%, transparent 49%),
+                radial-gradient(ellipse at -6% 110%, #694995 0%, transparent 54%),
+                linear-gradient(116deg, #272b65, #263f72 48%, #15445c);
+    border: 1px solid #7193b838;
+    box-shadow: 0 9px 24px #27386422, inset 0 1px #ffffff28;
+}
+.public-page #portfolioSummary #dashboard .dash-box:not(.principal):not(.active-count) {
+    background: linear-gradient(128deg, #ffffff13, #ffffff07);
+    box-shadow: inset 0 0 0 1px #ffffff15;
+}
+.public-page #portfolioSummary #dashboard .overdue h3 { color: #ffdbac; }
+.public-page .old-folder-card { --tint: #6257aa; --tone1: #5c51a3; --tone2: #8174bd; }
+.public-page .old-folder-card:nth-child(4n + 2) { --tint: #287d91; --tone1: #22657e; --tone2: #388b95; }
+.public-page .old-folder-card:nth-child(4n + 3) { --tint: #a65876; --tone1: #874662; --tone2: #b16b83; }
+.public-page .old-folder-card:nth-child(4n) { --tint: #507db4; --tone1: #36578f; --tone2: #638bb4; }
+.public-page #folderView .old-folder-card, .public-page #monthDateList .old-folder-card {
+    background: linear-gradient(111deg, color-mix(in srgb,var(--tint) 9%,var(--surface)),var(--surface) 68%) !important;
+    box-shadow: 0 2px 5px #16294709;
+}
+.public-page .old-folder-card .profile-initials {
+    color: #fff; background: linear-gradient(145deg,var(--tone1),var(--tone2)); box-shadow: inset 0 1px #ffffff36;
+}
+.public-page .card-arrow { color: var(--ink); opacity: .68; padding: 4px; }
+.public-page .tab.active { box-shadow: inset 0 -3px #655dbe; }
+#khataForm button[type="submit"] { background: linear-gradient(112deg,#5146a4,#315893 70%,#266c7e); border: 0; }
+#khataDialog[data-state="invalid"] #khataPhone { border: 2px solid #c3334b; outline-color: #c3334b; }
+#khataDialog:is([data-state="invalid"],[data-state="error"]) #khataStatus {
+    padding: 10px 12px; border-inline-start: 3px solid #c3334b; border-radius: 6px;
+    background: #fff0f1; color: #8c1832; font-weight: 650;
+}
+#khataDialog[data-state="verified"] #khataStatus { color: #126047; font-weight: 650; }
+#khataDialog[data-state="verified"] button[type="submit"] {
+    background: linear-gradient(110deg,#166849,#197365); color: white; opacity: 1; cursor: default;
+}
+.dark-mode #khataDialog:is([data-state="invalid"],[data-state="error"]) #khataStatus { color: #ffcbd5; background: #4c2432; }
+.dark-mode #khataDialog[data-state="verified"] #khataStatus { color: #93ebcb; }
+#khataDialog[data-state="verified"] button[type="submit"]::before {
+    content: "";
+    display: inline-block;
+    width: 6px;
+    height: 12px;
+    margin: 0 10px 2px 0;
+    border: solid currentColor;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+@media (prefers-reduced-motion: no-preference) {
+    #khataDialog[data-state="invalid"] #khataPhone { animation: mobile-mismatch 210ms ease-out; }
+    #khataDialog[data-state="verified"] button[type="submit"] { animation: mobile-verified 420ms ease-out; }
+    #khataDialog[data-state="verified"] button[type="submit"]::before { animation: draw-mobile-check 260ms ease-out both; }
+    @keyframes draw-mobile-check {
+        from { clip-path: inset(100% 0 0 0); }
+        to { clip-path: inset(0); }
+    }
+    @keyframes mobile-mismatch { 25% { transform: translateX(-3px); } 60% { transform: translateX(3px); } }
+    @keyframes mobile-verified {
+        0% { transform: scale(.975); box-shadow: 0 0 0 0 #43b89155; }
+        55% { transform: scale(1.01); }
+        100% { transform: scale(1); box-shadow: 0 0 0 8px #43b89100; }
+    }
+}
+#khataDialog[data-state="invalid"] #khataPhone:focus {
+    border-color: #bd2943 !important;
+    box-shadow: 0 0 0 3px #c3334b25;
+    outline: 2px solid #bd2943;
+}
+.public-page #khataForm button[type="submit"] { display: flex; justify-content: center; align-items: center; }

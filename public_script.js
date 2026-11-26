@@ -88,7 +88,7 @@ function fetchFromCloud() {
     syncInFlight = Promise.allSettled([accounts, dues]).then(([accountsResult, duesResult]) => {
         const failed = [];
         if (accountsResult.status === 'rejected') {
-            failed.push('Khate ki list');
+            failed.push('Profile list');
             if (!directoryLoaded) document.querySelector('#folderView .directory-loading')?.remove();
         }
         if (duesResult.status === 'rejected') failed.push('Due summary');
@@ -203,7 +203,7 @@ function switchTab(tab) {
     search.value = searchByTab[tab];
     search.placeholder = tab === 'month' ? 'Mahina ya saal dhoondhein…' : 'Apna naam dhoondhein…';
     search.setAttribute('aria-label', tab === 'month' ? 'Mahina ya saal' : 'Borrower ka naam');
-    document.querySelector('.directory-heading').textContent = tab === 'month' ? 'Mahine ka hisaab' : 'Apna khata';
+    document.querySelector('.directory-heading').textContent = tab === 'month' ? 'Mahine ka hisaab' : 'Profiles';
     currentTab = tab;
     clearOpenProfile();
     document.body.classList.remove('public-detail-active');
@@ -256,7 +256,7 @@ function profileButton(person) {
     button.className = 'folder old-folder-card';
     const initials = person.name.trim().split(/\s+/u).slice(0, 2).map(word => Array.from(word)[0]).join('');
     button.innerHTML = `<i class="profile-initials" aria-hidden="true">${publicEscapeHtml(initials)}</i><div class="old-folder-title">${publicEscapeHtml(person.name)}</div><span class="card-arrow" aria-hidden="true">›</span>`;
-    button.setAttribute('aria-label', person.name + ' ka khata kholein');
+    button.setAttribute('aria-label', person.name + ' ki profile kholein');
     button.onclick = () => askForMobile(person);
     return button;
 }
