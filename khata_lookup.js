@@ -1,54 +1,39 @@
-(() => {
-    const form = document.getElementById('khataForm');
-    const phone = document.getElementById('khataPhone');
+const khataDialog = document.getElementById('khataDialog');
+let selectedKhata = null;
+let lookupVersion = 0;
+
+function askForMobile(person) {
+    lookupVersion++;
+    selectedKhata = person;
+    document.getElementById('khataForm').reset();
+    document.getElementById('khataHeading').textContent = person.name;
+    document.getElementById('khataStatus').textContent = '';
+    khataDialog.showModal();
+    document.getElementById('khataPhone').focus();
+}
+document.getElementById('khataCancel').onclick = () => khataDialog.close();
+document.getElementById('khataPhone').oninput = () => { lookupVersion++; };
+document.getElementById('khataForm').onsubmit = async event => {
+    event.preventDefault();
+    const person = selectedKhata;
+    const version = ++lookupVersion;
     const status = document.getElementById('khataStatus');
-    const result = document.getElementById('khataResult');
-    const money = value => '₹' + Number(value).toLocaleString('en-IN');
-    let latest = 0;
-
-    phone.addEventListener('input', () => {
-        latest++;
-        result.replaceChildren();
-        status.textContent = '';
-    });
-
-    form.addEventListener('submit', async event => {
-        event.preventDefault();
-        const request = ++latest;
-        result.replaceChildren();
-        if (!/^(?:\+?91|0)?\d{10}$/.test(phone.value.replace(/[\s()-]/g, ''))) {
-            status.textContent = '10 digit mobile number daalein.';
-            return;
-        }
-        status.textContent = 'Khata dhoondh rahe hain…';
-        try {
-            const response = await fetch('/api/loans?action=public_khata', {
-                method: 'POST',
-                cache: 'no-store',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: phone.value })
-            });
-            if (!response.ok) throw new Error('lookup');
-            const accounts = await response.json();
-            if (request !== latest) return;
-            status.textContent = accounts.length ? accounts.length + ' loan mile.' : 'Is number par koi loan nahi mila.';
-            for (const account of accounts) {
-                const details = document.createElement('details');
-                details.open = accounts.length === 1;
-                const title = document.createElement('summary');
-                title.textContent = account.borrowers.name + ' · ' + account.loan_code + ' · ' + money(account.amount);
-                details.append(title);
-                const list = document.createElement('ul');
-                for (const emi of account.emis || []) {
-                    const row = document.createElement('li');
-                    row.textContent = 'EMI ' + emi.installment_number + ' · ' + money(emi.amount) + ' · ' + emi.status + (emi.due_date ? ' · ' + emi.due_date : '');
-                    list.append(row);
-                }
-                details.append(list);
-                result.append(details);
-            }
-        } catch {
-            if (request === latest) status.textContent = 'Khata load nahi hua. Dobara koshish karein.';
-        }
-    });
-})();
+    status.textContent = 'Number check ho raha hai…';
+    try {
+        const response = await fetch('/api/loans?action=public_khata', {
+            method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ borrower_id: person.id, phone: document.getElementById('khataPhone').value })
+        });
+        const data = await response.json();
+        if (version !== lookupVersion || !khataDialog.open) return;
+        if (!response.ok) throw new Error(data.error || 'Dobara koshish karein.');
+        if (!data.length) throw new Error('Is profile mein loan nahi mila.');
+        khataDialog.close();
+        switchTab('folder');
+        loans = data;
+        openFolder(person.name);
+    } catch (error) {
+        if (version === lookupVersion && khataDialog.open) status.textContent = error.message;
+    }
+};
+khataDialog.addEventListener('close', () => { document.getElementById('khataForm').reset(); });

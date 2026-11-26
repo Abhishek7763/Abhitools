@@ -30,7 +30,7 @@ function sortMonthCards(){
  const mode=document.getElementById('sortSelect')?.value||'name';
  if(mode==='highest')cards.sort((a,b)=>monthCardAmount(b)-monthCardAmount(a));
  else if(mode==='lowest')cards.sort((a,b)=>monthCardAmount(a)-monthCardAmount(b));
- else cards.sort((a,b)=>(+a.dataset.monthOriginalIndex||0)-(+b.dataset.monthOriginalIndex||0));
+ else cards.sort((a,b)=>((+a.dataset.monthOriginalIndex||0)-(+b.dataset.monthOriginalIndex||0))*(mode==='reverse'?-1:1));
  const frag=document.createDocumentFragment();
  cards.forEach(card=>frag.appendChild(card));
  view.appendChild(frag);
@@ -50,6 +50,8 @@ function syncBrowseControls({sortMonth=false}={}){
  if(search)search.style.display='flex';
  if(viewControls)viewControls.style.display='flex';
  if(first)first.textContent=monthMode?'📅 Sort by Month':'🔤 Sort by Name';
+ const reverse=sort?.querySelector('option[value="reverse"]');
+ if(reverse)reverse.textContent=monthMode?'Latest first':'Z–A';
  if(monthMode){
    applyMonthLayout();
    if(sortMonth)sortMonthCards();

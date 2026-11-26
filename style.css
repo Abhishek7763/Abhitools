@@ -2001,3 +2001,28 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
 }
 
 
+#khataDialog {
+    box-sizing: border-box;
+    width: min(25rem, calc(100% - 2rem));
+    max-height: 90dvh;
+    padding: 1.25rem;
+    border: 1px solid #ccd9e6;
+    border-radius: 18px;
+    background: #fff;
+    color: #16283d;
+    box-shadow: 0 18px 60px #10243d38;
+}
+#khataDialog::backdrop { background: rgb(13 26 45 / 60%); }
+#khataForm { display: grid; gap: .75rem; margin: 0; }
+.khata-header { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+#khataHeading { margin: 0; color: inherit; text-align: left; overflow-wrap: anywhere; }
+#khataCancel {
+    flex: 0 0 44px; height: 44px; border: 0; border-radius: 50%;
+    font: inherit; font-size: 1.6rem; cursor: pointer; color: inherit; background: #879aab20;
+}
+#khataPhone { box-sizing: border-box; width: 100%; margin: 0; min-height: 46px; font-size: 16px; }
+#khataForm button[type="submit"] { min-height: 46px; margin: 0; background: #1558a4; color: white; }
+#khataStatus { margin: 0; color: inherit; }
+#khataStatus:empty { display: none; }
+#khataDialog :focus-visible, .old-folder-card:focus-visible { outline: 3px solid #3984d7; outline-offset: 2px; }
+body.dark-mode #khataDialog { color-scheme: dark; background: #182635; color: #edf4ff; border-color: #455668; }
