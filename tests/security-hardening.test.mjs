@@ -28,7 +28,7 @@ test('service worker retries reads only and still bypasses non-GET writes', () =
   const source = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
   assert.match(source, /if \(request\.method !== 'GET'\) return;/);
   assert.match(source, /url\.pathname\.startsWith\('\/api\/'\)/);
-  assert.match(source, /abhi-tools-shell-v2-4-stable-v13/);
+  assert.match(source, /const CACHE_NAME = 'abhi-tools-shell-[^']+'/);
 });
 
 test('Vercel Hobby API function count remains exactly 12', () => {
@@ -59,6 +59,6 @@ test('release metadata and package version are aligned to V2.4', () => {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   assert.equal(version.release, '2.4');
   assert.equal(version.label, 'V2.4 Stable');
-  assert.equal(version.backup_format_version, 7);
+  assert.equal(version.backup_format_version, 8);
   assert.equal(pkg.version, '2.4.0');
 });

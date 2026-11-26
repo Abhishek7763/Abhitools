@@ -2219,6 +2219,8 @@ function openDataSafetyCenter(section = 'import') {
 }
 
 function closeDataSafetyCenter() {
+    document.getElementById('dataResetPhrase').value = '';
+    updateResetControls();
     const modal = document.getElementById('dataSafetyModal');
     if (modal) modal.style.display = 'none';
     document.body.style.overflow = '';
@@ -2229,13 +2231,14 @@ function handleSafetyOverlayClick(event) {
 }
 
 function showSafetySection(section) {
-    const sections = { import: 'smartImportSection', restore: 'backupRestoreSection', filerestore: 'fileRestoreSection' };
+    const sections = { import: 'smartImportSection', restore: 'backupRestoreSection', filerestore: 'fileRestoreSection', reset: 'resetDataSection' };
     const active = Object.prototype.hasOwnProperty.call(sections, section) ? section : 'import';
     Object.entries(sections).forEach(([key, id]) => {
         const el = document.getElementById(id);
         if (el) el.style.display = key === active ? 'block' : 'none';
     });
     if (active === 'restore') loadBackupHistory();
+    if (active === 'reset') loadResetPreview();
 }
 
 async function downloadFullBackup() {
@@ -2299,13 +2302,14 @@ async function loadBackupHistory() {
             const s = item.summary || {};
             const when = item.created_at ? new Date(item.created_at).toLocaleString('en-IN') : 'Unknown time';
             const label = item.label || item.reason || 'Backup';
+            const version = Number(item.backup_version) || 1;
             return `
                 <div class="backup-history-item">
                     <div class="meta">
                         <strong>${escapeHtml(label)}</strong>
-                        <small>${escapeHtml(when)} • ${Number(s.borrowers || 0)} borrowers • ${Number(s.loans || 0)} loans • ${Number(s.emis || 0)} EMIs • ${Number(s.payments ?? s.emi_payments ?? 0)} payments<br>${escapeHtml(item.reason || '')}</small>
+                        <small>v${version} • ${escapeHtml(when)} • ${Number(s.borrowers || 0)} borrowers • ${Number(s.loans || 0)} loans • ${Number(s.emis || 0)} EMIs • ${Number(s.payments ?? s.emi_payments ?? 0)} payments<br>${escapeHtml(item.reason || '')}</small>
                     </div>
-                    <button class="btn btn-warning" onclick="restoreSnapshot('${String(item.id || '').replace(/[^0-9a-f-]/gi, '')}')">♻️ Restore</button>
+                    <button class="btn btn-warning" onclick="restoreSnapshot('${String(item.id || '').replace(/[^0-9a-f-]/gi, '')}', ${version})">♻️ Restore</button>
                 </div>`;
         }).join('');
     } catch (err) {
@@ -2314,8 +2318,9 @@ async function loadBackupHistory() {
     }
 }
 
-async function restoreSnapshot(snapshotId) {
-    if (!confirm('Selected backup restore karein? Current database pehle automatically backup hoga, phir selected snapshot restore hoga.')) return;
+async function restoreSnapshot(snapshotId, version) {
+    const legacyWarning = version < 8 ? ' Purane snapshot mein UPI history nahi hai. Restore par current UPI requests hat jayengi.' : '';
+    if (!confirm('Selected backup restore karein? Pehle current data ka safety snapshot banega.' + legacyWarning)) return;
     const typed = prompt('Safety confirmation ke liye RESTORE type karein:');
     if (typed !== 'RESTORE') {
         alert('Restore cancel ho gaya.');
@@ -2339,7 +2344,8 @@ async function restoreSnapshot(snapshotId) {
 }
 
 async function handleImportFile(event) {
-    const file = event.target.files?.[0];
+    const input = event.target;
+    const file = input.files?.[0];
     const info = document.getElementById('importFileInfo');
     const previewBox = document.getElementById('importPreview');
     const controls = document.getElementById('importApplyControls');
@@ -2365,8 +2371,7 @@ async function handleImportFile(event) {
     try {
         if (info) info.textContent = `Reading ${file.name}...`;
         const payload = JSON.parse(await file.text());
-        selectedImportPayload = payload;
-        selectedImportFileName = file.name;
+        if (input.files[0] !== file) return;
         if (info) info.textContent = `✅ ${file.name} read ho gayi. Server validation chal rahi hai...`;
 
         const response = await adminFetch('/api/import?action=preview', {
@@ -2374,9 +2379,17 @@ async function handleImportFile(event) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ payload })
         });
-        currentImportPreview = await response.json();
+        const preview = await response.json();
+        if (input.files[0] !== file) return;
+        selectedImportPayload = payload;
+        selectedImportFileName = file.name;
+        currentImportPreview = preview;
+        const mode = document.getElementById('importMode');
+        mode.value = 'merge';
+        mode.options[1].disabled = ['abhitools-backup', 'abhitools-snapshot'].includes(payload?.format);
         renderImportPreview(currentImportPreview);
     } catch (err) {
+        if (input.files[0] !== file) return;
         console.error('Import preview failed:', err);
         selectedImportPayload = null;
         currentImportPreview = null;
@@ -2432,6 +2445,8 @@ async function applySmartImport() {
 
     const button = document.getElementById('applyImportBtn');
     const resultBox = document.getElementById('importResult');
+    const fileInput = document.getElementById('smartImportFile');
+    fileInput.disabled = true;
     if (button) button.disabled = true;
     if (resultBox) {
         resultBox.style.display = 'block';
@@ -2452,111 +2467,20 @@ async function applySmartImport() {
         const data = await response.json();
         const r = data.result || {};
         if (resultBox) {
-            resultBox.textContent = `✅ Import complete\nBorrowers added: ${r.inserted_borrowers ?? 0}\nBorrowers reused: ${r.reused_borrowers ?? 0}\nLoans added: ${r.inserted_loans ?? 0}\nDuplicate loans skipped: ${r.duplicate_loans ?? 0}\nEMIs added: ${r.inserted_emis ?? 0}\nEMIs skipped: ${r.skipped_emis ?? 0}\nPayment history added: ${r.payment_history_inserted ?? 0}\nPayment history skipped: ${r.payment_history_skipped ?? 0}\nSafety snapshot: ${r.backup_snapshot_id || 'created'}`;
+            resultBox.textContent = `✅ Import complete\nBorrowers added: ${r.inserted_borrowers ?? 0}\nBorrowers reused: ${r.reused_borrowers ?? 0}\nLoans added: ${r.inserted_loans ?? 0}\nDuplicate loans skipped: ${r.duplicate_loans ?? 0}\nEMIs added: ${r.inserted_emis ?? 0}\nEMIs skipped: ${r.skipped_emis ?? 0}\nDocument links added: ${r.inserted_documents ?? 0}\nDuplicate document links skipped: ${r.skipped_documents ?? 0}\nPayment history added: ${r.payment_history_inserted ?? 0}\nPayment history skipped: ${r.payment_history_skipped ?? 0}\nSafety snapshot: ${r.backup_snapshot_id || 'created'}`;
         }
+        selectedImportPayload = currentImportPreview = null;
+        fileInput.value = '';
+        document.getElementById('importApplyControls').style.display = 'none';
         currentOpenFolder = null;
         await loadAllData();
     } catch (err) {
         console.error('Import apply failed:', err);
-        if (resultBox) resultBox.textContent = '❌ Import failed safely: ' + err.message;
+        if (resultBox) resultBox.textContent = 'Import status ke liye records aur Backup History check karein. ' + err.message;
     } finally {
+        fileInput.disabled = false;
         if (button) button.disabled = false;
     }
-}
-
-
-// ==========================================
-// FULL RESTORE FROM BACKUP FILE (exact replace)
-// ==========================================
-let selectedFileRestorePayload = null;
-let selectedFileRestoreName = '';
-
-async function handleFileRestoreSelect(event) {
-    const file = event.target.files?.[0];
-    const info = document.getElementById('fileRestoreInfo');
-    const button = document.getElementById('fileRestoreBtn');
-    const resultBox = document.getElementById('fileRestoreResult');
-    selectedFileRestorePayload = null;
-    selectedFileRestoreName = '';
-    if (button) button.disabled = true;
-    if (resultBox) resultBox.style.display = 'none';
-
-    if (!file) {
-        if (info) info.textContent = 'Koi JSON file select nahi hui.';
-        return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-        if (info) info.textContent = '❌ File 2 MB se badi hai. Is build me maximum 2 MB JSON supported hai.';
-        event.target.value = '';
-        return;
-    }
-    try {
-        const payload = JSON.parse(await file.text());
-        const data = payload?.data;
-        if (payload?.format !== 'abhitools-backup' || !data || typeof data !== 'object') {
-            if (info) info.textContent = '❌ Ye AbhiTools Full Backup JSON nahi lagti (format: abhitools-backup chahiye).';
-            event.target.value = '';
-            return;
-        }
-        const n = key => (Array.isArray(data[key]) ? data[key].length : 0);
-        selectedFileRestorePayload = payload;
-        selectedFileRestoreName = file.name;
-        if (info) {
-            info.textContent = `✅ ${file.name} read ho gayi.\n` +
-                `Backup date: ${payload.created_at ? String(payload.created_at).slice(0, 10) : 'unknown'} (version ${payload.version ?? '?'})\n` +
-                `Borrowers: ${n('borrowers')} • Loans: ${n('loans')} • EMIs: ${n('emis')} • Payments: ${n('emi_payments')}\n` +
-                `Settlements: ${n('loan_settlements')} • Follow-ups: ${n('collection_followups')} • Documents: ${n('documents')}`;
-        }
-        if (button) button.disabled = false;
-    } catch (err) {
-        console.error('Restore file read failed:', err);
-        if (info) info.textContent = '❌ JSON read nahi hui: ' + err.message;
-    }
-}
-
-async function applyFileRestore() {
-    if (!selectedFileRestorePayload) {
-        alert('Pehle backup JSON file select karein.');
-        return;
-    }
-    if (!confirm('⚠️ Current poora database delete hoga aur is file ka data aayega. Pehle automatic safety snapshot banega. Aage badhein?')) return;
-    const typed = prompt('Confirm karne ke liye FULL RESTORE type karein:');
-    if (typed !== 'FULL RESTORE') {
-        alert('Full restore cancel ho gaya.');
-        return;
-    }
-
-    const button = document.getElementById('fileRestoreBtn');
-    const resultBox = document.getElementById('fileRestoreResult');
-    if (button) button.disabled = true;
-    if (resultBox) {
-        resultBox.style.display = 'block';
-        resultBox.textContent = 'Restore chal raha hai... page close mat karein.';
-    }
-    try {
-        const response = await adminFetch('/api/backup?action=restore_file', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ payload: selectedFileRestorePayload, confirm: true, label: selectedFileRestoreName || 'JSON file' })
-        });
-        const data = await response.json();
-        const s = data?.summary || {};
-        if (resultBox) {
-            resultBox.textContent = `✅ Full restore complete\n` +
-                `Borrowers: ${s.borrowers ?? '-'} • Loans: ${s.loans ?? '-'} • EMIs: ${s.emis ?? '-'} • Payments: ${s.emi_payments ?? s.payments ?? 0}\n` +
-                `Purana data "Backup History" me safety snapshot ke roop me bacha hai.`;
-        }
-        currentOpenFolder = null;
-        await loadAllData();
-    } catch (err) {
-        console.error('Full restore failed:', err);
-        if (resultBox) resultBox.textContent = '❌ Full restore nahi hua (database badla nahi): ' + err.message;
-        if (button) button.disabled = false;
-        return;
-    }
-    selectedFileRestorePayload = null;
-    const input = document.getElementById('fileRestoreInput');
-    if (input) input.value = '';
 }
 
 
@@ -4634,7 +4558,7 @@ async function refreshReleaseCenter() {
         set('releaseStableLabel', label);
         set('releaseVersionCode', version);
         set('releaseHealthVersion', version);
-        set('releaseBackupFormat', `v${Number(manifest?.backup_format_version || 7)}`);
+        set('releaseBackupFormat', `v${Number(manifest?.backup_format_version || 8)}`);
         set('releaseHealthBackup', latest ? 'Available' : 'None');
         set('releaseHealthBackupTime', latest ? releaseDateTime(latest.created_at) : 'Create one before next change');
         set('releaseHealthRecycle', String(Number(home?.summary?.recycleItems || 0)));
@@ -5263,7 +5187,7 @@ function populateSettingsCenter() {
     const updated = document.getElementById('settingsUpdatedAt');
     if (updated) updated.textContent = settingsDateTime(appSettingsMeta?.updated_at);
     const meta = document.getElementById('settingsCenterMeta');
-    if (meta) meta.textContent = `Server-synced • ${Number(s.reminder_window_days || 7)}-day reminder window • backup v7`;
+    if (meta) meta.textContent = `Server-synced • ${Number(s.reminder_window_days || 7)}-day reminder window • backup v8`;
     const status = document.getElementById('settingsSaveStatus');
     if (status) status.textContent = 'Server settings loaded. Changes save karne ke liye Save Settings dabayein.';
     updateSettingsTemplateCounts();

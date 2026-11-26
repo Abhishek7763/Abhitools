@@ -1,5 +1,7 @@
 import { noStore, requireAdmin, sendServerError, supabaseRequest } from '../server_shared.js';
 
+export const config = { api: { bodyParser: { sizeLimit: '3mb' } } };
+
 const MONTHS = new Set(['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC']);
 const EMI_RE = /(?:\((\d+)\))?\s*(\d+)[-\s\/]+([a-zA-Z]+)[-\s\/]+(\d+)/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -162,7 +164,7 @@ function normalizeLegacyArray(input) {
             addBorrower(result, borrowerKey, { name, notes: 'Imported from legacy JSON' });
         }
 
-        const loanKey = `legacy-loan:${loanCode}`;
+        const loanKey = `legacy-loan:${itemIndex}`;
         if (!addLoan(result, loanKey, borrowerKey, {
             loan_code: loanCode,
             amount,
@@ -204,6 +206,7 @@ function normalizeStructured(input, format) {
 
     const borrowerKeyById = new Map();
     borrowers.forEach((b, index) => {
+        if (b?.deleted_at) { result.skipped.borrowers++; return; }
         const key = String(b?.id || `borrower:${index}`);
         if (addBorrower(result, key, b)) borrowerKeyById.set(String(b?.id || key), key);
     });
@@ -213,6 +216,7 @@ function normalizeStructured(input, format) {
     const emiRefById = new Map();
 
     loans.forEach((l, index) => {
+        if (l?.deleted_at) { result.skipped.loans++; return; }
         let borrowerKey = borrowerKeyById.get(String(l?.borrower_id || ''));
         const nestedName = text(l?.borrowers?.name ?? l?.borrower?.name, 120)?.toUpperCase();
         if (!borrowerKey && nestedName) {
@@ -222,9 +226,14 @@ function normalizeStructured(input, format) {
                 if (addBorrower(result, borrowerKey, { name: nestedName })) borrowerByName.set(nestedName, borrowerKey);
             }
         }
-        const loanKey = String(l?.id || l?.loan_code || `loan:${index}`);
+        // A row key keeps nested EMIs with their source row when duplicate loan codes are skipped.
+        const loanKey = `loan:${index}`;
+        const fileRef = String(l?.id || l?.loan_code || loanKey);
         if (addLoan(result, loanKey, borrowerKey, l)) {
-            loanKeyById.set(String(l?.id || loanKey), loanKey);
+            if (l?.id && loanKeyById.has(fileRef)) {
+                throw Object.assign(new Error('File mein loan ID do baar hai. Import se pehle IDs check karein.'), { status: 400 });
+            }
+            if (!loanKeyById.has(fileRef)) loanKeyById.set(fileRef, loanKey);
             const nestedEmis = Array.isArray(l?.emis) ? l.emis : [];
             nestedEmis.forEach((e, emiIndex) => {
                 addEmi(result, loanKey, e, emiIndex);
@@ -295,6 +304,11 @@ function normalizeStructured(input, format) {
     });
 
     documents.forEach((d) => {
+        if (d?.deleted_at || (d?.borrower_id && !borrowerKeyById.has(String(d.borrower_id))) ||
+            (d?.loan_id && !loanKeyById.has(String(d.loan_id)))) {
+            result.skipped.documents++;
+            return;
+        }
         const docType = text(d?.doc_type, 50);
         const fileName = text(d?.file_name, 300);
         const fileUrl = text(d?.file_url, 1500);
@@ -318,7 +332,12 @@ function normalizeInput(input) {
     if (Array.isArray(input)) return normalizeLegacyArray(input);
     if (!input || typeof input !== 'object') throw Object.assign(new Error('JSON root must be an object or array'), { status: 400 });
 
-    if (input.format === 'abhitools-backup') return normalizeStructured(input, 'abhitools-backup-v2');
+    if (input.format === 'abhitools-backup') {
+        if (!Number.isInteger(Number(input.version)) || Number(input.version) < 1 || Number(input.version) > 8) {
+            throw Object.assign(new Error('Backup version supported nahi hai.'), { status: 400 });
+        }
+        return normalizeStructured(input, `abhitools-backup-v${Number(input.version)}`);
+    }
     if (input.format === 'abhitools-snapshot') return normalizeStructured(input, 'abhitools-snapshot');
     if (Array.isArray(input.borrowers) && Array.isArray(input.loans)) return normalizeStructured(input, 'abhitools-compatible-json');
 
@@ -365,19 +384,18 @@ function dedupeNormalized(result) {
     result.payments = result.payments.filter(p => keptLoanKeys.has(p.loan_key));
     result.skipped.payments += paymentBefore - result.payments.length;
 
-    if (result.borrowers.length + result.loans.length + result.emis.length + result.settlements.length + result.payments.length > MAX_RECORDS) {
+    if (result.borrowers.length + result.loans.length + result.emis.length + result.documents.length + result.settlements.length + result.payments.length > MAX_RECORDS) {
         throw Object.assign(new Error(`Import is too large. Maximum ${MAX_RECORDS} normalized records.`), { status: 413 });
     }
     return result;
 }
 
 async function buildPreview(result) {
-    const [existingBorrowers, existingLoans] = await Promise.all([
-        supabaseRequest('borrowers?deleted_at=is.null&select=name'),
-        supabaseRequest('loans?select=loan_code')
-    ]);
-    const existingNames = new Set((existingBorrowers.data || []).map(b => String(b.name || '').trim().toUpperCase()));
-    const existingCodes = new Set((existingLoans.data || []).map(l => String(l.loan_code || '').trim()));
+    const { data } = await supabaseRequest('rpc/abhi_import_matches', 'POST', {
+        p_names: result.borrowers.map(b => b.name), p_codes: result.loans.map(l => l.loan_code)
+    });
+    const existingNames = new Set(data.names);
+    const existingCodes = new Set(data.codes);
     const duplicateBorrowers = result.borrowers.filter(b => existingNames.has(b.name)).map(b => b.name);
     const duplicateLoans = result.loans.filter(l => existingCodes.has(l.loan_code)).map(l => l.loan_code);
 
@@ -415,94 +433,6 @@ function normalizedPayload(result) {
 }
 
 
-async function restoreSnapshotAfterImportFailure(snapshotId) {
-    if (!snapshotId) return;
-    try {
-        await supabaseRequest('rpc/abhi_restore_backup_snapshot', 'POST', { p_snapshot_id: snapshotId });
-    } catch (restoreErr) {
-        console.error('Automatic import rollback restore failed:', restoreErr);
-    }
-}
-
-async function importSettlementHistory(normalized, existingCodesBefore, mode, snapshotId) {
-    const map = new Map();
-    if (!normalized.settlements?.length) return { map, inserted: 0, skipped: 0 };
-    try {
-        const loanRes = await supabaseRequest('loans?select=id,loan_code');
-        const targetLoanByCode = new Map((loanRes.data || []).map(l => [String(l.loan_code), l.id]));
-        const loanCodeByKey = new Map(normalized.loans.map(l => [l.source_key, l.loan_code]));
-        let inserted = 0, skipped = 0;
-        for (const st of normalized.settlements) {
-            const loanCode = loanCodeByKey.get(st.loan_key);
-            if (!loanCode || (mode === 'merge' && existingCodesBefore.has(loanCode))) { skipped++; continue; }
-            const loanId = targetLoanByCode.get(loanCode);
-            if (!loanId) { skipped++; continue; }
-            const { data } = await supabaseRequest('loan_settlements', 'POST', {
-                loan_id: loanId,
-                settlement_date: st.settlement_date,
-                scheduled_remaining_before: st.scheduled_remaining_before,
-                final_payment_amount: st.final_payment_amount,
-                waived_amount: st.waived_amount,
-                method: st.method,
-                notes: st.notes,
-                created_at: st.created_at,
-                reopened_at: st.reopened_at,
-                reopen_note: st.reopen_note
-            });
-            const row = data?.[0];
-            if (row?.id) { map.set(st.source_key, row.id); inserted++; } else skipped++;
-        }
-        return { map, inserted, skipped };
-    } catch (err) {
-        await restoreSnapshotAfterImportFailure(snapshotId);
-        throw err;
-    }
-}
-
-async function importPaymentHistory(normalized, existingCodesBefore, mode, snapshotId, settlementMap = new Map()) {
-    if (!normalized.payments?.length) return { inserted: 0, skipped: 0 };
-    try {
-        const [loanRes, emiRes] = await Promise.all([
-            supabaseRequest('loans?select=id,loan_code'),
-            supabaseRequest('emis?select=id,loan_id,installment_number')
-        ]);
-        const targetLoanByCode = new Map((loanRes.data || []).map(l => [String(l.loan_code), l.id]));
-        const targetEmiByKey = new Map((emiRes.data || []).map(e => [`${e.loan_id}:${e.installment_number}`, e.id]));
-        const loanCodeByKey = new Map(normalized.loans.map(l => [l.source_key, l.loan_code]));
-        const rows = [];
-        const touchedEmis = new Set();
-        let skipped = 0;
-
-        for (const payment of normalized.payments) {
-            const loanCode = loanCodeByKey.get(payment.loan_key);
-            if (!loanCode || (mode === 'merge' && existingCodesBefore.has(loanCode))) { skipped++; continue; }
-            const targetLoanId = targetLoanByCode.get(loanCode);
-            const targetEmiId = targetLoanId ? targetEmiByKey.get(`${targetLoanId}:${payment.installment_number}`) : null;
-            if (!targetEmiId) { skipped++; continue; }
-            rows.push({
-                emi_id: targetEmiId,
-                amount: payment.amount,
-                payment_date: payment.payment_date,
-                method: payment.method,
-                notes: payment.notes,
-                source: payment.source || 'manual',
-                settlement_id: payment.settlement_key ? (settlementMap.get(payment.settlement_key) || null) : null,
-                reversed_at: payment.reversed_at || null
-            });
-            touchedEmis.add(targetEmiId);
-        }
-
-        if (rows.length) await supabaseRequest('emi_payments', 'POST', rows);
-        for (const emiId of touchedEmis) {
-            await supabaseRequest('rpc/abhi_recalculate_emi', 'POST', { p_emi_id: emiId });
-        }
-        return { inserted: rows.length, skipped };
-    } catch (err) {
-        await restoreSnapshotAfterImportFailure(snapshotId);
-        throw err;
-    }
-}
-
 export default async function handler(req, res) {
     noStore(res);
     if (!requireAdmin(req, res)) return;
@@ -533,17 +463,13 @@ export default async function handler(req, res) {
             if (!preview.can_import) return res.status(400).json({ error: 'No valid loans found in import file' });
 
             const label = text(req.body?.label, 120) || `Before ${mode} import`;
-            const existingBeforeRes = await supabaseRequest('loans?select=loan_code');
-            const existingCodesBefore = new Set((existingBeforeRes.data || []).map(l => String(l.loan_code || '').trim()));
-            const { data } = await supabaseRequest('rpc/abhi_import_management_data', 'POST', {
-                p_payload: normalizedPayload(normalized),
-                p_mode: mode,
-                p_label: label
+            if (mode === 'replace' && ['abhitools-backup','abhitools-snapshot'].includes(rawPayload?.format)) {
+                return res.status(400).json({ error: 'Poora backup replace karne ke liye Full Restore use karein.' });
+            }
+            const { data: result } = await supabaseRequest('rpc/abhi_import_with_history', 'POST', {
+                p_payload: normalizedPayload(normalized), p_mode: mode, p_label: label
             });
-            const result = Array.isArray(data) ? data[0] : data;
-            const settlementResult = await importSettlementHistory(normalized, existingCodesBefore, mode, result?.backup_snapshot_id);
-            const paymentResult = await importPaymentHistory(normalized, existingCodesBefore, mode, result?.backup_snapshot_id, settlementResult.map);
-            return res.status(200).json({ success: true, preview, result: { ...(result || {}), settlement_history_inserted: settlementResult.inserted, settlement_history_skipped: settlementResult.skipped, payment_history_inserted: paymentResult.inserted, payment_history_skipped: paymentResult.skipped } });
+            return res.status(200).json({ success: true, preview, result });
         }
 
         return res.status(404).json({ error: 'Import action not found' });

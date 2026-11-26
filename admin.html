@@ -103,7 +103,7 @@
                 </div>
 
                 <div class="home-pro-panel">
-                    <div class="home-pro-panel-head"><h4>🛡️ Safety & Follow-up</h4><button class="home-pro-link" onclick="openDataSafetyCenter('history')">Backups →</button></div>
+                    <div class="home-pro-panel-head"><h4>🛡️ Safety & Follow-up</h4><button class="home-pro-link" onclick="openDataSafetyCenter('restore')">Backups →</button></div>
                     <div class="home-pro-safety-list">
                         <button onclick="openReminderCenter('all')"><span>🔔</span><div><b id="homeFollowupCount">0 urgent follow-ups</b><small id="homeMissingContact">0 without contact</small></div></button>
                         <button onclick="openDataQualityCenter('dates')"><span>🧩</span><div><b id="homeQualityText">0 legacy dates pending</b><small>Manual review only</small></div></button>
@@ -403,22 +403,37 @@
             <div class="data-safety-header">
                 <div>
                     <h3 id="dataSafetyTitle">🛡️ Data Safety Center</h3>
-                    <small>Smart Import, full JSON backup aur server-side restore.</small>
+                    <small>Records ka backup download karein, file import karein ya snapshot restore karein.</small>
                 </div>
                 <button class="btn btn-danger data-safety-close" onclick="closeDataSafetyCenter()" aria-label="Close">✕</button>
             </div>
 
             <div class="data-safety-actions">
                 <button class="btn btn-view" onclick="showSafetySection('import')">📥 Smart Import</button>
-                <button class="btn btn-warning" onclick="downloadFullBackup()">⬇️ Download Backup</button>
+                <button class="btn btn-warning" onclick="downloadFullBackup()">Records JSON</button>
+                <button class="btn btn-success" data-portable-export onclick="downloadPortableBackup()">Records + files ZIP</button>
                 <button class="btn btn-success" onclick="createManualBackup()">🛡️ Create Snapshot</button>
                 <button class="btn btn-secondary" onclick="showSafetySection('restore')">♻️ Restore</button>
-                <button class="btn btn-danger" onclick="showSafetySection('filerestore')">🔁 Full Restore (File)</button>
+                <button class="btn btn-view" onclick="showSafetySection('filerestore')">🔁 Full Restore (File)</button>
+                <button class="btn btn-danger" onclick="showSafetySection('reset')">Delete app data</button>
             </div>
+
+            <div class="safety-status" role="status" data-portable-status hidden></div>
+            <section id="resetDataSection" class="safety-section" style="display:none;">
+                <h4>Abhi Tools ka data permanently delete karein</h4>
+                <p class="safety-help">Borrowers, loans, EMIs, payments, UPI, follow-ups, settings, activity history, recycle bin aur saare server snapshots mit jayenge. Photos aur documents buckets ke borrowers/ folder ki saari files bhi mit jayengi.</p>
+                <p class="safety-help"><strong>Delete se pehle Records + files ZIP download karein.</strong> Isme app ke uploaded photos aur documents bhi milte hain. External links ki sirf link save hoti hai. Delete ke baad server snapshot se undo nahi hoga.</p>
+                <button class="btn btn-view" data-portable-export onclick="downloadPortableBackup()">Pehle files ke saath ZIP download karein</button>
+                <div id="dataResetInfo" class="safety-status" role="status"></div>
+                <label for="dataResetPhrase">Confirm karne ke liye <strong>DELETE ALL</strong> likhein</label>
+                <input id="dataResetPhrase" class="safety-select" type="text" autocomplete="off" spellcheck="false" oninput="updateResetControls()">
+                <button id="dataResetBtn" class="btn btn-danger safety-primary" onclick="runDataReset()" disabled>Saara app data delete karein</button>
+                <button id="dataResetResume" class="btn btn-warning" style="display:none;" onclick="runDataReset()">Bachi hui files ka cleanup jaari rakhein</button>
+            </section>
 
             <section id="smartImportSection" class="safety-section">
                 <h4>📥 Smart Import</h4>
-                <p class="safety-help">Legacy AbhiTools JSON aur current full-backup JSON dono supported hain. File select karne par pehle preview aur duplicate check hoga; tab tak database me koi change nahi hoga.</p>
+                <p class="safety-help">Legacy JSON merge karein ya backup se borrower aur loan records jodein. UPI, settings, follow-ups aur activity history wapas laane ke liye Full Restore (File) chunein.</p>
                 <input id="smartImportFile" type="file" accept="application/json,.json" onchange="handleImportFile(event)">
                 <div id="importFileInfo" class="safety-status">Koi JSON file select nahi hui.</div>
                 <div id="importPreview" class="import-preview" style="display:none;"></div>
@@ -435,8 +450,8 @@
 
             <section id="fileRestoreSection" class="safety-section" style="display:none;">
                 <h4>🔁 Full Restore from Backup File</h4>
-                <p class="safety-help">Download kiye hue Full JSON backup se poora database exact replace hota hai: purana Borrowers, Loans, EMIs, Payments, Settlements, Follow-ups, Recycle Bin aur Settings pehle delete honge, phir file ka data same IDs ke saath aayega. Pehle automatic safety snapshot banta hai, isliye galti ho to "Restore" tab se wapas ja sakte ho.</p>
-                <input id="fileRestoreInput" type="file" accept="application/json,.json" onchange="handleFileRestoreSelect(event)">
+                <p class="safety-help">ZIP, JSON ya JSON.GZ select karein. Preview mein record counts aur backup version dikhenge. Restore se pehle current records ka safety snapshot banega. ZIP mein photos aur documents buckets ke borrowers/ folder ki asli files bhi restore hongi. Baahari links sirf links rahenge. Limit 80 MiB uploads, 8 MiB per file aur 2,000 files hai. JSON mein sirf records hote hain.</p>
+                <input id="fileRestoreInput" type="file" accept="application/zip,application/json,application/gzip,.zip,.json,.gz" onchange="handleFileRestoreSelect(event)">
                 <div id="fileRestoreInfo" class="safety-status" style="white-space:pre-line;">Koi JSON file select nahi hui.</div>
                 <button id="fileRestoreBtn" class="btn btn-danger safety-primary" onclick="applyFileRestore()" disabled>⚠️ Delete All &amp; Restore This File</button>
                 <div id="fileRestoreResult" class="safety-status" style="display:none;white-space:pre-line;"></div>
@@ -1218,9 +1233,11 @@
                     <section class="settings-panel settings-status-panel">
                         <h4>☁️ Sync & Backup</h4>
                         <div><small>Storage</small><strong>Supabase server-side</strong></div>
-                        <div><small>Backup Format</small><strong>v7 • settings included</strong></div>
+                        <div><small>Backup Format</small><strong>v8 • UPI + history</strong></div>
                         <div><small>Last Saved</small><strong id="settingsUpdatedAt">—</strong></div>
                         <div><small>Activity Audit</small><strong>Enabled</strong></div>
+                        <button class="btn btn-view" onclick="closeSettingsCenter();openDataSafetyCenter('import')">Import / Export</button>
+                        <button class="btn btn-danger" onclick="closeSettingsCenter();openDataSafetyCenter('reset')">Delete app data</button>
                     </section>
                 </div>
 
@@ -1275,7 +1292,7 @@
                 <div><small>Latest Snapshot</small><strong id="releaseHealthBackup">Checking…</strong><span id="releaseHealthBackupTime">Server backup</span></div>
                 <div><small>Recycle Bin</small><strong id="releaseHealthRecycle">—</strong><span>Recoverable items</span></div>
                 <div><small>Data Quality</small><strong id="releaseHealthQuality">—</strong><span>Legacy dates pending</span></div>
-                <div><small>Backup Format</small><strong id="releaseBackupFormat">v7</strong><span>Full JSON + snapshots</span></div>
+                <div><small>Backup Format</small><strong id="releaseBackupFormat">v8</strong><span>Full JSON + snapshots</span></div>
             </div>
 
             <div class="release-grid">
@@ -1307,7 +1324,7 @@
                 <div><span>✓</span> PWA service worker `/api/*` financial responses cache nahi karta.</div>
                 <div><span>✓</span> Legacy dates automatic guess nahi hote.</div>
                 <div><span>✓</span> Backup/restore workflow audit-aware aur guarded hai.</div>
-                <div><span>✓</span> App settings aur follow-up history backup format v7 me included hain.</div>
+                <div><span>✓</span> App settings aur follow-up history backup format v8 me included hain.</div>
                 <div><span>✓</span> Future build se pehle fresh backup recommended hai.</div>
             </div>
 
@@ -1317,5 +1334,8 @@
 
     <script src="pwa.js"></script>
     <script src="admin_script.js"></script>
+    <script src="vendor/fflate-0.8.3.js"></script>
+    <script src="ui_portable_backup.js"></script>
+    <script src="ui_data_safety.js"></script>
 </body>
 </html>
