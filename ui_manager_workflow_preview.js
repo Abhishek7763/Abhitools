@@ -96,8 +96,6 @@ function install(){
  if(typeof o==='function'&&!o.__mgr){const w=function(...a){const r=o.apply(this,a);requestAnimationFrame(enhanceBorrower);return r};w.__mgr=1;window.openFolder=w}
  const sw=window.switchTab;
  if(typeof sw==='function'&&!sw.__mgrBrowse){const w=function(...a){const r=sw.apply(this,a);requestAnimationFrame(()=>syncBrowseControls({sortMonth:currentTab==='month'}));return r};w.__mgrBrowse=1;window.switchTab=w}
- const hs=window.handleSearch;
- if(typeof hs==='function'&&!hs.__mgrBrowse){const w=function(...a){if(typeof currentTab!=='undefined'&&currentTab==='month'){sortMonthCards();return}return hs.apply(this,a)};w.__mgrBrowse=1;window.handleSearch=w}
  const tl=window.toggleLayout;
  if(typeof tl==='function'&&!tl.__mgrBrowse){const w=function(...a){
    if(typeof currentTab!=='undefined'&&currentTab==='month'){

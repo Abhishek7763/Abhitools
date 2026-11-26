@@ -16,6 +16,9 @@ let currentOpenFolder = null;
 let isGridView = false;
 let autoSyncInterval = null;
 let publicDueData = null;
+let directoryLoaded = false;
+let syncInFlight = null;
+const searchByTab = { folder: '', month: '' };
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -57,40 +60,49 @@ async function initApp() {
 // ==========================================
 // DATA FETCH - Supabase API se
 // ==========================================
-async function fetchFromCloud() {
+async function readPublicData(url) {
+    const response = await fetch(url, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Could not refresh ' + url);
+    return response.json();
+}
+
+function fetchFromCloud() {
+    if (syncInFlight) return syncInFlight;
     const badge = document.getElementById('lastUpdatedBadge');
-    try {
-        if (badge) badge.innerHTML = `<span class="spin-icon">🔄</span><br>Updating ✨`;
+    const status = document.getElementById('syncStatus');
+    badge.textContent = 'Syncing…';
+    badge.disabled = true;
+    status.textContent = '';
 
-        // Refresh due/overdue statuses first on the server, then fetch the loan list.
-        const dueResponse = await fetch('/api/due?view=public', { cache: 'no-store' });
-        if (!dueResponse.ok) throw new Error('Due API error');
-        publicDueData = await dueResponse.json();
-
-        const response = await fetch('/api/loans?action=directory', { cache: 'no-store' });
-        if (!response.ok) throw new Error('API error');
-        directory = await response.json();
-
+    const accounts = readPublicData('/api/loans?action=directory').then(data => {
+        directory = data;
+        directoryLoaded = true;
+        document.getElementById('totalLoansCount').textContent = directory.count;
+        document.getElementById('totalAmountSum').textContent = '₹' + directory.total.toLocaleString('en-IN');
+        if (!document.body.classList.contains('public-detail-active')) handleSearch();
+    });
+    const dues = readPublicData('/api/due?view=public').then(data => {
+        publicDueData = data;
         updateDashboard();
-        if (!currentOpenFolder) handleSearch();
-        if (currentTab === 'month') renderMonthFolders();
-
-
-        if (badge) {
-            badge.innerHTML = `Updated! ✅🥰`;
-            setTimeout(() => {
-                badge.innerHTML = `Updated:<br>${new Date().toLocaleString('en-IN', {
-                    day: '2-digit', month: 'short',
-                    hour: '2-digit', minute: '2-digit', hour12: true
-                })}`;
-            }, 2000);
+    });
+    syncInFlight = Promise.allSettled([accounts, dues]).then(([accountsResult, duesResult]) => {
+        const failed = [];
+        if (accountsResult.status === 'rejected') {
+            failed.push('Khate ki list');
+            if (!directoryLoaded) document.querySelector('#folderView .directory-loading')?.remove();
         }
-
-    } catch (err) {
-        console.error('Fetch error:', err);
-        if (badge) badge.innerHTML = `Offline ❌`;
-        alert('Data load nahi hua. Internet check karein.');
-    }
+        if (duesResult.status === 'rejected') failed.push('Due summary');
+        if (failed.length) {
+            status.textContent = failed.join(' aur ') + ' refresh nahi hui. Retry karein.';
+            badge.textContent = '↻ Retry';
+        } else {
+            badge.textContent = '↻ ' + new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+        }
+    }).finally(() => {
+        badge.disabled = false;
+        syncInFlight = null;
+    });
+    return syncInFlight;
 }
 
 async function manualSync() {
@@ -130,8 +142,6 @@ function updateDashboard() {
     const dueLabel = document.getElementById('dueThisMonthLabel');
     if (dueLabel) dueLabel.innerText = monthName ? `Due in ${monthName}` : 'Due This Month';
     const el = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
-    el('totalLoansCount', directory.count);
-    el('totalAmountSum', '₹' + directory.total.toLocaleString('en-IN'));
     el('dueThisMonthSum', '₹' + Number(month.amount || 0).toLocaleString('en-IN'));
     el('publicOverdueSum', '₹' + Number(overdue.amount || 0).toLocaleString('en-IN'));
     el('publicOverdueCount', `${Number(overdue.count || 0)} EMI`);
@@ -141,8 +151,7 @@ function updateDashboard() {
     const todayBadge = document.getElementById('todayDueBadge');
     if (todayBadge) {
         const parts = [];
-        if (Number(overdue.amount || 0) > 0) parts.push(`🔴 Overdue: ₹${Number(overdue.amount).toLocaleString('en-IN')}`);
-        if (Number(today.amount || 0) > 0) parts.push(`🔔 Aaj Due: ₹${Number(today.amount).toLocaleString('en-IN')}`);
+        if (Number(today.amount || 0) > 0) parts.push(`Aaj due: ₹${Number(today.amount).toLocaleString('en-IN')}`);
         todayBadge.innerText = parts.join('   •   ');
         todayBadge.style.display = parts.length ? 'block' : 'none';
     }
@@ -189,6 +198,12 @@ function clearOpenProfile() {
 }
 
 function switchTab(tab) {
+    const search = document.getElementById('searchInput');
+    searchByTab[currentTab] = search.value;
+    search.value = searchByTab[tab];
+    search.placeholder = tab === 'month' ? 'Mahina ya saal dhoondhein…' : 'Apna naam dhoondhein…';
+    search.setAttribute('aria-label', tab === 'month' ? 'Mahina ya saal' : 'Borrower ka naam');
+    document.querySelector('.directory-heading').textContent = tab === 'month' ? 'Mahine ka hisaab' : 'Apna khata';
     currentTab = tab;
     clearOpenProfile();
     document.body.classList.remove('public-detail-active');
@@ -239,7 +254,9 @@ function profileButton(person) {
     button.type = 'button';
     button.dataset.profileId = person.id;
     button.className = 'folder old-folder-card';
-    button.innerHTML = `<div class="old-folder-title">${publicEscapeHtml(person.name)}</div><small>Khata kholein <b aria-hidden="true">›</b></small>`;
+    const initials = person.name.trim().split(/\s+/u).slice(0, 2).map(word => Array.from(word)[0]).join('');
+    button.innerHTML = `<i class="profile-initials" aria-hidden="true">${publicEscapeHtml(initials)}</i><div class="old-folder-title">${publicEscapeHtml(person.name)}</div><span class="card-arrow" aria-hidden="true">›</span>`;
+    button.setAttribute('aria-label', person.name + ' ka khata kholein');
     button.onclick = () => askForMobile(person);
     return button;
 }
@@ -364,7 +381,13 @@ function renderEmiItems(emis) {
 // MONTH VIEW
 // ==========================================
 function renderMonthFolders() {
-    const monthData = Object.fromEntries(directory.months.map(m => [m.key, m]));
+    const terms = document.getElementById('searchInput').value.toUpperCase().trim().split(/\s+/);
+    const monthData = Object.fromEntries(directory.months.filter(month => {
+        const index = monthOrder.indexOf(month.month);
+        const fullName = index < 0 ? '' : new Date(Date.UTC(2000, index, 1)).toLocaleString('en-IN', { month:'long', timeZone:'UTC' });
+        const label = (month.key + ' ' + fullName).toUpperCase();
+        return terms.every(term => label.includes(term));
+    }).map(month => [month.key, month]));
     const monthViewDiv = document.getElementById('monthView');
     monthViewDiv.innerHTML = '';
 
@@ -427,6 +450,11 @@ function goBackToMonths() {
 function handleSearch() {
     const query = document.getElementById('searchInput').value.toUpperCase().trim();
     const sortMode = document.getElementById('sortSelect').value;
+    if (!directoryLoaded) return;
+    if (currentTab === 'month') {
+        renderMonthFolders();
+        return;
+    }
     if (currentTab === 'folder') {
         if (currentOpenFolder) {
             clearOpenProfile();

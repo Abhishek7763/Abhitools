@@ -2028,8 +2028,7 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
 body.dark-mode #khataDialog { color-scheme: dark; background: #182635; color: #edf4ff; border-color: #455668; }
 
 .public-page .directory-heading { margin: 1.25rem 0 .65rem; text-align: left; font-size: clamp(1.35rem, 4vw, 2rem); letter-spacing: -.025em; }
-#portfolioSummary, #khataPayments { margin: 18px 0; padding: 14px 16px; border: 1px solid #8197ad55; border-radius: 16px; }
-#portfolioSummary summary { cursor: pointer; font-weight: 650; min-height: 44px; align-content: center; }
+#khataPayments { margin: 18px 0; padding: 14px 16px; border: 1px solid #8197ad55; border-radius: 16px; }
 .public-detail-active :is(.directory-heading,#portfolioSummary) { display: none; }
 .payment-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid #8197ad44; }
 .payment-line small { display: block; margin-top: 4px; }
@@ -2051,3 +2050,46 @@ body.dark-mode #khataDialog { color-scheme: dark; background: #182635; color: #e
 @media (prefers-reduced-motion: reduce) {
     .public-page *, .public-page *::before, .public-page *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Customer home */
+body.public-page { --ink: #172f49; --surface: #fff; --edge: #d6e1eb; background-color: #f3f6fa; color: var(--ink); }
+body.public-page.dark-mode { --ink: #e6eff9; --surface: #19293c; --edge: #34475d; background-color: #101c2a; }
+.brand-bar, .brand-identity, .brand-actions, .portfolio-heading { display: flex; align-items: center; gap: 9px; }
+.brand-bar { justify-content: space-between; gap: 6px; padding: 5px 0 12px; }
+.brand-identity b { font-size: clamp(.92rem, 3.8vw, 1.3rem); line-height: 1.15; letter-spacing: -.035em; }
+.brand-mark { background: #185b87; border-radius: 9px; color: white; font-size: 21px; font-weight: 800; padding: 3px 9px; }
+.brand-actions { flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.brand-actions button { border: 1px solid var(--edge); background: var(--surface); color: var(--ink); border-radius: 9px; min-height: 40px; padding: 4px 8px; font: inherit; font-size: .8rem; cursor: pointer; }
+#portfolioSummary { padding: clamp(13px,2vw,24px); border-radius: 19px; color: white; background: linear-gradient(118deg,#132d4e,#164b69); box-shadow: 0 5px 18px #14334b20; }
+.portfolio-heading { justify-content: space-between; margin-bottom: 8px; }
+#portfolioTitle { margin: 0; color: #e9f3ff; font-size: 1.05rem; text-align: left; letter-spacing: -.02em; }
+#portfolioSummary #lastUpdatedBadge { display: inline-block; border: 1px solid #ffffff38; border-radius: 8px; color: #f2f8ff; background: transparent; min-height: 36px; padding: 4px 9px; cursor: pointer; font-size: .75rem !important; font-variant-numeric: tabular-nums; }
+.public-page #portfolioSummary #dashboard { margin: 0 !important; padding: 0 !important; gap: 6px; grid-template-columns: repeat(4,minmax(0,1fr)); background: transparent; box-shadow: none; }
+.public-page #portfolioSummary #dashboard .dash-box { text-align: left; padding: 9px 10px !important; background: #ffffff0e; color: #fff; }
+.public-page #portfolioSummary #dashboard :is(.principal,.active-count) { grid-column: span 2; background: transparent !important; padding: 4px 0 12px !important; }
+.public-page #portfolioSummary #dashboard .active-count { text-align: right; }
+.public-page #portfolioSummary #dashboard .dash-box h4 { color: #c4d9eb; min-height: 0; white-space: normal !important; overflow: visible; display: block !important; text-align: inherit; font-size: 12px !important; }
+.public-page #portfolioSummary .dash-box h3 { color: #fff; font-size: clamp(16px,2.4vw,24px); overflow-wrap: anywhere; }
+.public-page #portfolioSummary #dashboard .principal h3 { font-size: clamp(25px,5vw,42px) !important; letter-spacing: -.04em; }
+.public-page #portfolioSummary .overdue h3 { color: #ffd4a3; }
+#portfolioSummary #todayDueBadge { margin-top: 10px; font-size: 13px; color: #fff2cf; }
+.public-page .directory-heading { color: var(--ink); margin: 18px 0 8px; font-size: 1.3rem; }
+body.public-page:not(.public-detail-active) .public-search-toolbar { display: grid !important; grid-template-columns: minmax(0,1fr) auto auto; gap: 6px; }
+.public-page .public-search-toolbar :is(#sortSelect,#searchInput) { width: 100%; margin: 0; box-sizing: border-box; min-height: 44px; border: 1px solid var(--edge); border-radius: 10px; color: var(--ink); background-color: var(--surface); }
+.public-page .public-search-toolbar #searchInput { padding: 9px 14px; font-size: 16px; }
+body.public-page #folderView .old-folder-card, .public-page #monthDateList .old-folder-card { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; text-align: left; border: 1px solid var(--edge); background: var(--surface); }
+.profile-initials { display: grid; place-items: center; min-width: 34px; height: 34px; border-radius: 10px; background: #ddecf7; color: #245a80; font-style: normal; font-size: 13px; font-weight: 740; }
+.old-folder-card:nth-child(3n+2) .profile-initials { background: #d9efe7; color: #216752; }
+.old-folder-card:nth-child(3n) .profile-initials { background: #e8e3f5; color: #594879; }
+body.public-page #folderView.grid-view .old-folder-card { display: flex; flex-direction: column; justify-content: center; text-align: center; border: 1px solid var(--edge); }
+.grid-view .card-arrow { display: none; }
+@media (max-width: 600px) {
+    .public-page #portfolioSummary #dashboard { grid-template-columns: repeat(2,minmax(0,1fr)); }
+    .public-page #portfolioSummary #dashboard :is(.principal,.active-count) { grid-column: span 1; }
+    body.public-page:not(.public-detail-active) .public-search-toolbar { grid-template-columns: minmax(0,1fr) auto !important; }
+    .public-search-toolbar #searchInput { grid-column: 1/-1; }
+}
+@media print { .brand-bar, #portfolioSummary { display: none !important; } }
+
+#syncStatus { margin: 8px 0 0; color: #ffdfae; font-size: .85rem; }
+#syncStatus:empty { display: none; }
