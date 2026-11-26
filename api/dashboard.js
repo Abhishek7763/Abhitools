@@ -11,8 +11,6 @@ import settingsHandler from '../server_routes/settings.js';
 import followupsHandler from '../server_routes/followups.js';
 import upiPaymentsHandler from '../server_routes/upi_payments.js';
 
-import privateLedger from '../server_routes/private_ledger.js';
-
 const TIME_ZONE = 'Asia/Kolkata';
 
 function businessDate() {
@@ -47,7 +45,6 @@ function safeInt(value) {
 
 export default async function handler(req, res) {
     const mode = String(req.query?.mode || '').toLowerCase();
-    if (mode === 'private-ledger') return privateLedger(req, res);
     if (mode === 'calendar') return calendarHandler(req, res);
     if (mode === 'search') return searchHandler(req, res);
     if (mode === 'activity') return activityHandler(req, res);

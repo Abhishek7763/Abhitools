@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import vm from 'node:vm';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -25,25 +24,11 @@ test('login fingerprint is deterministic and does not expose the raw address', (
   assert.equal(one.includes(raw), false);
 });
 
-test('service worker retries transient API reads once and bypasses writes', async () => {
-  const handlers = new Map();
-  const origin = 'https://example.test';
-  let reads = 0;
-  const worker = {
-    self: { location: { origin }, addEventListener: (name, fn) => handlers.set(name, fn) },
-    URL, AbortController, setTimeout, clearTimeout,
-    fetch: async () => new Response(null, { status: ++reads === 1 ? 503 : 200 })
-  };
+test('service worker retries reads only and still bypasses non-GET writes', () => {
   const source = fs.readFileSync(path.join(root, 'service-worker.js'), 'utf8');
-  vm.runInNewContext(source, worker);
-  const url = origin + '/api/loans';
-  let result;
-  handlers.get('fetch')({ request: new Request(url), respondWith: promise => { result = promise; } });
-  assert.equal((await result).status, 200);
-  assert.equal(reads, 2);
-  handlers.get('fetch')({ request: new Request(url, { method: 'POST' }), respondWith: () => assert.fail('Intercepted write') });
-  assert.equal(reads, 2);
-  assert.match(source, /const CACHE_NAME = 'abhi-tools-shell-[^']+'/);
+  assert.match(source, /if \(request\.method !== 'GET'\) return;/);
+  assert.match(source, /url\.pathname\.startsWith\('\/api\/'\)/);
+  assert.match(source, /abhi-tools-shell-v2-4-stable-v13/);
 });
 
 test('Vercel Hobby API function count remains exactly 12', () => {

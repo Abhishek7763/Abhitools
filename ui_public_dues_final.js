@@ -79,6 +79,19 @@
         return row.parts.month === 'UNK' ? String(day) : `${day} ${row.parts.month}`;
     }
 
+    async function fetchFreshLoans() {
+        const response = await fetch('/api/loans?dues_refresh=1', {
+            method:'GET',
+            cache:'no-store',
+            credentials:'same-origin',
+            headers:{ Accept:'application/json' }
+        });
+        if (!response.ok) throw new Error(`Loan API ${response.status}`);
+        const data = await response.json();
+        if (!Array.isArray(data)) throw new Error('Loan API response invalid');
+        return data;
+    }
+
     function currentLoans() {
         return typeof loans !== 'undefined' && Array.isArray(loans) ? loans : [];
     }
@@ -330,7 +343,7 @@
 
         const body = overlay.querySelector('.abhi-dues-body');
         try {
-            const fresh = currentLoans();
+            const fresh = await fetchFreshLoans();
             if (!document.body.contains(overlay)) return;
             const groups = buildGroups(fresh, borrowerName);
             body.innerHTML = renderMonths(groups);

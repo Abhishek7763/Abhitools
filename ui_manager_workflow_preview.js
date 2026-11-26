@@ -17,7 +17,7 @@ function enhanceBorrower(){
  const p=ls.flatMap(l=>(l.emis||[]).map(e=>({l,e,d:days(e)}))).filter(x=>rem(x.e)>0).sort((a,b)=>a.d-b.d)[0];
  let b=document.getElementById('mgrBorrower');
  if(!b){b=document.createElement('div');b.id='mgrBorrower';b.className='mgr-borrower';h.insertAdjacentElement('afterend',b)}
- b.innerHTML=`<div><small>Kul baaki</small><b>${M(r)}</b></div><div><small>${p && p.d < 0 ? 'Overdue EMI' : 'Agli EMI'}</small><b>${p?M(rem(p.e)):'₹0'}</b><span>${p?(iso(p.e).match(/^\d{4}-\d{2}-\d{2}$/)?new Date(iso(p.e)).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}):'Tareekh baaki hai'):'Koi EMI baaki nahi'}</span></div><div><small>Active Loans</small><b>${ls.length}</b></div>`;
+ b.innerHTML=`<div><small>EMI Remaining</small><b>${M(r)}</b></div><div><small>Next Due</small><b>${p?M(rem(p.e)):'₹0'}</b><span>${p?(p.d===0?'Today':p.d===1?'Tomorrow':p.d>1?p.d+' days left':Math.abs(p.d)+' days overdue'):'All paid'}</span></div><div><small>Active Loans</small><b>${ls.length}</b></div>`;
 }
 function monthCardAmount(card){
  const match=String(card?.textContent||'').match(/Total\s*:\s*₹\s*([\d,]+(?:\.\d+)?)/i);
@@ -30,7 +30,7 @@ function sortMonthCards(){
  const mode=document.getElementById('sortSelect')?.value||'name';
  if(mode==='highest')cards.sort((a,b)=>monthCardAmount(b)-monthCardAmount(a));
  else if(mode==='lowest')cards.sort((a,b)=>monthCardAmount(a)-monthCardAmount(b));
- else cards.sort((a,b)=>((+a.dataset.monthOriginalIndex||0)-(+b.dataset.monthOriginalIndex||0))*(mode==='reverse'?-1:1));
+ else cards.sort((a,b)=>(+a.dataset.monthOriginalIndex||0)-(+b.dataset.monthOriginalIndex||0));
  const frag=document.createDocumentFragment();
  cards.forEach(card=>frag.appendChild(card));
  view.appendChild(frag);
@@ -50,8 +50,6 @@ function syncBrowseControls({sortMonth=false}={}){
  if(search)search.style.display='flex';
  if(viewControls)viewControls.style.display='flex';
  if(first)first.textContent=monthMode?'📅 Sort by Month':'🔤 Sort by Name';
- const reverse=sort?.querySelector('option[value="reverse"]');
- if(reverse)reverse.textContent=monthMode?'Latest first':'Z–A';
  if(monthMode){
    applyMonthLayout();
    if(sortMonth)sortMonthCards();
@@ -96,6 +94,8 @@ function install(){
  if(typeof o==='function'&&!o.__mgr){const w=function(...a){const r=o.apply(this,a);requestAnimationFrame(enhanceBorrower);return r};w.__mgr=1;window.openFolder=w}
  const sw=window.switchTab;
  if(typeof sw==='function'&&!sw.__mgrBrowse){const w=function(...a){const r=sw.apply(this,a);requestAnimationFrame(()=>syncBrowseControls({sortMonth:currentTab==='month'}));return r};w.__mgrBrowse=1;window.switchTab=w}
+ const hs=window.handleSearch;
+ if(typeof hs==='function'&&!hs.__mgrBrowse){const w=function(...a){if(typeof currentTab!=='undefined'&&currentTab==='month'){sortMonthCards();return}return hs.apply(this,a)};w.__mgrBrowse=1;window.handleSearch=w}
  const tl=window.toggleLayout;
  if(typeof tl==='function'&&!tl.__mgrBrowse){const w=function(...a){
    if(typeof currentTab!=='undefined'&&currentTab==='month'){

@@ -128,56 +128,18 @@ async function syncExistingEmis(loanId, incoming) {
     }
 }
 
-function mobileDigits(value) {
-    return String(value ?? '').trim().replace(/[\s()-]/g, '').match(/^(?:\+?91|0)?(\d{10})$/)?.[1];
-}
-
-async function publicDirectory() {
-    const { data } = await supabaseRequest('loans?deleted_at=is.null&borrowers.deleted_at=is.null&select=amount,status,borrowers!inner(id,name),emis(due_month,due_year,amount,paid_amount)&order=created_at.desc');
-    const people = new Map();
-    const months = new Map();
-    let count = 0, total = 0;
-    for (const loan of data || []) {
-        const person = loan.borrowers;
-        if (loan.status === 'active') {
-            people.set(person.id, person);
-            count++;
-            total += Number(loan.amount) || 0;
-        }
-        for (const emi of loan.emis || []) {
-            const key = (emi.due_month || 'Unknown') + ' ' + (emi.due_year || 'Year not set');
-            if (!months.has(key)) months.set(key, { key, month: emi.due_month, year: emi.due_year, total: 0, collected: 0, people: new Map() });
-            const bucket = months.get(key);
-            bucket.total += Number(emi.amount) || 0;
-            bucket.collected += Math.min(Number(emi.amount) || 0, Math.max(0, Number(emi.paid_amount) || 0));
-            bucket.people.set(person.id, person);
-        }
-    }
-    return { people: [...people.values()], count, total, months: [...months.values()].map(m => ({ ...m, people: [...m.people.values()] })) };
-}
-
 export default async function handler(req, res) {
     noStore(res);
     const { action } = req.query || {};
     const isAdmin = isValidAdminSession(req);
 
     try {
-        if (req.method === 'GET' && (action === 'directory' || (!action && !isAdmin))) {
-            return res.status(200).json(await publicDirectory());
-        }
-        if (req.method === 'GET' && !action && isAdmin) {
-            const { data } = await supabaseRequest('loans?deleted_at=is.null&select=*,borrowers(id,name,phone,whatsapp,address,photo_url),emis(*),loan_settlements(*)&order=created_at.desc');
-            return res.status(200).json(data || []);
-        }
-        if (req.method === 'POST' && action === 'public_khata') {
-            const id = req.body?.borrower_id;
-            const digits = mobileDigits(req.body?.phone);
-            if (!UUID_RE.test(id || '') || !digits) return res.status(400).json({ error: 'Profile aur mobile number check karein.' });
-            const { data: profiles } = await supabaseRequest(`borrowers?id=eq.${id}&deleted_at=is.null&select=phone`);
-            if (mobileDigits(profiles?.[0]?.phone) !== digits) {
-                return res.status(403).json({ error: 'Number is profile se match nahi hua. Admin se saved number check karein.' });
-            }
-            const { data } = await supabaseRequest(`loans?borrower_id=eq.${id}&deleted_at=is.null&borrowers.deleted_at=is.null&select=id,loan_code,amount,status,loan_year,borrowers!inner(name),emis(installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount,emi_payments(amount,payment_date))&emis.emi_payments.reversed_at=is.null&order=created_at.desc&emis.order=installment_number.asc`);
+        // Public read-only endpoint: preserve the existing public dashboard, but expose no phone/address/IDs.
+        if (req.method === 'GET' && !action) {
+            const select = isAdmin
+                ? '*,borrowers(id,name,phone,whatsapp,address,photo_url),emis(*),loan_settlements(*)&order=created_at.desc'
+                : 'id,loan_code,amount,status,loan_year,borrowers(name),emis(installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount)&order=created_at.desc';
+            const { data } = await supabaseRequest(`loans?deleted_at=is.null&select=${select}`);
             return res.status(200).json(data || []);
         }
 
