@@ -30,6 +30,25 @@
         </div>
     </div>
 
+    <details id="privateLedger" class="no-print">
+        <summary>🔒 Abhishek Private · Udhar Khata</summary>
+        <form id="privateUnlock">
+            <label>Private PIN <input name="pin" type="password" required autocomplete="off"></label>
+            <button class="btn btn-view">Khata kholein</button>
+        </form>
+        <div id="privateBook" hidden>
+            <button id="privateLock" type="button" class="btn btn-secondary">Lock karein</button>
+            <form id="privateEntry">
+                <label>Naam <input name="person" maxlength="100" required></label>
+                <label>Len-den <select name="direction"><option value="given">Maine diya</option><option value="received">Mujhe mila</option></select></label>
+                <label>Rakam ₹ <input type="number" name="amount" min="0.01" max="9999999999.99" step="0.01" required></label>
+                <button class="btn btn-success">Entry save karein</button>
+            </form>
+            <h4>Pichhli 50 entries</h4>
+            <ul id="privateRows"></ul>
+        </div>
+        <p id="privateStatus" role="status"></p>
+    </details>
     <!-- Dashboard -->
     <div class="dashboard no-print" id="dashboard" style="background:linear-gradient(135deg,#ea4335 0%,#b31412 100%);">
         <div class="dash-box">
@@ -1315,6 +1334,7 @@
         </div>
     </div>
 
+    <script src="ui_private_ledger.js"></script>
     <script src="pwa.js"></script>
     <script src="admin_script.js"></script>
 </body>
