@@ -182,6 +182,8 @@ function clearOpenProfile() {
     loans = [];
     document.getElementById('loanList').replaceChildren();
     document.getElementById('mgrBorrower')?.remove();
+    document.getElementById('khataPayments').replaceChildren();
+    document.getElementById('khataPayments').hidden = true;
     currentOpenFolder = null;
     document.getElementById('currentFolderName').replaceChildren();
 }
@@ -235,8 +237,9 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
 function profileButton(person) {
     const button = document.createElement('button');
     button.type = 'button';
+    button.dataset.profileId = person.id;
     button.className = 'folder old-folder-card';
-    button.innerHTML = `<div class="old-folder-title">📁 ${publicEscapeHtml(person.name)}</div><small>Khata kholein</small>`;
+    button.innerHTML = `<div class="old-folder-title">${publicEscapeHtml(person.name)}</div><small>Khata kholein <b aria-hidden="true">›</b></small>`;
     button.onclick = () => askForMobile(person);
     return button;
 }
@@ -265,17 +268,24 @@ function openFolder(name) {
     `;
 
     renderLoanList(name);
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    renderPaymentHistory(name);
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }));
 }
 
 function goBackToFolders() {
-    clearOpenProfile();
-    document.body.classList.remove('public-detail-active');
-    document.getElementById('detailView').style.display = 'none';
-    document.getElementById('folderView').style.display = 'block';
-    document.getElementById('viewControlsContainer').style.display = 'flex';
-    handleSearch();
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    const origin = returnPosition;
+    switchTab(origin?.tab || 'folder');
+    if (origin?.tab === 'month') {
+        const month = directory.months.find(item => item.key === origin.month);
+        if (month) openMonthDetail(month.key, month);
+    }
+    requestAnimationFrame(() => {
+        const list = document.getElementById(origin?.tab === 'month' ? 'monthDateList' : 'folderView');
+        const button = [...list.querySelectorAll('[data-profile-id]')].find(item => item.dataset.profileId === origin?.id);
+        window.scrollTo({ top: origin?.y || 0, behavior: 'instant' });
+        button?.focus({ preventScroll: true });
+        button?.classList.add('profile-returned');
+    });
 }
 
 // ==========================================
@@ -390,6 +400,7 @@ function renderMonthFolders() {
 }
 
 function openMonthDetail(key, monthObj) {
+    document.getElementById('monthDetailView').dataset.key = key;
     document.body.classList.add('public-detail-active');
     document.getElementById('monthView').style.display = 'none';
     document.getElementById('monthDetailView').style.display = 'block';
@@ -400,7 +411,7 @@ function openMonthDetail(key, monthObj) {
     list.innerHTML = '';
 
     for (const person of monthObj.people) list.appendChild(profileButton(person));
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'instant' }));
 }
 
 function goBackToMonths() {
@@ -443,7 +454,7 @@ function printStatement() {
 // ==========================================
 function showContactPage() {
     document.getElementById('contactPageContainer').style.display = 'block';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
 }
 
 function hideContactPage() {
@@ -451,3 +462,56 @@ function hideContactPage() {
 }
 
 window.onload = initApp;
+
+function renderPaymentHistory(name) {
+    const panel = document.getElementById('khataPayments');
+    const entries = [];
+    let balance = 0;
+    for (const loan of loans) {
+        for (const emi of loan.emis || []) {
+            if (loan.status === 'active') balance += publicEmiRemaining(emi);
+            for (const payment of emi.emi_payments || []) {
+                entries.push({ ...payment, code: loan.loan_code, installment: emi.installment_number });
+            }
+        }
+    }
+    entries.sort((a, b) => b.payment_date.localeCompare(a.payment_date));
+    const heading = document.createElement('h3');
+    heading.textContent = 'Payment history';
+    panel.replaceChildren(heading);
+    panel.hidden = false;
+    if (!entries.length) {
+        const empty = document.createElement('p');
+        empty.textContent = 'Abhi koi payment entry nahi hai.';
+        panel.append(empty);
+    }
+    for (const entry of entries) {
+        const amount = '₹' + Number(entry.amount).toLocaleString('en-IN');
+        const date = new Date(entry.payment_date).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric', timeZone:'UTC' });
+        const row = document.createElement('div');
+        row.className = 'payment-line';
+        const info = document.createElement('div');
+        const title = document.createElement('strong');
+        title.textContent = amount + ' jama hue';
+        const meta = document.createElement('small');
+        meta.textContent = date + ' · ' + entry.code + ' · EMI ' + entry.installment;
+        info.append(title, meta);
+        const share = document.createElement('button');
+        share.type = 'button';
+        share.textContent = navigator.share ? 'Receipt share' : 'Receipt copy';
+        share.onclick = async () => {
+            const text = ['Abhishek Management', name, title.textContent, meta.textContent, 'Aaj ka kul baaki: ₹' + balance.toLocaleString('en-IN')].join('\n');
+            try {
+                if (navigator.share) await navigator.share({ text });
+                else {
+                    await navigator.clipboard.writeText(text);
+                    share.textContent = 'Copy ho gayi';
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') window.prompt('Receipt copy karein', text);
+            }
+        };
+        row.append(info, share);
+        panel.append(row);
+    }
+}

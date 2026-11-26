@@ -2026,3 +2026,28 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
 #khataStatus:empty { display: none; }
 #khataDialog :focus-visible, .old-folder-card:focus-visible { outline: 3px solid #3984d7; outline-offset: 2px; }
 body.dark-mode #khataDialog { color-scheme: dark; background: #182635; color: #edf4ff; border-color: #455668; }
+
+.public-page .directory-heading { margin: 1.25rem 0 .65rem; text-align: left; font-size: clamp(1.35rem, 4vw, 2rem); letter-spacing: -.025em; }
+#portfolioSummary, #khataPayments { margin: 18px 0; padding: 14px 16px; border: 1px solid #8197ad55; border-radius: 16px; }
+#portfolioSummary summary { cursor: pointer; font-weight: 650; min-height: 44px; align-content: center; }
+.public-detail-active :is(.directory-heading,#portfolioSummary) { display: none; }
+.payment-line { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid #8197ad44; }
+.payment-line small { display: block; margin-top: 4px; }
+.payment-line button { min-height: 44px; border: 1px solid #8197ad66; background: transparent; color: inherit; border-radius: 10px; padding-inline: 12px; }
+#khataPhone[aria-invalid="true"] { border-color: #c84a44; }
+#khataForm button:disabled { opacity: .72; cursor: progress; }
+.directory-loading { min-height: 78px; display: grid; align-content: center; }
+@media (max-width: 640px) {
+    #khataDialog { margin: auto auto 0; width: 100%; max-width: 100%; border-radius: 22px 22px 0 0; padding-bottom: max(1.25rem,env(safe-area-inset-bottom)); }
+}
+@media (prefers-reduced-motion: no-preference) {
+    .public-page .old-folder-card,.public-page .btn { transition: transform 150ms ease, box-shadow 180ms ease; }
+    .public-page .old-folder-card:active,.public-page .btn:active { transform: scale(.975); }
+    #khataDialog[open], .public-page #detailView[style*="block"] { animation: khata-enter 190ms ease-out both; }
+    .public-page .profile-returned { animation: khata-return 500ms ease-out; }
+    @keyframes khata-enter { from { opacity: .25; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes khata-return { from { outline: 3px solid #3984d7; } to { outline-color: transparent; } }
+}
+@media (prefers-reduced-motion: reduce) {
+    .public-page *, .public-page *::before, .public-page *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

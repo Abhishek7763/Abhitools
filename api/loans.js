@@ -177,7 +177,7 @@ export default async function handler(req, res) {
             if (mobileDigits(profiles?.[0]?.phone) !== digits) {
                 return res.status(403).json({ error: 'Number is profile se match nahi hua. Admin se saved number check karein.' });
             }
-            const { data } = await supabaseRequest(`loans?borrower_id=eq.${id}&deleted_at=is.null&borrowers.deleted_at=is.null&select=id,loan_code,amount,status,loan_year,borrowers!inner(name),emis(installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount)&order=created_at.desc&emis.order=installment_number.asc`);
+            const { data } = await supabaseRequest(`loans?borrower_id=eq.${id}&deleted_at=is.null&borrowers.deleted_at=is.null&select=id,loan_code,amount,status,loan_year,borrowers!inner(name),emis(installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount,emi_payments(amount,payment_date))&emis.emi_payments.reversed_at=is.null&order=created_at.desc&emis.order=installment_number.asc`);
             return res.status(200).json(data || []);
         }
 

@@ -17,7 +17,7 @@ function enhanceBorrower(){
  const p=ls.flatMap(l=>(l.emis||[]).map(e=>({l,e,d:days(e)}))).filter(x=>rem(x.e)>0).sort((a,b)=>a.d-b.d)[0];
  let b=document.getElementById('mgrBorrower');
  if(!b){b=document.createElement('div');b.id='mgrBorrower';b.className='mgr-borrower';h.insertAdjacentElement('afterend',b)}
- b.innerHTML=`<div><small>EMI Remaining</small><b>${M(r)}</b></div><div><small>Next Due</small><b>${p?M(rem(p.e)):'₹0'}</b><span>${p?(p.d===0?'Today':p.d===1?'Tomorrow':p.d>1?p.d+' days left':Math.abs(p.d)+' days overdue'):'All paid'}</span></div><div><small>Active Loans</small><b>${ls.length}</b></div>`;
+ b.innerHTML=`<div><small>Kul baaki</small><b>${M(r)}</b></div><div><small>${p && p.d < 0 ? 'Overdue EMI' : 'Agli EMI'}</small><b>${p?M(rem(p.e)):'₹0'}</b><span>${p?(iso(p.e).match(/^\d{4}-\d{2}-\d{2}$/)?new Date(iso(p.e)).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric',timeZone:'UTC'}):'Tareekh baaki hai'):'Koi EMI baaki nahi'}</span></div><div><small>Active Loans</small><b>${ls.length}</b></div>`;
 }
 function monthCardAmount(card){
  const match=String(card?.textContent||'').match(/Total\s*:\s*₹\s*([\d,]+(?:\.\d+)?)/i);
