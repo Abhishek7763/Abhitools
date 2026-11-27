@@ -9,7 +9,10 @@
 // ==========================================
 // GLOBAL VARIABLES
 // ==========================================
-let loans = [];
+let loans = []; // Details of the currently verified account only.
+let directory = { folders:[], months:[] };
+let directorySearch = 0;
+let searchTimer;
 let currentTab = 'folder';
 let currentOpenFolder = null;
 let isGridView = false;
@@ -62,18 +65,26 @@ async function fetchFromCloud() {
         if (badge) badge.innerHTML = `<span class="spin-icon">🔄</span><br>Updating ✨`;
 
         // Refresh due/overdue statuses first on the server, then fetch the loan list.
-        const dueResponse = await fetch('/api/due', { cache: 'no-store' });
+        const dueResponse = await fetch('/api/due?view=public', { cache: 'no-store' });
         if (!dueResponse.ok) throw new Error('Due API error');
         publicDueData = await dueResponse.json();
 
-        const response = await fetch('/api/loans', { cache: 'no-store' });
+        const response = await fetch('/api/loans?action=directory', { cache: 'no-store' });
         if (!response.ok) throw new Error('API error');
-        loans = await response.json();
+        directory = await response.json();
 
         updateDashboard();
-        renderFolders();
+        if (!currentOpenFolder) refreshFolderSearch();
         if (currentTab === 'month') renderMonthFolders();
-        if (currentOpenFolder) openFolder(currentOpenFolder);
+        if (accountAccess) {
+            const access = accountAccess;
+            const details = await fetchVerifiedLoans();
+            if (accountAccess === access) {
+                loans = details;
+                if (currentOpenFolder) openFolder(currentOpenFolder);
+                else if (access.month) showVerifiedMonth(access.month);
+            }
+        }
 
         if (badge) {
             badge.innerHTML = `Updated! ✅🥰`;
@@ -119,7 +130,7 @@ function publicEmiPastDue(emi) {
 
 function updateDashboard() {
     let totalAmount = 0;
-    loans.forEach(loan => { if (loan.status === 'active') totalAmount += parseInt(loan.amount) || 0; });
+    for (const f of directory.folders) totalAmount += Number(f.sum);
 
     const summary = publicDueData?.summary || {};
     const month = summary.month || { amount:0, count:0 };
@@ -132,7 +143,7 @@ function updateDashboard() {
     const dueLabel = document.getElementById('dueThisMonthLabel');
     if (dueLabel) dueLabel.innerText = monthName ? `Due in ${monthName}` : 'Due This Month';
     const el = (id, val) => { const e = document.getElementById(id); if (e) e.innerText = val; };
-    el('totalLoansCount', loans.filter(l => l.status === 'active').length);
+    el('totalLoansCount', directory.folders.reduce((count,f) => count + Number(f.count),0));
     el('totalAmountSum', '₹' + totalAmount.toLocaleString('en-IN'));
     el('dueThisMonthSum', '₹' + Number(month.amount || 0).toLocaleString('en-IN'));
     el('publicOverdueSum', '₹' + Number(overdue.amount || 0).toLocaleString('en-IN'));
@@ -181,6 +192,7 @@ function toggleLayout() {
 // TABS
 // ==========================================
 function switchTab(tab) {
+    clearBorrowerAccess();
     currentTab = tab;
     currentOpenFolder = null;
     document.body.classList.remove('public-detail-active');
@@ -214,24 +226,26 @@ function switchTab(tab) {
 // ==========================================
 // FOLDER VIEW
 // ==========================================
-function renderFolders(searchQuery = '', sortMode = 'name') {
-    const folders = activeBorrowerFolders(loans, searchQuery, sortMode);
+function renderFolders(rows = directory.folders, sortMode = 'name') {
+    const folders = [...rows].sort((a,b) => sortMode === 'highest' ? b.sum-a.sum : sortMode === 'lowest' ? a.sum-b.sum : a.name.localeCompare(b.name));
     const folderDiv = document.getElementById('folderView');
     folderDiv.innerHTML = '';
     folders.forEach(f => {
         const name = f.name;
         const folderButton = document.createElement('button');
         const loanLabel = f.count === 1 ? 'Active Loan' : 'Active Loans';
-        const amount = '₹' + f.sum.toLocaleString('en-IN');
+        const amount = '₹' + Number(f.sum).toLocaleString('en-IN');
+        const remaining = '₹' + Number(f.remaining).toLocaleString('en-IN');
         folderButton.type = 'button';
         folderButton.className = 'folder old-folder-card';
-        folderButton.setAttribute('aria-label', `${name}: ${f.count} active loans, total loan amount ${amount}`);
+        folderButton.setAttribute('aria-label', `${name}: ${f.count} active loans, total loan amount ${amount}, abhi baki ${remaining}`);
         folderButton.onclick = () => openFolder(f.key);
         folderButton.innerHTML = `
-            <div class="old-folder-title">📁 ${publicEscapeHtml(name)} · ${publicEscapeHtml(f.loanCode)}</div>
+            <div class="old-folder-title">📁 ${publicEscapeHtml(name)} · ${publicEscapeHtml(f.label)}</div>
             <div class="old-folder-summary">
                 <small>${f.count} ${loanLabel} · Total Loan Amount</small>
                 <strong>${amount}</strong>
+                <div class="folder-balance"><small>Abhi baki</small><b>${remaining}</b></div>
             </div>
         `;
         folderDiv.appendChild(folderButton);
@@ -242,6 +256,11 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
 }
 
 function openFolder(key) {
+    if (!accountAccess || accountAccess.key !== key || Date.now() >= accountAccess.expires) {
+        const folder = directory.folders.find(f => f.key === key);
+        if (folder) requestBorrowerAccess(folder);
+        return;
+    }
     const name = borrowerFolderName(key);
     if (!name) { goBackToFolders(); return; }
     currentOpenFolder = key;
@@ -271,6 +290,7 @@ function openFolder(key) {
 }
 
 function goBackToFolders() {
+    clearBorrowerAccess();
     currentOpenFolder = null;
     document.body.classList.remove('public-detail-active');
     document.getElementById('detailView').style.display = 'none';
@@ -356,18 +376,7 @@ function renderEmiItems(emis) {
 // MONTH VIEW
 // ==========================================
 function renderMonthFolders() {
-    const monthData = {};
-
-    loans.forEach(loan => {
-        (loan.emis || []).forEach(e => {
-            const key = `${e.due_month} ${e.due_year || 'YEAR-NOT-SET'}`;
-            if (!monthData[key]) monthData[key] = { total: 0, collected: 0, items: [], month: e.due_month, year: e.due_year || null };
-            monthData[key].total += parseInt(e.amount) || 0;
-            monthData[key].collected += publicEmiPaid(e);
-            monthData[key].items.push({ ...e, name: loan.borrowers?.name, loan_code: loan.loan_code });
-        });
-    });
-
+    const monthData = Object.fromEntries(directory.months.map(m => [`${m.month} ${m.year || 'YEAR-NOT-SET'}`, m]));
     const monthViewDiv = document.getElementById('monthView');
     monthViewDiv.innerHTML = '';
 
@@ -386,7 +395,7 @@ function renderMonthFolders() {
         monthButton.type = 'button';
         monthButton.className = 'month-folder';
         monthButton.setAttribute('aria-label', `${d.month || ''} ${d.year || 'year not set'}: EMI total ₹${d.total.toLocaleString('en-IN')}, collected ₹${d.collected.toLocaleString('en-IN')}`);
-        monthButton.onclick = () => openMonthDetail(key, d);
+        monthButton.onclick = () => openMonthMembers(key, d);
         monthButton.innerHTML = `
             <div>📅 ${publicEscapeHtml(d.month || '')} ${d.year ? publicEscapeHtml(d.year) : 'Year not set'}</div>
             <div>
@@ -400,6 +409,31 @@ function renderMonthFolders() {
     if (sorted.length === 0) {
         monthViewDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;">Koi EMI schedule nahi mila.</p>';
     }
+}
+
+function openMonthMembers(key,month) {
+    clearBorrowerAccess();
+    document.body.classList.add('public-detail-active');
+    document.getElementById('monthView').style.display = 'none';
+    document.getElementById('monthDetailView').style.display = 'block';
+    document.getElementById('currentMonthName').textContent = key;
+    const list = document.getElementById('monthDateList');
+    list.replaceChildren();
+    for (const member of month.members) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'monthly-item month-account';
+        button.textContent = member.name + '  ›';
+        button.onclick = () => requestBorrowerAccess(member,key);
+        list.append(button);
+    }
+}
+
+function showVerifiedMonth(key) {
+    const items = loans.flatMap(loan => (loan.emis || [])
+        .filter(e => `${e.due_month} ${e.due_year || 'YEAR-NOT-SET'}` === key)
+        .map(e => ({ ...e,name:loan.borrowers.name,loan_code:loan.loan_code })));
+    openMonthDetail(key,{items, total:items.reduce((n,e)=>n+Number(e.amount),0), collected:items.reduce((n,e)=>n+publicEmiPaid(e),0)});
 }
 
 function openMonthDetail(key, monthObj) {
@@ -435,6 +469,7 @@ function openMonthDetail(key, monthObj) {
 }
 
 function goBackToMonths() {
+    clearBorrowerAccess();
     document.body.classList.remove('public-detail-active');
     document.getElementById('monthDetailView').style.display = 'none';
     document.getElementById('monthView').style.display = 'block';
@@ -445,18 +480,26 @@ function goBackToMonths() {
 // SEARCH & PRINT
 // ==========================================
 function handleSearch() {
-    const query = document.getElementById('searchInput').value.toUpperCase().trim();
-    const sortMode = document.getElementById('sortSelect').value;
-    if (currentTab === 'folder') {
-        if (currentOpenFolder) {
-            currentOpenFolder = null;
-            document.body.classList.remove('public-detail-active');
-            document.getElementById('detailView').style.display = 'none';
-            document.getElementById('folderView').style.display = 'block';
-            document.getElementById('viewControlsContainer').style.display = 'flex';
-        }
-        renderFolders(query, sortMode);
-    }
+    if (currentTab !== 'folder') return;
+    if (currentOpenFolder) { goBackToFolders(); return; }
+    refreshFolderSearch();
+}
+
+function refreshFolderSearch() {
+    const sequence = ++directorySearch;
+    clearTimeout(searchTimer);
+    const query = document.getElementById('searchInput').value.trim();
+    const sort = document.getElementById('sortSelect').value;
+    if (!query) { renderFolders(directory.folders,sort); return; }
+    renderFolders(directory.folders.filter(f => (f.name+' '+f.label).toLowerCase().includes(query.toLowerCase())),sort);
+    searchTimer = setTimeout(async () => {
+        try {
+            const response = await fetch('/api/loans?action=directory&q=' + encodeURIComponent(query),{cache:'no-store'});
+            if (!response.ok) return;
+            const data = await response.json();
+            if (directorySearch === sequence) renderFolders(data.folders,sort);
+        } catch { /* Local name matches stay visible while offline. */ }
+    },180);
 }
 
 function printStatement() {

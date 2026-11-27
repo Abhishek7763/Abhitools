@@ -53,8 +53,11 @@
         return publicConfig;
     }
     async function publicJson(url, options = {}) {
-        const response = await fetch(url, { cache:'no-store', ...options });
+        const access = accountAccess;
+        if (!access || Date.now() >= access.expires) throw new Error('Account dobara kholein.');
+        const response = await fetch(url, { cache:'no-store', ...options,headers:{...options.headers,Authorization:'Bearer '+access.token} });
         const data = await response.json().catch(() => ({}));
+        if (accountAccess !== access) throw new Error('Account band ho gaya hai.');
         if (!response.ok) throw new Error(data?.error || `Request failed (${response.status})`);
         return data;
     }
