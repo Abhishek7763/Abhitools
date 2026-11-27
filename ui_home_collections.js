@@ -329,7 +329,7 @@
             ${Number(counts.legacy.count || 0) > 0 ? `<div class="ui-collections-legacy">🧩 ${Number(counts.legacy.count)} legacy EMI date incomplete • ${money(counts.legacy.amount)} remaining. These records are intentionally excluded from automatic overdue/today queues.</div>` : ''}
             <div id="uiCollectionsLoading" class="ui-collections-loading" hidden>Refreshing collection data…</div>
             <div id="uiCollectionsList" class="ui-collections-list"></div>
-            <footer class="ui-collections-footer"><button class="btn btn-warning" onclick="uiSetCollectionsTab('mode')">⚡ Start Collection</button><button class="btn btn-view" onclick="uiHomeCollectionsAction('reminders')">🔔 Reminder Center</button><button class="btn btn-secondary" onclick="uiHomeCollectionsAction('followups')">📋 Follow-up Center</button><button class="btn btn-view" onclick="uiHomeCollectionsAction('calendar')">🗓️ Calendar</button></footer>
+            <footer class="ui-collections-footer"><button class="btn btn-view" onclick="openDailyCollection()">🧮 Cash milan</button><button class="btn btn-warning" onclick="uiSetCollectionsTab('mode')">⚡ Start Collection</button><button class="btn btn-view" onclick="uiHomeCollectionsAction('reminders')">🔔 Reminder Center</button><button class="btn btn-secondary" onclick="uiHomeCollectionsAction('followups')">📋 Follow-up Center</button><button class="btn btn-view" onclick="uiHomeCollectionsAction('calendar')">🗓️ Calendar</button></footer>
         `;
         renderCollectionsBody();
     }

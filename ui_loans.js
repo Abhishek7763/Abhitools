@@ -233,11 +233,11 @@
     }
 
     // Replaces the old full-EMI-in-every-card view with compact loan summaries.
-    renderLoanList = function(nameFilter) {
+    renderLoanList = function(folderKey) {
         const list = document.getElementById('loanList');
         if (!list) return;
         list.innerHTML = '';
-        const matching = loans.filter(loan => String(loan.borrowers?.name || '').toUpperCase() === String(nameFilter || '').toUpperCase());
+        const matching = loans.filter(loan => borrowerFolderKey(loan) === folderKey);
 
         if (!matching.length) {
             list.innerHTML = '<div class="ui-loan-empty">No loans found for this borrower.</div>';
@@ -254,7 +254,7 @@
                 card.className = `card ui-loan-card state-${state.key}`;
                 card.dataset.loanId = loan.id;
                 card.innerHTML = `<div class="ui-loan-card-top">
-                    <div class="ui-loan-card-title"><small>${esc(borrower.name || nameFilter || 'Borrower')}</small><strong>${esc(loan.loan_code || 'Loan')}</strong></div>
+                    <div class="ui-loan-card-title"><small>${esc(borrower.name || 'Borrower')}</small><strong>${esc(loan.loan_code || 'Loan')}</strong></div>
                     <span class="ui-loan-status ${state.key}">${state.label}</span>
                 </div>
                 <div class="ui-loan-card-money">

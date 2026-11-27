@@ -24,7 +24,7 @@ for (const [format, payload] of scenarios) {
     test(format + ' duplicate loan does not contribute EMIs to the retained loan', async t => {
         let applied;
         t.mock.method(globalThis, 'fetch', async (url, options) => {
-            if (url.includes('abhi_import_matches')) return Response.json({ names: [], codes: [] });
+            if (url.includes('abhi_review_import_matches')) return Response.json({ names: [], codes: [], candidates: [] });
             if (url.includes('recycle_bin?')) return Response.json([]);
             assert.ok(url.endsWith('/rpc/abhi_import_with_history'));
             applied = JSON.parse(options.body).p_payload;
@@ -43,3 +43,38 @@ for (const [format, payload] of scenarios) {
         assert.deepEqual(applied.emis.map(e => [e.loan_key,e.amount]), [[applied.loans[0].source_key,90]]);
     });
 }
+
+test('same-name review keeps source identities and rejects missing, wrong and stale decisions', async t => {
+    const rows = [
+        { name:'TEST', id:'ONE', amount:90, phone:'5551234567' },
+        { name:'TEST', id:'TWO', amount:70, father_name:'SECOND' }
+    ];
+    let candidate = [{ id:'existing', name:'TEST', phone_last4:'4455', loans:['OLD'] }];
+    let applied;
+    t.mock.method(globalThis, 'fetch', async (url, options) => {
+        if (url.includes('abhi_review_import_matches')) return Response.json({ names:candidate.map(c=>c.name), codes:[], candidates:candidate });
+        if (url.includes('recycle_bin?')) return Response.json([]);
+        applied = JSON.parse(options.body).p_payload;
+        return Response.json({success:true});
+    });
+    async function run(action, choices, mode='merge') {
+        const req = { method:'POST', headers:{ cookie:'abhi_admin_session='+createAdminSession() }, query:{action},
+            body:{ payload:rows, mode, borrower_choices:choices, confirmReplace:mode==='replace' } };
+        const res = { setHeader(){},status(code){this.code=code;return this;},json(data){this.data=data;} };
+        await handler(req,res);
+        return res;
+    }
+    const preview=(await run('preview')).data;
+    const [one,two]=preview.borrower_groups[0].incoming;
+    assert.equal(one.phone_last4,'4567');
+    assert.equal(two.father,'SECOND');
+    assert.deepEqual(one.loans,['ONE']);
+    assert.equal((await run('apply')).code,409);
+    assert.equal((await run('apply',{[one.key]:'file:'+two.key,[two.key]:'new'})).code,409);
+    assert.equal((await run('apply',{[one.key]:'db:existing',[two.key]:'new'})).code,200);
+    assert.deepEqual(applied.borrowers.map(b=>b.match),[{kind:'existing',id:'existing'},{kind:'new'}]);
+    assert.equal((await run('apply',{[two.key]:'file:'+one.key},'replace')).code,200);
+    assert.deepEqual(applied.borrowers[1].match,{kind:'incoming',key:one.key});
+    candidate=[];
+    assert.equal((await run('apply',{[one.key]:'db:existing',[two.key]:'new'})).code,409);
+});

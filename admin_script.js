@@ -21,6 +21,8 @@ async function ensureAdminSession() {
 }
 
 async function logoutAdmin() {
+    try { sessionStorage.removeItem('abhi.pendingCollections'); } catch {}
+    pendingCollections.clear();
     try {
         await fetch('/api/auth', { method: 'DELETE' });
     } catch (error) {
@@ -41,7 +43,7 @@ async function adminFetch(url, options = {}) {
             const data = await response.json();
             if (data?.error) message = data.error;
         } catch {}
-        throw new Error(message);
+        throw Object.assign(new Error(message), { status: response.status });
     }
     return response;
 }
@@ -464,36 +466,16 @@ function switchTab(tab) {
 // FOLDER VIEW
 // ==========================================
 function renderFolders(searchQuery = '', sortMode = 'name') {
-    const folders = {};
-
-    loans.forEach(loan => {
-        if (loan.status !== 'active') return;
-        const borrower = loan.borrowers;
-        if (!borrower) return;
-        const name = String(borrower.name || 'Unknown').toUpperCase();
-
-        if (searchQuery && !name.includes(searchQuery) && !loan.loan_code?.toUpperCase().includes(searchQuery)) return;
-
-        if (!folders[name]) folders[name] = { count: 0, sum: 0, borrower_id: borrower.id, phone: borrower.phone, whatsapp: borrower.whatsapp };
-        folders[name].count++;
-        folders[name].sum += parseInt(loan.amount) || 0;
-    });
-
+    const folders = activeBorrowerFolders(loans, searchQuery, sortMode);
     const folderDiv = document.getElementById('folderView');
     folderDiv.innerHTML = '';
-
-    let names = Object.keys(folders);
-    if (sortMode === 'highest') names.sort((a, b) => folders[b].sum - folders[a].sum);
-    else if (sortMode === 'lowest') names.sort((a, b) => folders[a].sum - folders[b].sum);
-    else names.sort();
-
-    names.forEach(name => {
-        const f = folders[name];
+    folders.forEach(f => {
+        const name = f.name;
         const div = document.createElement('div');
         div.className = 'folder';
-        div.onclick = () => openFolder(name);
+        div.onclick = () => openFolder(f.key);
         div.innerHTML = `
-            <div>📁 ${escapeHtml(name)}</div>
+            <div>📁 ${escapeHtml(name)} · ${escapeHtml(f.loanCode)}</div>
             <div>
                 <span>${f.count} Loans | ₹${f.sum.toLocaleString('en-IN')}</span>
                 ${f.phone ? `<br><small style="color:#34a853;">📱 ${escapeHtml(f.phone)}</small>` : ''}
@@ -502,20 +484,22 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
         folderDiv.appendChild(div);
     });
 
-    if (names.length === 0) {
+    if (folders.length === 0) {
         folderDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;grid-column:1/-1;">Koi record nahi mila.</p>';
     }
 }
 
-function openFolder(name) {
-    currentOpenFolder = name;
+function openFolder(key) {
+    const name = borrowerFolderName(key);
+    if (!name) { goBackToFolders(); return; }
+    currentOpenFolder = key;
     document.getElementById('folderView').style.display = 'none';
     document.getElementById('detailView').style.display = 'block';
     document.getElementById('viewControlsContainer').style.display = 'none';
 
     let totalAmount = 0, loanCount = 0;
     loans.forEach(loan => {
-        if (String(loan.borrowers?.name || '').toUpperCase() === String(name || '').toUpperCase() && loan.status === 'active') {
+        if (borrowerFolderKey(loan) === key && loan.status === 'active') {
             totalAmount += parseInt(loan.amount) || 0;
             loanCount++;
         }
@@ -529,7 +513,7 @@ function openFolder(name) {
         </span>
     `;
 
-    renderLoanList(name);
+    renderLoanList(key);
 }
 
 function goBackToFolders() {
@@ -632,12 +616,12 @@ async function refreshDueCenter() {
 // ==========================================
 // LOAN CARDS + PHASE 2 PAYMENT MANAGEMENT
 // ==========================================
-function renderLoanList(nameFilter) {
+function renderLoanList(key) {
     const list = document.getElementById('loanList');
     list.innerHTML = '';
 
     loans.forEach(loan => {
-        if (String(loan.borrowers?.name || '').toUpperCase() !== String(nameFilter || '').toUpperCase()) return;
+        if (borrowerFolderKey(loan) !== key) return;
 
         let emiSum = 0, paidSum = 0, overdueSum = 0;
         const emis = loan.emis || [];
@@ -760,8 +744,101 @@ function findEmiContext(emiId) {
     return null;
 }
 
+const pendingCollections = new Map();
+try {
+    for (const entry of JSON.parse(sessionStorage.getItem('abhi.pendingCollections') || '[]')) {
+        if (entry?.request_id && entry.emi_id) pendingCollections.set(entry.emi_id, entry);
+    }
+} catch {}
+let paymentSaving = false;
+let paymentRemaining = 0;
+const cashFormat = n => '₹' + Number(n).toLocaleString('en-IN');
+function paymentReceiptNumber(id) {
+    return 'ABHI-' + String(id).replaceAll('-','').slice(0,10).toUpperCase();
+}
+function persistPending(emiId, payload) {
+    if (payload) pendingCollections.set(emiId, payload);
+    else pendingCollections.delete(emiId);
+    try {
+        sessionStorage.setItem('abhi.pendingCollections', JSON.stringify([...pendingCollections.values()]));
+    } catch {}
+}
+
+function updatePaymentProjection() {
+    const pending = pendingCollections.has(currentPaymentEmiId);
+    const input = document.getElementById('paymentAmount');
+    const corrected = currentPaymentHistory.find(p => p.id === currentPaymentId);
+    const available = paymentRemaining + Number(corrected?.amount || 0);
+    input.max = available;
+    const amount = Number(input.value);
+    const valid = Number.isSafeInteger(amount) && amount > 0 && amount <= available;
+    document.getElementById('paymentProjection').textContent = pending ? 'Isi entry ko retry karke payment confirm karein.'
+        : available === 0 ? 'EMI poori paid hai.'
+        : !input.value ? 'Bachi hui EMI ' + cashFormat(available)
+        : valid ? 'Is payment ke baad baki ' + cashFormat(available - amount)
+        : '₹1 se ' + cashFormat(available) + ' tak poore rupaye darj karein.';
+    for (const id of ['paymentAmount','paymentDate','paymentMethod','paymentNotes']) {
+        document.getElementById(id).disabled = pending || paymentSaving;
+    }
+    const btn = document.getElementById('savePaymentBtn');
+    btn.disabled = paymentSaving || (!pending && !valid);
+    btn.textContent = paymentSaving ? 'Save ho raha hai…' : pending ? 'Isi payment ko retry karein' : currentPaymentId ? 'Save correction' : '💰 Add Payment';
+}
+
+let dailyCash = null;
+let dailyLoadNumber = 0;
+function openDailyCollection() {
+    document.getElementById('collectionDay').value = adminBusinessDate();
+    const dialog = document.getElementById('dailyCollection');
+    if (!dialog.open) dialog.showModal();
+    loadDailyCollection();
+}
+async function loadDailyCollection() {
+    const loadNumber = ++dailyLoadNumber;
+    const day = document.getElementById('collectionDay').value;
+    const status = document.getElementById('collectionDayStatus');
+    const list = document.getElementById('collectionBreakdown');
+    const counted = document.getElementById('cashCounted');
+    dailyCash = null;
+    counted.value = '';
+    counted.disabled = true;
+    list.replaceChildren();
+    updateCashDifference();
+    status.textContent = day ? 'Collection load ho raha hai…' : 'Date chunein.';
+    if (!day) return;
+    try {
+        const data = await (await adminFetch('/api/payments?action=daily&date=' + encodeURIComponent(day))).json();
+        if (loadNumber !== dailyLoadNumber) return;
+        for (const [key,label] of Object.entries({ cash:'Cash',verified_upi:'Verified UPI',manual_upi:'Manually darj UPI',
+            other:'Bank / other',collected:'Kul collection',pending_upi:'Pending UPI (kul se alag)' })) {
+            const row = document.createElement('div');
+            const dt = document.createElement('dt'), dd = document.createElement('dd');
+            dt.textContent = label;
+            dd.textContent = cashFormat(data[key]);
+            row.append(dt,dd);
+            list.append(row);
+        }
+        dailyCash = Number(data.cash);
+        counted.disabled = false;
+        status.textContent = '';
+    } catch (err) {
+        if (loadNumber === dailyLoadNumber) status.textContent = 'Cash milan load nahi hua. ' + err.message;
+    }
+}
+function updateCashDifference() {
+    const value = document.getElementById('cashCounted').value;
+    const difference = Number(value) - dailyCash;
+    document.getElementById('cashDifference').textContent = dailyCash === null || value === '' ? ''
+        : !Number.isSafeInteger(Number(value)) || Number(value) < 0 ? 'Zero ya poore rupaye darj karein.'
+        : difference === 0 ? 'Cash barabar hai.' : cashFormat(Math.abs(difference)) + (difference < 0 ? ' kam hai.' : ' zyada hai.');
+}
+
 async function openPaymentModal(emiId) {
+    if (paymentSaving) return;
     currentPaymentEmiId = emiId;
+    currentPaymentHistory = [];
+    document.getElementById('collectionReceipt').hidden = true;
+    paymentRemaining = emiRemainingAmount(findEmiContext(emiId)?.emi);
     currentPaymentId = null;
     const modal = document.getElementById('paymentModal');
     if (!modal) return;
@@ -772,6 +849,7 @@ async function openPaymentModal(emiId) {
 }
 
 function closePaymentModal() {
+    if (paymentSaving) return;
     const modal = document.getElementById('paymentModal');
     if (modal) modal.style.display = 'none';
     document.body.style.overflow = '';
@@ -786,23 +864,26 @@ function handlePaymentOverlayClick(event) {
 
 function resetPaymentForm() {
     currentPaymentId = null;
-    const ctx = findEmiContext(currentPaymentEmiId);
-    const remaining = ctx ? emiRemainingAmount(ctx.emi) : 0;
+    const pending = pendingCollections.get(currentPaymentEmiId);
+    const remaining = paymentRemaining;
     const amount = document.getElementById('paymentAmount');
     const date = document.getElementById('paymentDate');
     const method = document.getElementById('paymentMethod');
     const notes = document.getElementById('paymentNotes');
-    if (amount) { amount.value = remaining || ''; amount.max = remaining || ''; }
-    if (date) date.value = adminBusinessDate();
-    if (method) method.value = appSettingsData?.default_payment_method || 'Cash';
-    if (notes) notes.value = '';
-    const saveBtn = document.getElementById('savePaymentBtn');
-    if (saveBtn) saveBtn.textContent = '💰 Add Payment';
+    if (amount) amount.value = pending?.amount ?? (remaining || '');
+    if (date) date.value = pending?.paid_date || adminBusinessDate();
+    if (method) method.value = pending?.method || appSettingsData?.default_payment_method || 'Cash';
+    if (notes) notes.value = pending?.notes || '';
+    updatePaymentProjection();
     const cancel = document.getElementById('cancelPaymentEditBtn');
     if (cancel) cancel.style.display = 'none';
 }
 
+let historyLoadNumber = 0;
 async function loadPaymentHistory() {
+    const loadNumber = ++historyLoadNumber;
+    const emiId = currentPaymentEmiId;
+    const initialAmount = document.getElementById('paymentAmount').value;
     const status = document.getElementById('paymentStatusBox');
     const history = document.getElementById('paymentHistoryList');
     const title = document.getElementById('paymentModalTitle');
@@ -818,17 +899,19 @@ async function loadPaymentHistory() {
     try {
         const response = await adminFetch(`/api/payments?emi_id=${encodeURIComponent(currentPaymentEmiId)}`);
         const data = await response.json();
+        if (loadNumber !== historyLoadNumber || emiId !== currentPaymentEmiId) return;
         const summary = data.summary || {};
         if (status) status.innerHTML = `Scheduled <strong>₹${Number(summary.scheduled || 0).toLocaleString('en-IN')}</strong> • Paid <strong>₹${Number(summary.paid || 0).toLocaleString('en-IN')}</strong> • Remaining <strong>₹${Number(summary.remaining || 0).toLocaleString('en-IN')}</strong>`;
 
         const amountInput = document.getElementById('paymentAmount');
-        if (!currentPaymentId && amountInput) {
-            amountInput.value = summary.remaining || '';
-            amountInput.max = summary.remaining || '';
-        }
+        const previousRemaining = paymentRemaining;
+        paymentRemaining = Number(summary.remaining || 0);
+        if (!currentPaymentId && !pendingCollections.has(emiId) && amountInput.value === initialAmount
+            && Number(initialAmount) === previousRemaining) amountInput.value = paymentRemaining || '';
 
         const payments = data.payments || [];
         currentPaymentHistory = payments;
+        updatePaymentProjection();
         const virtualOpening = summary.hasOpeningBalance ? Number(data.emi?.paid_amount || 0) - payments.reduce((sum,p) => sum + (Number(p.amount)||0), 0) : 0;
         let html = '';
         if (virtualOpening > 0) {
@@ -847,11 +930,12 @@ async function loadPaymentHistory() {
         }).join('');
         if (history) history.innerHTML = html || '<div class="payment-empty">Abhi koi payment entry nahi hai.</div>';
     } catch (err) {
-        if (status) status.textContent = err.message || 'Payment history load nahi hui.';
+        if (loadNumber === historyLoadNumber && emiId === currentPaymentEmiId && status) status.textContent = err.message || 'Payment history load nahi hui.';
     }
 }
 
 function editPayment(paymentId) {
+    if (paymentSaving || pendingCollections.has(currentPaymentEmiId)) return;
     const p = currentPaymentHistory.find(item => item.id === paymentId);
     if (!p?.id || p.source !== 'manual') return;
     currentPaymentId = p.id;
@@ -859,42 +943,79 @@ function editPayment(paymentId) {
     document.getElementById('paymentDate').value = p.paid_date || adminBusinessDate();
     document.getElementById('paymentMethod').value = p.method || 'Cash';
     document.getElementById('paymentNotes').value = p.notes || '';
-    document.getElementById('savePaymentBtn').textContent = '✅ Save Correction';
+    updatePaymentProjection();
     document.getElementById('cancelPaymentEditBtn').style.display = 'inline-block';
 }
 
 async function savePayment() {
-    const amount = document.getElementById('paymentAmount').value;
-    const paid_date = document.getElementById('paymentDate').value;
-    const method = document.getElementById('paymentMethod').value;
-    const notes = document.getElementById('paymentNotes').value;
-    if (!currentPaymentEmiId || !Number(amount) || Number(amount) <= 0) {
-        alert('Valid payment amount required hai.');
+    const emiId = currentPaymentEmiId;
+    const paymentId = currentPaymentId;
+    if (!emiId || paymentSaving) return;
+    const pending = pendingCollections.get(emiId);
+    const values = {
+        amount: Number(document.getElementById('paymentAmount').value),
+        paid_date: document.getElementById('paymentDate').value,
+        method: document.getElementById('paymentMethod').value,
+        notes: document.getElementById('paymentNotes').value
+    };
+    if (!pending && (!values.paid_date || !Number.isSafeInteger(values.amount) || values.amount <= 0 ||
+        values.amount > Number(document.getElementById('paymentAmount').max))) {
+        alert('Payment amount aur date check karein.');
         return;
     }
-    const btn = document.getElementById('savePaymentBtn');
-    if (btn) btn.disabled = true;
+    const payload = pending || (paymentId ? { ...values, payment_id: paymentId }
+        : { ...values, emi_id: emiId, request_id: crypto.randomUUID() });
+    if (!paymentId) persistPending(emiId, payload);
+    paymentSaving = true;
+    ++historyLoadNumber;
+    updatePaymentProjection();
+    const receipt = document.getElementById('collectionReceipt');
+    const message = document.getElementById('collectionReceiptText');
+    const share = document.getElementById('collectionShare');
+    receipt.hidden = true;
+    share.hidden = true;
+    let result;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
     try {
-        const isEdit = Boolean(currentPaymentId);
-        await adminFetch('/api/payments', {
-            method: isEdit ? 'PUT' : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(isEdit
-                ? { payment_id: currentPaymentId, amount, paid_date, method, notes }
-                : { emi_id: currentPaymentEmiId, amount, paid_date, method, notes })
-        });
-        await loadAllData();
-        resetPaymentForm();
-        await loadPaymentHistory();
-        if (currentOpenFolder) openFolder(currentOpenFolder);
+        result = await (await adminFetch('/api/payments', { method: paymentId ? 'PUT' : 'POST', signal: controller.signal,
+            headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })).json();
     } catch (err) {
-        alert(err.message || 'Payment save nahi hua.');
+        if ([400,404,409,422].includes(err.status)) persistPending(emiId,null);
+        message.textContent = pendingCollections.has(emiId)
+            ? 'Confirmation nahi mili. Isi payment ko retry karein.' : err.message;
+        receipt.hidden = false;
+        paymentSaving = false;
+        updatePaymentProjection();
+        return;
     } finally {
-        if (btn) btn.disabled = false;
+        clearTimeout(timeout);
+    }
+    persistPending(emiId,null);
+    const savedId = result.payment_id || paymentId;
+    message.textContent = cashFormat(payload.amount) + (paymentId ? ' ki correction save hui.' : ' ka payment confirm hua.')
+        + ' Receipt ' + paymentReceiptNumber(savedId);
+    receipt.hidden = false;
+    try {
+        paymentRemaining = Number(result.remaining_amount || 0);
+        const ctx = findEmiContext(emiId);
+        if (ctx) ctx.emi.paid_amount = result.paid_amount;
+        resetPaymentForm();
+        await loadAllData();
+        await loadPaymentHistory();
+        if (currentPaymentHistory.some(p => p.id === savedId)) {
+            share.onclick = () => openPaymentWhatsApp(savedId);
+            share.hidden = false;
+        }
+        if (currentOpenFolder) openFolder(currentOpenFolder);
+    } finally {
+        paymentSaving = false;
+        updatePaymentProjection();
     }
 }
 
 async function deletePayment(paymentId) {
+    if (paymentSaving || pendingCollections.has(currentPaymentEmiId)) return;
     if (!confirm('Is payment entry ko undo/delete karna hai? EMI balance automatically recalculate hoga.')) return;
     try {
         await adminFetch('/api/payments', {
@@ -905,6 +1026,7 @@ async function deletePayment(paymentId) {
         await loadAllData();
         resetPaymentForm();
         await loadPaymentHistory();
+        document.getElementById('collectionReceipt').hidden = true;
         if (currentOpenFolder) openFolder(currentOpenFolder);
     } catch (err) {
         alert(err.message || 'Payment undo nahi hua.');
@@ -1511,7 +1633,9 @@ function generateWhatsAppMessage() {
     const text = document.getElementById('waMessageText');
     const template = document.getElementById('waTemplateSelect')?.value || 'due';
     if (!text) return;
-    text.value = buildWhatsAppTemplate(template, getWhatsAppContext());
+    const context = getWhatsAppContext();
+    text.value = buildWhatsAppTemplate(template, context);
+    if (template === 'payment' && context.payment?.id) text.value += '\nReceipt ' + paymentReceiptNumber(context.payment.id);
     updateWhatsAppContextSummary();
     updateWaContactPreview();
 }
@@ -1744,7 +1868,7 @@ function printPaymentReceipt(paymentId) {
     const scheduled = Math.max(0, Number(emi.amount)||0);
     const totalPaid = Math.max(0, Math.min(Number(emi.paid_amount)||0, scheduled));
     const remaining = Math.max(scheduled-totalPaid,0);
-    const receiptNo = `ABHI-${String(payment.id || '').replaceAll('-','').slice(0,10).toUpperCase()}`;
+    const receiptNo = paymentReceiptNumber(payment.id);
     phase6PrintDocument(`${receiptNo} Payment Receipt`, `
         <div class="brand"><div><h1>Abhishek Management</h1><p>EMI Payment Receipt</p></div><div class="doc-title"><strong>Payment Receipt</strong><small class="receipt-id">${escapeHtml(receiptNo)}</small></div></div>
         <div class="party"><div class="box"><small>Received From</small><strong>${escapeHtml(loan.borrowers?.name || 'Borrower')}</strong></div><div class="box"><small>Loan ID</small><strong>${escapeHtml(loan.loan_code || '')}</strong></div><div class="box"><small>EMI</small><strong>#${Number(emi.installment_number||0)} • ${escapeHtml(emi.due_month || '')}${emi.due_year ? ' ' + escapeHtml(emi.due_year) : ' • Year not set'}</strong></div><div class="box"><small>Payment Date</small><strong>${phase6Date(payment.paid_date || payment.payment_date)}</strong></div></div>
@@ -2077,7 +2201,7 @@ async function deleteLoan(loanId) {
             body: JSON.stringify({ loan_id: loanId })
         });
         await loadAllData();
-        if (currentOpenFolder && loans.some(l => l.borrowers?.name?.toUpperCase() === currentOpenFolder.toUpperCase())) openFolder(currentOpenFolder);
+        if (currentOpenFolder && loans.some(l => borrowerFolderKey(l) === currentOpenFolder)) openFolder(currentOpenFolder);
         else goBackToFolders();
     } catch (err) {
         alert(err.message || 'Loan Recycle Bin me move nahi hua.');
@@ -2425,6 +2549,59 @@ function renderImportPreview(preview) {
     `;
     box.style.display = 'block';
     if (controls) controls.style.display = preview.can_import ? 'block' : 'none';
+    renderBorrowerReview();
+}
+
+function borrowerIdentity(row) {
+    return [row.father && 'Pita ' + row.father, row.phone_last4 && 'Phone …' + row.phone_last4,
+        row.loans?.length && 'Loan ' + row.loans.join(', ')].filter(Boolean).join(' · ');
+}
+function renderBorrowerReview() {
+    const box = document.getElementById('importBorrowerReview');
+    box.replaceChildren();
+    const merge = document.getElementById('importMode').value === 'merge';
+    for (const group of currentImportPreview?.borrower_groups || []) {
+        const existing = merge ? group.existing : [];
+        for (const [i,row] of group.incoming.entries()) {
+            if (!existing.length && i === 0) continue;
+            const label = document.createElement('label');
+            label.textContent = group.name + ' · File row ' + (i+1) + ' · ' + borrowerIdentity(row);
+            const select = document.createElement('select');
+            select.className = 'safety-select';
+            select.dataset.borrowerKey = row.key;
+            select.add(new Option('Is borrower ke liye chunein…',''));
+            const fillOptions = () => {
+                select.add(new Option('Alag borrower banayein','new'));
+                for (const saved of existing) select.add(new Option('Maujooda borrower · ' + (borrowerIdentity(saved) || saved.id), 'db:' + saved.id));
+                for (const [j,earlier] of group.incoming.slice(0,i).entries()) {
+                    select.add(new Option('Isi file ki row ' + (j+1) + ' se jodein · ' + borrowerIdentity(earlier), 'file:' + earlier.key));
+                }
+            };
+            if (i + existing.length < 40) fillOptions();
+            else {
+                // Keep large imports usable on mobile. Only expand the focused row's choices.
+                select.onfocus = () => {
+                    const value = select.value;
+                    select.length = 1;
+                    fillOptions();
+                    select.value = value;
+                };
+                select.onblur = () => {
+                    const opt = select.selectedIndex > 0 ? select.selectedOptions[0].cloneNode(true) : null;
+                    select.length = 1;
+                    if (opt) { select.add(opt); opt.selected = true; }
+                };
+            }
+            select.onchange = updateImportButton;
+            label.append(select);
+            box.append(label);
+        }
+    }
+    updateImportButton();
+}
+function updateImportButton() {
+    document.getElementById('applyImportBtn').disabled = !currentImportPreview?.can_import ||
+        [...document.querySelectorAll('#importBorrowerReview select')].some(select => !select.value);
 }
 
 async function applySmartImport() {
@@ -2433,6 +2610,9 @@ async function applySmartImport() {
         return;
     }
     const mode = document.getElementById('importMode')?.value || 'merge';
+    const selects = [...document.querySelectorAll('#importBorrowerReview select')];
+    if (selects.some(select => !select.value)) return;
+    const borrowerChoices = Object.fromEntries(selects.map(select => [select.dataset.borrowerKey, select.value]));
     if (mode === 'replace') {
         const typed = prompt('⚠️ Replace current Borrowers/Loans/EMIs ko imported data se replace karega. Automatic backup banega. Continue ke liye REPLACE type karein:');
         if (typed !== 'REPLACE') {
@@ -2447,6 +2627,8 @@ async function applySmartImport() {
     const resultBox = document.getElementById('importResult');
     const fileInput = document.getElementById('smartImportFile');
     fileInput.disabled = true;
+    document.getElementById('importMode').disabled = true;
+    selects.forEach(select => { select.disabled = true; });
     if (button) button.disabled = true;
     if (resultBox) {
         resultBox.style.display = 'block';
@@ -2459,6 +2641,7 @@ async function applySmartImport() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 payload: selectedImportPayload,
+                borrower_choices: borrowerChoices,
                 mode,
                 confirmReplace: mode === 'replace',
                 label: `Before import: ${selectedImportFileName || 'JSON'}`
@@ -2479,7 +2662,9 @@ async function applySmartImport() {
         if (resultBox) resultBox.textContent = 'Import status ke liye records aur Backup History check karein. ' + err.message;
     } finally {
         fileInput.disabled = false;
-        if (button) button.disabled = false;
+        document.getElementById('importMode').disabled = false;
+        selects.forEach(select => { select.disabled = false; });
+        updateImportButton();
     }
 }
 

@@ -2001,3 +2001,19 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
 }
 
 
+
+#dailyCollection {
+    width: min(92vw, 28rem); max-height: 85vh; margin: auto; box-sizing: border-box;
+    border: 0; border-radius: 16px; padding: 20px; color: #172332; background: white;
+}
+#dailyCollection::backdrop { background: rgb(15 23 42 / 65%); }
+#dailyCollection header, #collectionBreakdown > div, #collectionReceipt:not([hidden]) {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+#collectionReceipt[hidden], #collectionShare[hidden] { display: none; }
+#dailyCollection label, #importBorrowerReview label { display: block; font-weight: 600; margin-top: 12px; }
+#dailyCollection input { width: 100%; box-sizing: border-box; padding: 10px; margin: 4px 0; font: inherit; }
+#collectionBreakdown > div { padding: 6px 0; border-bottom: 1px solid #e2e8f0; }
+#collectionBreakdown dd { margin: 0; font-weight: 700; }
+#paymentProjection, #cashDifference { margin: 8px 0; font-weight: 600; }
+#importBorrowerReview select { display: block; width: 100%; }

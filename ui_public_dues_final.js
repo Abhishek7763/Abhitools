@@ -17,7 +17,6 @@
 
     const money = value => `₹${Math.max(0, Number(value) || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
     const validIso = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || '').slice(0, 10));
-    const normalizeName = value => String(value || '').trim().toUpperCase();
 
     function paidAmount(emi) {
         if (typeof publicEmiPaid === 'function') return publicEmiPaid(emi);
@@ -96,12 +95,11 @@
         return typeof loans !== 'undefined' && Array.isArray(loans) ? loans : [];
     }
 
-    function buildGroups(sourceLoans, borrowerName) {
-        const wanted = normalizeName(borrowerName);
+    function buildGroups(sourceLoans, folderKey) {
         const map = new Map();
 
         for (const loan of (Array.isArray(sourceLoans) ? sourceLoans : [])) {
-            if (normalizeName(loan?.borrowers?.name) !== wanted) continue;
+            if (borrowerFolderKey(loan) !== folderKey) continue;
             for (const emi of (Array.isArray(loan?.emis) ? loan.emis : [])) {
                 const parts = dateParts(emi);
                 const key = `${parts.year || 'unknown'}-${parts.month}`;
@@ -321,7 +319,8 @@
     }
 
     async function openDues() {
-        const borrowerName = typeof currentOpenFolder !== 'undefined' ? String(currentOpenFolder || '') : '';
+        const folderKey = currentOpenFolder;
+        const borrowerName = borrowerFolderName(folderKey);
         if (!borrowerName) return;
         if (typeof window.publicCloseLoanCompactDetail === 'function') window.publicCloseLoanCompactDetail();
         closeDues();
@@ -345,14 +344,14 @@
         try {
             const fresh = await fetchFreshLoans();
             if (!document.body.contains(overlay)) return;
-            const groups = buildGroups(fresh, borrowerName);
+            const groups = buildGroups(fresh, folderKey);
             body.innerHTML = renderMonths(groups);
             if (!verifyRows(body, groups)) throw new Error('Rendered EMI row count mismatch');
             body.scrollTop = 0;
         } catch (error) {
             console.warn('Fresh dues render failed, using current dashboard data:', error);
             if (!document.body.contains(overlay)) return;
-            const groups = buildGroups(currentLoans(), borrowerName);
+            const groups = buildGroups(currentLoans(), folderKey);
             body.innerHTML = renderMonths(groups, 'Live refresh verify nahi ho saka; current dashboard data dikhaya ja raha hai. Dues dobara open karke retry karein.');
             body.scrollTop = 0;
         }

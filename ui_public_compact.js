@@ -352,7 +352,7 @@
         overlay.innerHTML = `<div class="public-loan-detail-backdrop" data-public-loan-close="yes"></div>
             <section class="public-loan-detail-panel" role="dialog" aria-modal="true" aria-labelledby="publicLoanDetailTitle">
                 <header class="public-loan-detail-head">
-                    <div><small>${esc(borrower.name || currentOpenFolder || 'Borrower')}</small><h3 id="publicLoanDetailTitle">${esc(loan.loan_code || 'Loan')}</h3></div>
+                    <div><small>${esc(borrower.name || 'Borrower')}</small><h3 id="publicLoanDetailTitle">${esc(loan.loan_code || 'Loan')}</h3></div>
                     <button type="button" class="public-loan-detail-close" data-public-loan-close="yes" aria-label="Close">✕</button>
                 </header>
                 <div class="public-loan-detail-body">
@@ -372,12 +372,12 @@
     }
 
     // Final compact public loan cards.
-    window.renderLoanList = function(nameFilter) {
+    window.renderLoanList = function(folderKey) {
         const list = document.getElementById('loanList');
         if (!list) return;
         list.innerHTML = '';
 
-        const matching = loans.filter(loan => String(loan.borrowers?.name || '').toUpperCase() === String(nameFilter || '').toUpperCase());
+        const matching = loans.filter(loan => borrowerFolderKey(loan) === folderKey);
         if (!matching.length) {
             list.innerHTML = '<p style="text-align:center;color:#777;grid-column:1/-1;">Koi loan nahi mila.</p>';
             return;
@@ -422,7 +422,7 @@
 
     function buildPrintSheet() {
         if (!currentOpenFolder) return null;
-        const matching = loans.filter(loan => String(loan.borrowers?.name || '').toUpperCase() === String(currentOpenFolder || '').toUpperCase());
+        const matching = loans.filter(loan => borrowerFolderKey(loan) === currentOpenFolder);
         if (!matching.length) return null;
 
         document.querySelector('.abhi-print-sheet')?.remove();
@@ -460,7 +460,7 @@
                 <div class="abhi-print-brand"><h1>Abhishek Management</h1><p>Loan Account Statement</p></div>
                 <div class="abhi-print-meta">Generated: ${esc(generated)}<br>Read-only statement</div>
             </div>
-            <div class="abhi-print-borrower"><strong>${esc(currentOpenFolder)}</strong><span>${matching.length} loan(s) • Principal ${money(totalPrincipal)}</span></div>
+            <div class="abhi-print-borrower"><strong>${esc(borrowerFolderName(currentOpenFolder))}</strong><span>${matching.length} loan(s) • Principal ${money(totalPrincipal)}</span></div>
             ${loanHtml}
             <div class="abhi-print-footer">Generated from AbhiTools. Verify incomplete legacy dates before using due/overdue conclusions.</div>`;
         document.body.appendChild(sheet);

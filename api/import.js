@@ -157,11 +157,12 @@ function normalizeLegacyArray(input) {
             return;
         }
 
-        let borrowerKey = borrowerKeys.get(name);
+        const identity = JSON.stringify([name, loanCode]);
+        let borrowerKey = borrowerKeys.get(identity);
         if (!borrowerKey) {
-            borrowerKey = `legacy-borrower:${name}`;
-            borrowerKeys.set(name, borrowerKey);
-            addBorrower(result, borrowerKey, { name, notes: 'Imported from legacy JSON' });
+            borrowerKey = `legacy-borrower:${itemIndex}`;
+            borrowerKeys.set(identity, borrowerKey);
+            addBorrower(result, borrowerKey, { name, father_name: item.father_name, phone: item.phone, notes: 'Imported from legacy JSON' });
         }
 
         const loanKey = `legacy-loan:${itemIndex}`;
@@ -207,24 +208,25 @@ function normalizeStructured(input, format) {
     const borrowerKeyById = new Map();
     borrowers.forEach((b, index) => {
         if (b?.deleted_at) { result.skipped.borrowers++; return; }
-        const key = String(b?.id || `borrower:${index}`);
+        const key = `borrower:${index}`;
+        if (b?.id && borrowerKeyById.has(String(b.id))) throw Object.assign(new Error('File mein borrower ID do baar hai.'), { status: 400 });
         if (addBorrower(result, key, b)) borrowerKeyById.set(String(b?.id || key), key);
     });
 
-    const borrowerByName = new Map(result.borrowers.map(b => [b.name, b.source_key]));
+    const deletedBorrowers = new Set(borrowers.filter(b => b?.deleted_at).map(b => String(b.id)));
     const loanKeyById = new Map();
     const emiRefById = new Map();
 
     loans.forEach((l, index) => {
         if (l?.deleted_at) { result.skipped.loans++; return; }
-        let borrowerKey = borrowerKeyById.get(String(l?.borrower_id || ''));
-        const nestedName = text(l?.borrowers?.name ?? l?.borrower?.name, 120)?.toUpperCase();
-        if (!borrowerKey && nestedName) {
-            borrowerKey = borrowerByName.get(nestedName);
-            if (!borrowerKey) {
-                borrowerKey = `borrower-name:${nestedName}`;
-                if (addBorrower(result, borrowerKey, { name: nestedName })) borrowerByName.set(nestedName, borrowerKey);
-            }
+        const nested = l?.borrowers || l?.borrower;
+        const ref = String(l?.borrower_id || nested?.id || '');
+        if (ref && deletedBorrowers.has(ref)) { result.skipped.loans++; return; }
+        let borrowerKey = borrowerKeyById.get(ref);
+        if (!borrowerKey && nested?.name) {
+            borrowerKey = `nested-borrower:${index}`;
+            if (!addBorrower(result, borrowerKey, nested)) borrowerKey = null;
+            else if (ref) borrowerKeyById.set(ref, borrowerKey);
         }
         // A row key keeps nested EMIs with their source row when duplicate loan codes are skipped.
         const loanKey = `loan:${index}`;
@@ -345,19 +347,6 @@ function normalizeInput(input) {
 }
 
 function dedupeNormalized(result) {
-    const borrowerSeen = new Map();
-    result.borrowers = result.borrowers.filter(b => {
-        const key = b.name;
-        if (!borrowerSeen.has(key)) {
-            borrowerSeen.set(key, b.source_key);
-            return true;
-        }
-        const original = borrowerSeen.get(key);
-        result.loans.forEach(l => { if (l.borrower_key === b.source_key) l.borrower_key = original; });
-        result.documents.forEach(d => { if (d.borrower_key === b.source_key) d.borrower_key = original; });
-        return false;
-    });
-
     const loanCodeSeen = new Set();
     const keptLoanKeys = new Set();
     result.loans = result.loans.filter(l => {
@@ -390,8 +379,47 @@ function dedupeNormalized(result) {
     return result;
 }
 
+function reviewGroups(result, candidates) {
+    const groups = new Map();
+    const codes = new Map();
+    for (const loan of result.loans) {
+        if (!codes.has(loan.borrower_key)) codes.set(loan.borrower_key, []);
+        codes.get(loan.borrower_key).push(loan.loan_code);
+    }
+    for (const b of result.borrowers) {
+        if (!groups.has(b.name)) groups.set(b.name, { name: b.name, incoming: [], existing: [] });
+        groups.get(b.name).incoming.push({ key: b.source_key, father: b.father_name,
+            phone_last4: String(b.phone || b.whatsapp || '').replace(/\D/g,'').slice(-4), loans: (codes.get(b.source_key) || []).slice(0,6) });
+    }
+    for (const c of candidates) groups.get(c.name)?.existing.push(c);
+    return [...groups.values()].filter(g => g.existing.length || g.incoming.length > 1);
+}
+
+function applyBorrowerChoices(result, groups, choices, mode) {
+    const byKey = new Map(result.borrowers.map(b => [b.source_key, b]));
+    const unusedChoices = new Set(Object.keys(choices || {}));
+    for (const group of groups) {
+        const earlier = new Set();
+        const existing = new Set(mode === 'merge' ? group.existing.map(b => b.id) : []);
+        for (const row of group.incoming) {
+            if (earlier.size || existing.size) {
+                unusedChoices.delete(row.key);
+                const choice = choices?.[row.key];
+                if (choice === 'new') byKey.get(row.key).match = { kind: 'new' };
+                else if (typeof choice === 'string' && choice.startsWith('db:') && existing.has(choice.slice(3)))
+                    byKey.get(row.key).match = { kind: 'existing', id: choice.slice(3) };
+                else if (typeof choice === 'string' && choice.startsWith('file:') && earlier.has(choice.slice(5)))
+                    byKey.get(row.key).match = { kind: 'incoming', key: choice.slice(5) };
+                else return false;
+            }
+            earlier.add(row.key);
+        }
+    }
+    return unusedChoices.size === 0;
+}
+
 async function buildPreview(result) {
-    const { data } = await supabaseRequest('rpc/abhi_import_matches', 'POST', {
+    const { data } = await supabaseRequest('rpc/abhi_review_import_matches', 'POST', {
         p_names: result.borrowers.map(b => b.name), p_codes: result.loans.map(l => l.loan_code)
     });
     const existingNames = new Set(data.names);
@@ -401,6 +429,7 @@ async function buildPreview(result) {
 
     return {
         format: result.format,
+        borrower_groups: reviewGroups(result, data.candidates),
         counts: {
             borrowers: result.borrowers.length,
             loans: result.loans.length,
@@ -466,6 +495,9 @@ export default async function handler(req, res) {
             if (mode === 'replace' && ['abhitools-backup','abhitools-snapshot'].includes(rawPayload?.format)) {
                 return res.status(400).json({ error: 'Poora backup replace karne ke liye Full Restore use karein.' });
             }
+            if (!applyBorrowerChoices(normalized, preview.borrower_groups, req.body?.borrower_choices, mode)) {
+                return res.status(409).json({ error: 'Same naam ke borrowers ko review karein. File dobara select karke latest matches dekhein.' });
+            }
             const { data: result } = await supabaseRequest('rpc/abhi_import_with_history', 'POST', {
                 p_payload: normalizedPayload(normalized), p_mode: mode, p_label: label
             });
@@ -474,6 +506,7 @@ export default async function handler(req, res) {
 
         return res.status(404).json({ error: 'Import action not found' });
     } catch (err) {
+        if (err?.details?.message === 'Borrower review changed') return res.status(409).json({ error: 'Borrower list badal gayi. File dobara select karke review karein.' });
         if (err?.status === 400 || err?.status === 413) return res.status(err.status).json({ error: err.message });
         return sendServerError(res, 'Import API Error:', err);
     }
