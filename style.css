@@ -2051,11 +2051,25 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
     content: ""; position: absolute; left: 6px; top: 3px; width: 2px; height: 5px;
     border-radius: 1px; background: currentColor;
 }
-#phoneDialog[data-state=checking] .phone-lock { background: transparent; }
-#phoneDialog[data-state=checking] .phone-lock::after {
-    content: ""; position: absolute; inset: 1px; border: 2px solid #b9d6ed;
-    border-top-color: currentColor; border-right-color: currentColor; border-radius: 50%;
+.abhi-sync-ring {
+    display: inline-block; flex: 0 0 auto; box-sizing: border-box; width: 19px; height: 19px;
+    border: 3px solid #bfdbfe; border-top-color: #2563eb; border-radius: 50%;
 }
+#publicSyncLoader {
+    position: fixed; z-index: 31990; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: flex; align-items: center; gap: 10px; padding: 11px 15px; border: 1px solid #dbeafe;
+    border-radius: 999px; background: rgba(255,255,255,.96); color: #1e3a8a;
+    box-shadow: 0 12px 35px rgba(15,23,42,.18); font: 700 12px/1.2 system-ui,sans-serif;
+    backdrop-filter: blur(10px); pointer-events: none;
+}
+#publicSyncLoader[hidden], .phone-lock .abhi-sync-ring { display: none; }
+.dark-mode #publicSyncLoader { background: rgba(17,24,39,.96); color: #dbeafe; border-color: #334155; }
+#phoneDialog[data-state=checking] .phone-lock { background: transparent; }
+#phoneDialog[data-state=checking] .phone-lock .abhi-sync-ring {
+    display: block; position: absolute; inset: 1px; width: auto; height: auto;
+}
+.dark-mode .abhi-sync-ring { border-color: #3c5575; border-top-color: #a5caff; }
+.abhi-dues-loading { display: flex; align-items: center; justify-content: center; gap: 10px; }
 #phoneDialog[data-state=success] .phone-lock { background: #d9f4e8; color: #146849; }
 #phoneDialog[data-state=success] .phone-symbol {
     width: 21px; height: 12px; margin: -4px 0 0;
@@ -2140,8 +2154,9 @@ body.public-page.dark-mode #lastUpdatedBadge[data-state=error] { color: #ffd5ba;
 .dark-mode #retryDirectory { color: #c6e2fe; background: #21374f; border-color: #476582; }
 
 @media (prefers-reduced-motion: no-preference) {
-    #phoneDialog[data-state=checking] .phone-lock::after,
-    #lastUpdatedBadge[data-state=checking] #syncBadgeLabel::before { animation: borrower-spin .9s linear infinite; }
+    .abhi-sync-ring, #lastUpdatedBadge[data-state=checking] #syncBadgeLabel::before {
+        animation: abhiUpiSpin .75s linear infinite;
+    }
     #phoneDialog[data-state=success] .phone-symbol { animation: borrower-confirm .18s ease-out both; }
     #directorySkeleton i::after {
         background: linear-gradient(100deg, transparent 28%, rgba(160,188,211,.16) 50%, transparent 72%);
@@ -2149,7 +2164,23 @@ body.public-page.dark-mode #lastUpdatedBadge[data-state=error] { color: #ffd5ba;
     }
     .public-page :is(.old-folder-card, .month-account, #phoneSubmit:enabled, #retryDirectory):active { transform: scale(.985); }
     #phoneSubmit, .phone-field, .phone-lock { transition: background-color .16s, border-color .16s, transform .12s; }
-    @keyframes borrower-spin { to { transform: rotate(360deg); } }
+    @keyframes abhiUpiSpin { to { transform: rotate(360deg); } }
     @keyframes borrower-confirm { from { transform: rotate(-45deg) scale(.65); opacity: .2; } }
     @keyframes directory-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+}
+
+/* Keep the active directory tab visible as the view changes. */
+.public-page .tabs { position: relative; }
+.public-page .tabs .tab.active { border-bottom-color: transparent; }
+.public-page .tabs::after {
+    content: ""; position: absolute; left: 0; bottom: 0; width: 50%; height: 3px;
+    border-radius: 3px; background: #2563eb; pointer-events: none;
+}
+.public-page .tabs:has(#tabMonth[aria-selected="true"])::after { transform: translateX(100%); }
+.public-page.dark-mode .tabs::after { background: #8ebcff; }
+@media (prefers-reduced-motion: no-preference) {
+    .public-page .tabs::after { transition: transform .2s ease-out; }
+    .public-page .emi-clarity-open .emi-clarity-more,
+    .public-page .abhi-dues-panel { animation: borrower-reveal .18s ease-out; }
+    @keyframes borrower-reveal { from { opacity: .4; translate: 0 5px; } to { opacity: 1; translate: 0 0; } }
 }

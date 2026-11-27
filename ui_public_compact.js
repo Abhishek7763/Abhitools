@@ -344,7 +344,7 @@
                     <div class="public-emi-row-head"><strong>EMI #${Number(emi.installment_number || 0)}</strong><small>${esc(dateText(emi))}</small></div>
                     <div class="public-emi-row-side"><strong>${money(s.amount)}</strong><span class="public-emi-state">${esc(s.label)}</span><small>Paid ${money(s.paid)} • Rem ${money(s.remaining)}</small></div>
                 </article>`;
-            }).join('') || '<div style="padding:16px;text-align:center;color:#64748b;font-size:12px;">Koi EMI schedule nahi.</div>';
+            }).join('') || '<div style="padding:16px;text-align:center;color:#64748b;font-size:12px;">No installments scheduled.</div>';
 
         const overlay = document.createElement('div');
         overlay.id = 'publicLoanDetailOverlay';
@@ -360,7 +360,7 @@
                         <div><small>Loan Amount</small><strong>${money(loan.amount)}</strong></div>
                         <div><small>EMI Scheduled</small><strong>${money(totals.emiTotal)}</strong></div>
                         <div><small>Paid</small><strong>${money(totals.paid)}</strong></div>
-                        <div><small>EMI Remaining</small><strong>${money(totals.remaining)}</strong></div>
+                        <div><small>Outstanding balance</small><strong>${money(totals.remaining)}</strong></div>
                     </div>
                     ${totals.incomplete ? `<div class="public-loan-detail-note">🧩 ${totals.incomplete} EMI date incomplete. Missing year is not treated as overdue.</div>` : ''}
                     <div class="public-emi-list">${rows}</div>
@@ -379,7 +379,7 @@
 
         const matching = loans.filter(loan => borrowerFolderKey(loan) === folderKey);
         if (!matching.length) {
-            list.innerHTML = '<p style="text-align:center;color:#777;grid-column:1/-1;">Koi loan nahi mila.</p>';
+            list.innerHTML = '<p style="text-align:center;color:#777;grid-column:1/-1;">No loans found.</p>';
             return;
         }
 
@@ -406,7 +406,7 @@
                 </div>
                 <div class="public-loan-mini-metrics">
                     <div class="public-loan-mini-metric"><small>Loan Amount</small><strong title="${money(loan.amount)}">${money(loan.amount)}</strong></div>
-                    <div class="public-loan-mini-metric"><small>EMI Remaining</small><strong title="${money(totals.remaining)}">${money(totals.remaining)}</strong></div>
+                    <div class="public-loan-mini-metric"><small>Outstanding balance</small><strong title="${money(totals.remaining)}">${money(totals.remaining)}</strong></div>
                     <div class="public-loan-mini-metric"><small>EMIs Paid</small><strong>${totals.paidCount}/${totals.emiCount}</strong></div>
                 </div>
                 <div class="public-loan-mini-info">
@@ -448,7 +448,7 @@
                     <div><small>Loan Amount</small><b>${money(loan.amount)}</b></div>
                     <div><small>EMI Scheduled</small><b>${money(totals.emiTotal)}</b></div>
                     <div><small>Paid</small><b>${money(totals.paid)}</b></div>
-                    <div><small>EMI Remaining</small><b>${money(totals.remaining)}</b></div>
+                    <div><small>Outstanding balance</small><b>${money(totals.remaining)}</b></div>
                     <div><small>Loan Year</small><b>${esc(loan.loan_year || 'Not set')}</b></div>
                 </div>
                 <table class="abhi-print-table"><thead><tr><th>EMI</th><th>Due</th><th>Amount</th><th>Paid</th><th>Remaining</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
@@ -471,7 +471,7 @@
     window.printStatement = function() {
         const sheet = buildPrintSheet();
         if (!sheet) {
-            alert('Print ke liye borrower folder open karein.');
+            alert('Open a borrower account to print its statement.');
             return;
         }
         const cleanup = () => {
@@ -552,7 +552,7 @@
         banner.innerHTML = `
             <div class="public-dq-main">
                 <strong>🧩 Date incomplete: ${summary.incompleteCount} EMI${summary.incompleteCount === 1 ? '' : 's'} • ${money(summary.incompleteAmount)} remaining</strong>
-                <span>Missing year/date wali EMI verified Due/Overdue totals me count nahi hoti.</span>
+                <span>Due and overdue totals exclude installments with incomplete dates.</span>
             </div>
             ${summary.currentMonthIncompleteCount ? `
                 <div class="public-dq-month">

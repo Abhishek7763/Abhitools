@@ -14,11 +14,11 @@ function stopPhoneRequest() {
 
 function setPhoneState(state, message = '') {
     const labels = {
-        idle: 'Account kholein',
-        checking: 'Number check ho raha hai…',
-        success: 'Account khul raha hai…',
-        invalid: 'Number check karein',
-        error: 'Dobara koshish karein'
+        idle: 'Open account',
+        checking: 'Verifying number…',
+        success: 'Opening account…',
+        invalid: 'Verify number',
+        error: 'Try again'
     };
     phoneDialog.dataset.state = state;
     phoneSubmit.textContent = labels[state];
@@ -44,10 +44,10 @@ function clearBorrowerAccess() {
 
 async function fetchVerifiedLoans(signal) {
     const access = accountAccess;
-    if (!access) throw new Error('Account band hai.');
+    if (!access) throw new Error('Account access has expired.');
     const response = await fetch('/api/loans?action=account',{cache:'no-store',signal,headers:{Authorization:'Bearer '+access.token}});
     if (response.status === 401 && accountAccess === access) switchTab('folder');
-    if (!response.ok) throw new Error('Account refresh nahi hua.');
+    if (!response.ok) throw new Error('Could not refresh this account.');
     return response.json();
 }
 
@@ -81,16 +81,16 @@ document.getElementById('phoneForm').addEventListener('submit',async event=>{
     if (!request || phoneSubmit.disabled) return;
     const number = phoneInput.value.trim();
     if (!/^(?:91|0)?\d{10}$/.test(number.replace(/[\s()+.\-]/g,''))) {
-        setPhoneState('invalid', '10 digit ka mobile number daalein.');
+        setPhoneState('invalid', 'Enter a 10-digit mobile number.');
         phoneInput.focus();
         return;
     }
-    setPhoneState('checking', 'Registered number se mila rahe hain…');
+    setPhoneState('checking');
     const controller = new AbortController();
     request.controller = controller;
     const slowNotice = setTimeout(() => {
         if (phoneRequest === request && phoneDialog.dataset.state === 'checking') {
-            phoneFeedback.textContent = 'Server se jawab aane mein thoda waqt lag raha hai…';
+            phoneFeedback.textContent = 'Still waiting for the server…';
         }
     }, 3500);
     const timeout = setTimeout(() => controller.abort(), 20000);
@@ -101,12 +101,12 @@ document.getElementById('phoneForm').addEventListener('submit',async event=>{
         if (phoneRequest !== request) return;
         if (!response.ok) {
             const invalid = response.status === 400 || response.status === 403;
-            setPhoneState(invalid ? 'invalid' : 'error', data.error || 'Number check nahi ho paaya.');
+            setPhoneState(invalid ? 'invalid' : 'error', data.error || 'Could not verify this number.');
             if (invalid) phoneInput.focus();
             return;
         }
         phoneInput.value = '';
-        setPhoneState('success', 'Number match ho gaya.');
+        setPhoneState('success', 'Number verified.');
         if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
             await new Promise(resolve => setTimeout(resolve, 320));
         }
@@ -122,8 +122,8 @@ document.getElementById('phoneForm').addEventListener('submit',async event=>{
     } catch {
         if (phoneRequest === request) {
             setPhoneState('error', controller.signal.aborted
-                ? 'Server ka jawab nahi aaya. Dobara koshish karein.'
-                : 'Connection check karke dobara koshish karein.');
+                ? 'The request timed out. Try again.'
+                : 'Check your connection and try again.');
         }
     } finally {
         clearTimeout(slowNotice);

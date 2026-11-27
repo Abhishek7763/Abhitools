@@ -297,7 +297,7 @@
             </section>`;
         }).join('');
 
-        return `${warning ? `<div class="abhi-dues-warning">${esc(warning)}</div>` : ''}${months || '<div class="abhi-dues-empty">Is profile me koi EMI schedule nahi mila.</div>'}`;
+        return `${warning ? `<div class="abhi-dues-warning">${esc(warning)}</div>` : ''}${months || '<div class="abhi-dues-empty">No installments scheduled for this account.</div>'}`;
     }
 
     function verifyRows(body, groups) {
@@ -325,7 +325,7 @@
                     <div><small>Complete month-wise EMI schedule</small><h3 id="abhiBorrowerDuesTitle">📅 ${esc(borrowerName)} — Dues</h3></div>
                     <button type="button" class="abhi-dues-close" data-abhi-dues-close="yes" aria-label="Close">✕</button>
                 </header>
-                <div class="abhi-dues-body"><div class="abhi-dues-loading">🔄 Complete EMI schedule load ho raha hai…</div></div>
+                <div class="abhi-dues-body"><div class="abhi-dues-loading" role="status"><span class="abhi-sync-ring" aria-hidden="true"></span>Loading schedule…</div></div>
             </section>`;
         document.body.appendChild(overlay);
         document.body.classList.add('public-dues-open');
@@ -343,7 +343,7 @@
             console.warn('Fresh dues render failed, using current dashboard data:', error);
             if (!document.body.contains(overlay)) return;
             const groups = buildGroups(currentLoans(), folderKey);
-            body.innerHTML = renderMonths(groups, 'Live refresh verify nahi ho saka; current dashboard data dikhaya ja raha hai. Dues dobara open karke retry karein.');
+            body.innerHTML = renderMonths(groups, 'Showing the last available schedule. Reopen Dues to refresh.');
             body.scrollTop = 0;
         }
     }

@@ -83,7 +83,9 @@ async function syncPublicData() {
     retry.hidden = true;
     feedback.hidden = Boolean(lastDirectoryUpdate);
     document.body.dataset.directory = lastDirectoryUpdate ? 'ready' : 'loading';
-    status.textContent = 'Khate load ho rahe hain…';
+    status.textContent = '';
+    const loader = document.getElementById('publicSyncLoader');
+    loader.hidden = false;
 
     try {
         // The due endpoint refreshes statuses before the directory is read.
@@ -121,19 +123,20 @@ async function syncPublicData() {
         }
         badge.dataset.state = 'ready';
         label.textContent = 'Updated';
-        badge.setAttribute('aria-label', 'Updated ' + time.title + '. Data refresh karein.');
+        badge.setAttribute('aria-label', 'Updated ' + time.title + '. Refresh accounts.');
     } catch (err) {
         console.error('Fetch error:', err);
         badge.dataset.state = 'error';
         label.textContent = 'Retry';
-        badge.setAttribute('aria-label', 'Sync nahi hua. Dobara koshish karein.');
+        badge.setAttribute('aria-label', 'Refresh failed. Try again.');
         document.body.dataset.directory = lastDirectoryUpdate ? 'ready' : 'unavailable';
         feedback.hidden = false;
         status.textContent = lastDirectoryUpdate
-            ? 'Refresh poora nahi hua. Pichhla data dikh raha hai.'
-            : 'Khate load nahi hue. Internet connection check karein.';
+            ? 'Refresh failed. Showing the last available data.'
+            : 'Could not load accounts. Check your connection.';
         retry.hidden = false;
     } finally {
+        loader.hidden = true;
         clearTimeout(timeout);
         badge.setAttribute('aria-busy', 'false');
     }
@@ -191,7 +194,7 @@ function updateDashboard() {
     if (todayBadge) {
         const parts = [];
         if (Number(overdue.amount || 0) > 0) parts.push(`🔴 Overdue: ₹${Number(overdue.amount).toLocaleString('en-IN')}`);
-        if (Number(today.amount || 0) > 0) parts.push(`🔔 Aaj Due: ₹${Number(today.amount).toLocaleString('en-IN')}`);
+        if (Number(today.amount || 0) > 0) parts.push(`🔔 Due today: ₹${Number(today.amount).toLocaleString('en-IN')}`);
         todayBadge.innerText = parts.join('   •   ');
         todayBadge.style.display = parts.length ? 'block' : 'none';
     }
@@ -274,20 +277,20 @@ function renderFolders(rows = directory.folders, sortMode = 'name') {
         const remaining = '₹' + Number(f.remaining).toLocaleString('en-IN');
         folderButton.type = 'button';
         folderButton.className = 'folder old-folder-card';
-        folderButton.setAttribute('aria-label', `${name}: ${f.count} active loans, total loan amount ${amount}, abhi baki ${remaining}`);
+        folderButton.setAttribute('aria-label', `${name}: ${f.count} active loans, total loan amount ${amount}, outstanding balance ${remaining}`);
         folderButton.onclick = () => openFolder(f.key);
         folderButton.innerHTML = `
             <div class="old-folder-title">📁 ${publicEscapeHtml(name)} · ${publicEscapeHtml(f.label)}</div>
             <div class="old-folder-summary">
                 <small>${f.count} ${loanLabel} · Total Loan Amount</small>
                 <strong>${amount}</strong>
-                <div class="folder-balance"><small>Abhi baki</small><b>${remaining}</b></div>
+                <div class="folder-balance"><small>Outstanding balance</small><b>${remaining}</b></div>
             </div>
         `;
         folderDiv.appendChild(folderButton);
     });
     if (folders.length === 0) {
-        folderDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;grid-column:1/-1;">Koi record nahi mila.</p>';
+        folderDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;grid-column:1/-1;">No matching accounts.</p>';
     }
 }
 
@@ -390,7 +393,7 @@ function renderLoanList(key) {
 }
 
 function renderEmiItems(emis) {
-    if (!emis || emis.length === 0) return 'Koi EMI nahi';
+    if (!emis || emis.length === 0) return 'No installments scheduled';
     return emis.map(e => {
         const paid = publicEmiPaid(e);
         const remaining = publicEmiRemaining(e);
@@ -443,7 +446,7 @@ function renderMonthFolders() {
     });
 
     if (sorted.length === 0) {
-        monthViewDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;">Koi EMI schedule nahi mila.</p>';
+        monthViewDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;">No installments scheduled.</p>';
     }
 }
 
