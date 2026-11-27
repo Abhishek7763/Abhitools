@@ -133,6 +133,7 @@
                 <button onclick="openAdvancedSearch()">🔎<span>Search</span></button>
                 <button onclick="openCollectionCalendar()">🗓️<span>Calendar</span></button>
                 <button onclick="openWhatsAppCenter()">💬<span>WhatsApp</span></button>
+                <button onclick="openDailyCollection()">🧮<span>Cash milan</span></button>
                 <button onclick="openReportsCenter()">📈<span>Reports</span></button>
                 <button onclick="openCollectionInsights()">🎯<span>Insights</span></button>
                 <button onclick="openFollowupCenter()">📋<span>Follow-ups</span></button>
@@ -350,6 +351,17 @@
         </div>
     </div>
 
+    <dialog id="dailyCollection" aria-labelledby="cashHeading">
+        <header><h3 id="cashHeading">Roz ka cash milan</h3><button class="btn btn-secondary" onclick="this.closest('dialog').close()" aria-label="Band karein">✕</button></header>
+        <label for="collectionDay">Collection date (India)</label>
+        <input id="collectionDay" type="date" onchange="loadDailyCollection()">
+        <p id="collectionDayStatus" role="status"></p>
+        <dl id="collectionBreakdown"></dl>
+        <label for="cashCounted">Haath mein gina hua cash (₹)</label>
+        <input id="cashCounted" inputmode="numeric" type="number" min="0" step="1" oninput="updateCashDifference()">
+        <p id="cashDifference" role="status"></p>
+    </dialog>
+
     <!-- Phase 2: EMI Payment Manager -->
     <div id="paymentModal" class="payment-overlay no-print" style="display:none;" onclick="handlePaymentOverlayClick(event)">
         <div class="payment-card" role="dialog" aria-modal="true" aria-labelledby="paymentModalTitle">
@@ -366,7 +378,7 @@
             <div class="payment-form-grid">
                 <div class="form-group">
                     <label>Amount (₹)</label>
-                    <input id="paymentAmount" type="number" min="1" placeholder="Payment amount">
+                    <input id="paymentAmount" type="number" inputmode="numeric" step="1" oninput="updatePaymentProjection()" min="1" placeholder="Payment amount">
                 </div>
                 <div class="form-group">
                     <label>Paid Date</label>
@@ -387,6 +399,11 @@
                 </div>
             </div>
 
+            <p id="paymentProjection" role="status"></p>
+            <div id="collectionReceipt" class="payment-summary" hidden>
+                <strong id="collectionReceiptText"></strong>
+                <button type="button" class="btn btn-success" id="collectionShare" hidden>WhatsApp receipt</button>
+            </div>
             <div class="payment-form-actions">
                 <button id="savePaymentBtn" class="btn btn-success" onclick="savePayment()">💰 Add Payment</button>
                 <button id="cancelPaymentEditBtn" class="btn btn-secondary" style="display:none;" onclick="resetPaymentForm()">Cancel Edit</button>
@@ -439,10 +456,11 @@
                 <div id="importPreview" class="import-preview" style="display:none;"></div>
                 <div id="importApplyControls" style="display:none;">
                     <label for="importMode"><strong>Import mode</strong></label>
-                    <select id="importMode" class="safety-select">
+                    <select id="importMode" class="safety-select" onchange="renderBorrowerReview()">
                         <option value="merge">Merge — current data rakho, duplicate Loan IDs skip karo</option>
                         <option value="replace">Replace — current data ko imported data se replace karo</option>
                     </select>
+                    <div id="importBorrowerReview"></div>
                     <button id="applyImportBtn" class="btn btn-success safety-primary" onclick="applySmartImport()">✅ Apply Import</button>
                 </div>
                 <div id="importResult" class="safety-status" style="display:none;"></div>
@@ -1333,7 +1351,7 @@
     </div>
 
     <script src="pwa.js"></script>
-    <script src="admin_script.js"></script>
+    <script src="borrower_folders.js"></script><script src="admin_script.js"></script>
     <script src="vendor/fflate-0.8.3.js"></script>
     <script src="ui_portable_backup.js"></script>
     <script src="ui_data_safety.js"></script>

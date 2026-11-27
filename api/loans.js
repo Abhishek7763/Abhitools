@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { isValidAdminSession, noStore, requireAdmin, sendServerError, supabaseRequest } from '../server_shared.js';
 
 const MONTHS = { JAN:1, FEB:2, MAR:3, APR:4, MAY:5, JUN:6, JUL:7, AUG:8, SEP:9, OCT:10, NOV:11, DEC:12 };
@@ -138,9 +139,13 @@ export default async function handler(req, res) {
         if (req.method === 'GET' && !action) {
             const select = isAdmin
                 ? '*,borrowers(id,name,phone,whatsapp,address,photo_url),emis(*),loan_settlements(*)&order=created_at.desc'
-                : 'id,loan_code,amount,status,loan_year,borrowers(name),emis(installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount)&order=created_at.desc';
+                : 'id,loan_code,amount,status,loan_year,borrower_id,borrowers(name),emis(installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount)&order=created_at.desc';
             const { data } = await supabaseRequest(`loans?deleted_at=is.null&select=${select}`);
-            return res.status(200).json(data || []);
+            if (isAdmin) return res.status(200).json(data || []);
+            const rows = (data || []).map(({ borrower_id, ...loan }) => ({
+                ...loan, folder_key: createHash('sha256').update('public-folder:' + (borrower_id || loan.id)).digest('hex')
+            }));
+            return res.status(200).json(rows);
         }
 
         if (!requireAdmin(req, res)) return;

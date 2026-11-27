@@ -215,34 +215,20 @@ function switchTab(tab) {
 // FOLDER VIEW
 // ==========================================
 function renderFolders(searchQuery = '', sortMode = 'name') {
-    const folders = {};
-    loans.forEach(loan => {
-        if (loan.status !== 'active') return;
-        const borrower = loan.borrowers;
-        if (!borrower) return;
-        const name = borrower.name.toUpperCase();
-        if (searchQuery && !name.includes(searchQuery) && !loan.loan_code?.toUpperCase().includes(searchQuery)) return;
-        if (!folders[name]) folders[name] = { count: 0, sum: 0 };
-        folders[name].count++;
-        folders[name].sum += parseInt(loan.amount) || 0;
-    });
+    const folders = activeBorrowerFolders(loans, searchQuery, sortMode);
     const folderDiv = document.getElementById('folderView');
     folderDiv.innerHTML = '';
-    let names = Object.keys(folders);
-    if (sortMode === 'highest') names.sort((a, b) => folders[b].sum - folders[a].sum);
-    else if (sortMode === 'lowest') names.sort((a, b) => folders[a].sum - folders[b].sum);
-    else names.sort();
-    names.forEach(name => {
-        const f = folders[name];
+    folders.forEach(f => {
+        const name = f.name;
         const folderButton = document.createElement('button');
         const loanLabel = f.count === 1 ? 'Active Loan' : 'Active Loans';
         const amount = '₹' + f.sum.toLocaleString('en-IN');
         folderButton.type = 'button';
         folderButton.className = 'folder old-folder-card';
         folderButton.setAttribute('aria-label', `${name}: ${f.count} active loans, total loan amount ${amount}`);
-        folderButton.onclick = () => openFolder(name);
+        folderButton.onclick = () => openFolder(f.key);
         folderButton.innerHTML = `
-            <div class="old-folder-title">📁 ${publicEscapeHtml(name)}</div>
+            <div class="old-folder-title">📁 ${publicEscapeHtml(name)} · ${publicEscapeHtml(f.loanCode)}</div>
             <div class="old-folder-summary">
                 <small>${f.count} ${loanLabel} · Total Loan Amount</small>
                 <strong>${amount}</strong>
@@ -250,13 +236,15 @@ function renderFolders(searchQuery = '', sortMode = 'name') {
         `;
         folderDiv.appendChild(folderButton);
     });
-    if (names.length === 0) {
+    if (folders.length === 0) {
         folderDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;grid-column:1/-1;">Koi record nahi mila.</p>';
     }
 }
 
-function openFolder(name) {
-    currentOpenFolder = name;
+function openFolder(key) {
+    const name = borrowerFolderName(key);
+    if (!name) { goBackToFolders(); return; }
+    currentOpenFolder = key;
     document.body.classList.add('public-detail-active');
     document.getElementById('folderView').style.display = 'none';
     document.getElementById('detailView').style.display = 'block';
@@ -264,7 +252,7 @@ function openFolder(name) {
 
     let totalAmount = 0, loanCount = 0;
     loans.forEach(loan => {
-        if (loan.borrowers?.name.toUpperCase() === name.toUpperCase() && loan.status === 'active') {
+        if (borrowerFolderKey(loan) === key && loan.status === 'active') {
             totalAmount += parseInt(loan.amount) || 0;
             loanCount++;
         }
@@ -278,7 +266,7 @@ function openFolder(name) {
         </span>
     `;
 
-    renderLoanList(name);
+    renderLoanList(key);
     window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
 }
 
@@ -295,12 +283,12 @@ function goBackToFolders() {
 // ==========================================
 // LOAN CARDS - Public View (Read Only)
 // ==========================================
-function renderLoanList(nameFilter) {
+function renderLoanList(key) {
     const list = document.getElementById('loanList');
     list.innerHTML = '';
 
     loans.forEach(loan => {
-        if (loan.borrowers?.name.toUpperCase() !== nameFilter.toUpperCase()) return;
+        if (borrowerFolderKey(loan) !== key) return;
 
         let emiSum = 0, paidSum = 0, overdueSum = 0;
         const emis = loan.emis || [];

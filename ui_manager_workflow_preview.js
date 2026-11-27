@@ -8,7 +8,7 @@ const iso=e=>String(e?.due_date||'').slice(0,10);
 const today=()=>String(publicDueData?.businessDate||new Date().toISOString()).slice(0,10);
 const days=e=>/^\d{4}-\d{2}-\d{2}$/.test(iso(e))?Math.round((Date.parse(iso(e)+'T00:00:00Z')-Date.parse(today()+'T00:00:00Z'))/86400000):99999;
 const active=()=>Array.isArray(loans)?loans.filter(l=>l.status==='active'):[];
-function borrowerLoans(){return active().filter(l=>String(l.borrowers?.name||'').toUpperCase()===String(currentOpenFolder||'').toUpperCase())}
+function borrowerLoans(){return active().filter(l=>borrowerFolderKey(l)===currentOpenFolder)}
 function enhanceBorrower(){
  if(!currentOpenFolder)return;
  const h=document.getElementById('currentFolderName'); if(!h)return;

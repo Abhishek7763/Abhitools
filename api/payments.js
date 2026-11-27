@@ -54,6 +54,12 @@ export default async function handler(req, res) {
     if (!requireAdmin(req, res)) return;
 
     try {
+        if (req.method === 'GET' && req.query?.action === 'daily') {
+            const day = req.query.date || businessDate();
+            if (day !== cleanDate(day)) return res.status(400).json({ error: 'Valid collection date required' });
+            const { data } = await supabaseRequest('rpc/abhi_daily_collection', 'POST', { p_day: day });
+            return res.status(200).json(data);
+        }
         if (req.method === 'GET') {
             const emiId = validUuid(req.query?.emi_id);
             if (!emiId) return res.status(400).json({ error: 'Valid emi_id required' });
@@ -91,7 +97,10 @@ export default async function handler(req, res) {
             if (!paidDate) return res.status(400).json({ error: 'Valid payment date required' });
             if (!await ensureVisibleEmi(emiId)) return res.status(404).json({ error: 'EMI not found or loan is in Recycle Bin' });
 
-            const { data } = await supabaseRequest('rpc/abhi_add_emi_payment', 'POST', {
+            const requestId = validUuid(req.body?.request_id);
+            if (req.body?.request_id !== undefined && !requestId) return res.status(400).json({ error: 'Invalid payment request ID' });
+            const { data } = await supabaseRequest(requestId ? 'rpc/abhi_record_collection' : 'rpc/abhi_add_emi_payment', 'POST', {
+                ...(requestId ? { p_request_id: requestId } : {}),
                 p_emi_id: emiId,
                 p_amount: amount,
                 p_payment_date: paidDate,
@@ -135,6 +144,14 @@ export default async function handler(req, res) {
         res.setHeader('Allow', 'GET, POST, PUT, DELETE');
         return res.status(405).json({ error: 'Method not allowed' });
     } catch (err) {
+        const messages = {
+            'Payment exceeds EMI remaining amount': 'Amount bachi hui EMI se zyada hai.',
+            'Payment request details differ': 'Is request ki details pehle ki entry se alag hain. Payment history dekhein.',
+            'Payment was reversed': 'Yeh payment pehle reverse ho chuki hai. History dekhein.',
+            'Loan unavailable for collection': 'Is loan par payment lena ab available nahi hai.'
+        };
+        const message = messages[err?.details?.message];
+        if (typeof message === 'string') return res.status(409).json({ error: message });
         return sendServerError(res, 'Payments API Error:', err);
     }
 }

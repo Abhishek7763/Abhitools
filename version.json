@@ -13,6 +13,6 @@
     "vercel_hobby_function_budget": 12
   },
   "backup_format_version": 8,
-  "notes": "Portable ZIP v1 includes app uploads and v8 records. Apply the backup_and_data_reset and portable_media_backup migrations before deployment.",
+  "notes": "Portable ZIP v1 includes app uploads and v8 records. Apply the backup_and_data_reset, portable_media_backup and collection_workflow migrations before deployment.",
   "portable_backup_version": 1
 }
