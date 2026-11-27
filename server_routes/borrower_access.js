@@ -33,23 +33,23 @@ export async function borrowerAccess(action,req,res) {
     }
     if (action === 'account' && req.method === 'GET') {
         const owner = verifiedOwner(req);
-        if (!owner) return res.status(401).json({ error:'Apna registered mobile number darj karein.' });
+        if (!owner) return res.status(401).json({ error:'Enter your registered mobile number.' });
         return res.status(200).json(await accountLoans(owner));
     }
     if (action === 'unlock' && req.method === 'POST') {
         const key = String(req.body?.folder || '');
         const raw = String(req.body?.phone || '').trim();
         const match = raw.length <= 26 && raw.replace(/[\s()+.\-]/g,'').match(/^(?:91|0)?(\d{10})$/);
-        if (!/^[a-f0-9]{64}$/.test(key) || !match) return res.status(400).json({ error:'10 digit ka registered mobile number daalein.' });
+        if (!/^[a-f0-9]{64}$/.test(key) || !match) return res.status(400).json({ error:'Enter a valid 10-digit mobile number.' });
         const ip = req.headers?.['x-vercel-forwarded-for'] || getClientAddress(req);
         const {data} = await supabaseRequest('rpc/abhi_unlock_borrower','POST',{
             p_key:key, p_phone:match[1], p_bucket:securityFingerprint('borrower-phone-attempt',String(ip))
         });
         if (data?.allowed === false) {
             res.setHeader('Retry-After',String(data.retry_after_seconds || 600));
-            return res.status(429).json({error:'Kai galat attempts hue hain. Kuch der baad dobara koshish karein.'});
+            return res.status(429).json({error:'Too many attempts. Try again later.'});
         }
-        if (!idPattern.test(data?.borrower_id || '')) return res.status(403).json({error:'Number match nahi hua. Is account ka registered mobile number check karein.'});
+        if (!idPattern.test(data?.borrower_id || '')) return res.status(403).json({error:'This number does not match this account.'});
         return res.status(200).json({ ...issueAccess(data.borrower_id), loans:await accountLoans(data.borrower_id) });
     }
     return res.status(405).json({error:'Method not allowed'});

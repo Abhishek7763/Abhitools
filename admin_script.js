@@ -772,11 +772,11 @@ function updatePaymentProjection() {
     input.max = available;
     const amount = Number(input.value);
     const valid = Number.isSafeInteger(amount) && amount > 0 && amount <= available;
-    document.getElementById('paymentProjection').textContent = pending ? 'Isi entry ko retry karke payment confirm karein.'
-        : available === 0 ? 'EMI poori paid hai.'
-        : !input.value ? 'Bachi hui EMI ' + cashFormat(available)
-        : valid ? 'Is payment ke baad baki ' + cashFormat(available - amount)
-        : '₹1 se ' + cashFormat(available) + ' tak poore rupaye darj karein.';
+    document.getElementById('paymentProjection').textContent = pending ? 'Retry this entry to confirm the payment.'
+        : available === 0 ? 'Installment paid in full.'
+        : !input.value ? 'Outstanding balance: ' + cashFormat(available)
+        : valid ? 'Balance after payment: ' + cashFormat(available - amount)
+        : 'Enter a whole amount from ₹1 to ' + cashFormat(available) + '.';
     for (const id of ['paymentAmount','paymentDate','paymentMethod','paymentNotes']) {
         document.getElementById(id).disabled = pending || paymentSaving;
     }

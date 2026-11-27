@@ -108,7 +108,7 @@
             box.className = 'emi-clarity-next';
             if (!emi) {
                 box.classList.add('paid');
-                box.innerHTML = '<span class="emi-clarity-kicker">Next EMI</span><strong>✅ All EMIs paid</strong><small>Complete schedule dekhne ke liye tap karein</small>';
+                box.innerHTML = '<span class="emi-clarity-kicker">Next EMI</span><strong>✅ All EMIs paid</strong><small>View schedule</small>';
             } else {
                 const state = emiStatus(emi);
                 box.classList.add(state.key);
@@ -134,7 +134,7 @@
         body.querySelector('.emi-clarity-guide')?.remove();
         const guide = document.createElement('div');
         guide.className = 'emi-clarity-guide';
-        guide.innerHTML = '<strong>EMI Schedule</strong><span>Kisi EMI ko tap karke payment status aur complete details dekhein.</span>';
+        guide.innerHTML = '<strong>EMI Schedule</strong>';
         const list = body.querySelector('.public-emi-list');
         if (list) list.insertAdjacentElement('beforebegin', guide);
 

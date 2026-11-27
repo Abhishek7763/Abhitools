@@ -92,6 +92,7 @@
             return a.index - b.index;
         });
 
+        if (ranked.every((item, index) => item.card === cards[index])) return;
         ranked.forEach(item => list.appendChild(item.card));
     }
 

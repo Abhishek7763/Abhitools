@@ -53,7 +53,7 @@ export default async function handler(req,res){
 
         const customerAction = ['active','start','status','reference','cancel'].includes(action);
         const owner = customerAction ? verifiedOwner(req) : null;
-        if (customerAction && !owner) return res.status(401).json({error:'Registered mobile number se account kholein.'});
+        if (customerAction && !owner) return res.status(401).json({error:'Open the account with its registered mobile number.'});
         const ownerFilter = owner ? `&loans.borrower_id=eq.${owner}&loans.deleted_at=is.null&loans.borrowers.deleted_at=is.null` : '';
 
         if(req.method==='GET'&&action==='active'){
@@ -88,11 +88,11 @@ export default async function handler(req,res){
 
         if(req.method==='POST'&&action==='reference'){
             const requestId=validUuid(req.body?.request_id);const reference=String(req.body?.reference||'').trim();
-            if(!requestId||!REF_RE.test(reference))return res.status(400).json({error:'Valid request ID aur UPI UTR/transaction reference required'});
+            if(!requestId||!REF_RE.test(reference))return res.status(400).json({error:'Enter a valid request ID and UPI transaction reference.'});
             try{
                 const {data}=await supabaseRequest('rpc/abhi_borrower_upi_write','POST',{p_owner:owner,p_action:action,p_code:null,p_installment:null,p_type:null,p_request:requestId,p_reference:reference});
                 const result=Array.isArray(data)?data[0]:data;return res.status(200).json(result||{success:true,reference_submitted:true});
-            }catch(err){throw requestError(safeRpcMessage(err,'UTR submit nahi hua'),409);}
+            }catch(err){throw requestError(safeRpcMessage(err,'Could not submit the payment reference.'),409);}
         }
 
         if(req.method==='POST'&&action==='cancel'){
@@ -100,7 +100,7 @@ export default async function handler(req,res){
             try{
                 const {data}=await supabaseRequest('rpc/abhi_borrower_upi_write','POST',{p_owner:owner,p_action:action,p_code:null,p_installment:null,p_type:null,p_request:requestId,p_reference:null});
                 return res.status(200).json(Array.isArray(data)?(data[0]||{success:true}):(data||{success:true}));
-            }catch(err){throw requestError(safeRpcMessage(err,'Payment request cancel nahi hui'),409);}
+            }catch(err){throw requestError(safeRpcMessage(err,'Could not cancel the payment request.'),409);}
         }
 
         if(!requireAdmin(req,res))return;

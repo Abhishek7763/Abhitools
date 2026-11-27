@@ -46,10 +46,10 @@
             return;
         }
         if (isIos) {
-            alert('iPhone/iPad par install karne ke liye Safari ka Share button kholen aur “Add to Home Screen” choose karein.');
+            alert('In Safari, tap Share, then Add to Home Screen.');
             return;
         }
-        alert('Install option browser ke menu me “Install app” ya “Add to Home screen” ke naam se mil sakta hai.');
+        alert('Open your browser menu and select Install app or Add to Home screen.');
     }
 
     function bindInstallButtons() {
@@ -73,7 +73,7 @@
             bar.setAttribute('role', 'status');
             bar.setAttribute('aria-live', 'polite');
             bar.style.cssText = 'display:none;position:fixed;left:12px;right:12px;top:10px;z-index:30000;padding:10px 14px;border-radius:10px;background:#7f1d1d;color:#fff;font:600 13px/1.35 system-ui,-apple-system,sans-serif;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.25)';
-            bar.textContent = '📴 Offline — live loan data unavailable. Internet aane par app automatically reconnect karega.';
+            bar.textContent = 'Offline. Reconnect to refresh your accounts.';
             document.body?.appendChild(bar);
         }
         return bar;
@@ -91,7 +91,7 @@
         const toast = document.createElement('div');
         toast.id = 'pwaUpdateToast';
         toast.style.cssText = 'position:fixed;z-index:29999;right:14px;bottom:88px;max-width:330px;padding:12px;border-radius:12px;background:#111827;color:#fff;box-shadow:0 12px 32px rgba(0,0,0,.3);font:500 13px/1.4 system-ui,-apple-system,sans-serif';
-        toast.innerHTML = '<div style="font-weight:700;margin-bottom:4px">✨ AbhiTools update ready</div><div style="opacity:.8;margin-bottom:10px">Latest version load karne ke liye update karein.</div>';
+        toast.innerHTML = '<div style="font-weight:700;margin-bottom:4px">✨ AbhiTools update ready</div><div style="opacity:.8;margin-bottom:10px">Reload to use the latest version.</div>';
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;gap:8px;justify-content:flex-end';
         const later = document.createElement('button');
