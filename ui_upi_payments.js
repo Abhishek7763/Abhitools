@@ -17,10 +17,6 @@
         const style = document.createElement('style');
         style.id = 'abhiUpiPaymentStyles';
         style.textContent = `
-            body.public-page #lastUpdatedBadge{display:block!important;min-width:68px;max-width:92px;padding:5px 7px!important;border-radius:9px!important;font-size:9px!important;line-height:1.25!important;white-space:normal;box-shadow:0 2px 8px rgba(26,115,232,.12)}
-            @media(max-width:420px){body.public-page #lastUpdatedBadge{min-width:62px;max-width:76px;font-size:8.3px!important;padding:5px!important}body.public-page .header-container h2{font-size:14px!important}}
-            #publicSyncLoader{position:fixed;z-index:31990;left:50%;top:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;padding:11px 15px;border:1px solid #dbeafe;border-radius:999px;background:rgba(255,255,255,.96);color:#1e3a8a;box-shadow:0 12px 35px rgba(15,23,42,.18);font:700 12px/1.2 ui-sans-serif,system-ui,sans-serif;backdrop-filter:blur(10px);pointer-events:none}
-            #publicSyncLoader[hidden]{display:none!important}.abhi-sync-ring{width:19px;height:19px;border:3px solid #bfdbfe;border-top-color:#2563eb;border-radius:50%;animation:abhiUpiSpin .75s linear infinite}@keyframes abhiUpiSpin{to{transform:rotate(360deg)}}body.dark-mode #publicSyncLoader{background:rgba(17,24,39,.96);color:#dbeafe;border-color:#334155}
             .upi-public-actions{margin-top:8px;display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}.upi-public-pay,.upi-public-secondary,.upi-public-danger{min-height:37px;border:0;border-radius:10px;padding:8px 11px;cursor:pointer;font:800 11.5px/1.15 ui-sans-serif,system-ui,sans-serif}.upi-public-pay{background:linear-gradient(135deg,#16a34a,#15803d);color:#fff;box-shadow:0 3px 10px rgba(22,163,74,.2)}.upi-public-secondary{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}.upi-public-danger{background:#fff1f2;color:#be123c;border:1px solid #fecdd3}.upi-public-pay:disabled,.upi-public-secondary:disabled,.upi-public-danger:disabled{opacity:.58;cursor:wait}
             .upi-public-pending,.upi-public-claimed,.upi-public-locked,.upi-public-unavailable{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:999px;font-size:10.3px;font-weight:800}.upi-public-pending{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}.upi-public-claimed{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}.upi-public-locked{background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0}.upi-public-unavailable{background:#f8fafc;color:#64748b;border:1px solid #e2e8f0}.upi-public-note{width:100%;text-align:right;color:#64748b;font-size:9.5px;line-height:1.35}.dark-mode .upi-public-pending{background:#431407;color:#fed7aa;border-color:#7c2d12}.dark-mode .upi-public-claimed{background:#172554;color:#bfdbfe;border-color:#1e40af}.dark-mode .upi-public-locked,.dark-mode .upi-public-unavailable{background:#111827;color:#94a3b8;border-color:#334155}.dark-mode .upi-public-note{color:#94a3b8}
             .upi-foreclosure-card{border:1px solid #f5d0a4;border-radius:12px;background:linear-gradient(135deg,#fff7ed,#fffbeb);padding:10px 11px;display:grid;gap:8px}.upi-foreclosure-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}.upi-foreclosure-head strong{font-size:13px;color:#9a3412}.upi-foreclosure-head small{display:block;margin-top:2px;font-size:10px;line-height:1.35;color:#92400e}.upi-foreclosure-amount{font-size:18px!important;white-space:nowrap;color:#9a3412!important}.upi-foreclosure-card .upi-public-actions{margin-top:0}.dark-mode .upi-foreclosure-card{background:#2b1705;border-color:#7c2d12}.dark-mode .upi-foreclosure-head strong,.dark-mode .upi-foreclosure-amount{color:#fed7aa!important}.dark-mode .upi-foreclosure-head small{color:#fdba74}
@@ -64,27 +60,6 @@
     async function loadActivePublicRequest(loanCode) {
         try { const data = await publicJson(`/api/upi-payments?action=active&loan_code=${encodeURIComponent(loanCode)}`); return data?.request || null; }
         catch { return null; }
-    }
-
-    function ensurePublicSyncLoader() {
-        let loader = document.getElementById('publicSyncLoader');
-        if (!loader) {
-            loader = document.createElement('div'); loader.id = 'publicSyncLoader'; loader.hidden = true;
-            loader.setAttribute('role','status'); loader.setAttribute('aria-live','polite');
-            loader.innerHTML = '<span class="abhi-sync-ring" aria-hidden="true"></span><span>Server se data sync ho raha hai…</span>';
-            document.body.appendChild(loader);
-        }
-        return loader;
-    }
-    let syncLoaderTimer = null;
-    function scheduleSyncLoader(){clearTimeout(syncLoaderTimer);syncLoaderTimer=setTimeout(()=>{ensurePublicSyncLoader().hidden=false;},280);}
-    function hideSyncLoader(){clearTimeout(syncLoaderTimer);const loader=document.getElementById('publicSyncLoader');if(loader)loader.hidden=true;}
-    function installSyncFeedback(){
-        const badge=document.getElementById('lastUpdatedBadge');if(badge)badge.style.display='block';
-        if(typeof window.fetchFromCloud==='function'&&!window.fetchFromCloud.__abhiUpiWrappedV2){
-            const core=window.fetchFromCloud;const wrapped=async function(...args){scheduleSyncLoader();try{return await core.apply(this,args);}finally{hideSyncLoader();}};wrapped.__abhiUpiWrappedV2=true;window.fetchFromCloud=wrapped;
-        }
-        const text=String(badge?.textContent||'');if(/N\/A|Updating|Loading/i.test(text)){scheduleSyncLoader();let checks=0;const watcher=setInterval(()=>{checks+=1;const current=String(document.getElementById('lastUpdatedBadge')?.textContent||'');if(/Updated|Offline|Error/i.test(current)||checks>80){clearInterval(watcher);hideSyncLoader();}},150);}
     }
 
     function showPublicNotice(data){
@@ -141,7 +116,7 @@
         const closeBtn=document.createElement('button');closeBtn.type='button';closeBtn.className='upi-public-pay';closeBtn.textContent=`Pay Full & Close Loan ${money(outstanding)}`;closeBtn.addEventListener('click',()=>{if(!confirm(`Full loan closure ke liye ${money(outstanding)} UPI request start karna hai?\n\nSirf UPI app khulne se loan close nahi hoga.`))return;startPublicPayment(loan,firstUnpaid,'foreclosure',closeBtn,rerender);});actions.appendChild(closeBtn);
     }
 
-    function installPublicUi(){injectStyles();installSyncFeedback();loadPublicConfig().catch(()=>{});if(typeof window.publicOpenLoanCompactDetail==='function'&&!window.publicOpenLoanCompactDetail.__abhiUpiWrappedV2){const core=window.publicOpenLoanCompactDetail;const wrapped=function(loanId,...rest){const result=core.call(this,loanId,...rest);window.setTimeout(()=>enhancePublicOverlay(loanId),0);return result;};wrapped.__abhiUpiWrappedV2=true;window.publicOpenLoanCompactDetail=wrapped;}}
+    function installPublicUi(){injectStyles();loadPublicConfig().catch(()=>{});if(typeof window.publicOpenLoanCompactDetail==='function'&&!window.publicOpenLoanCompactDetail.__abhiUpiWrappedV2){const core=window.publicOpenLoanCompactDetail;const wrapped=function(loanId,...rest){const result=core.call(this,loanId,...rest);window.setTimeout(()=>enhancePublicOverlay(loanId),0);return result;};wrapped.__abhiUpiWrappedV2=true;window.publicOpenLoanCompactDetail=wrapped;}}
 
     let adminRequests=[];let adminFilter='claimed';
     function adminBusinessDateSafe(){if(typeof adminBusinessDate==='function')return adminBusinessDate();const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const map=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${map.year}-${map.month}-${map.day}`;}

@@ -18,6 +18,8 @@ let currentOpenFolder = null;
 let isGridView = false;
 let autoSyncInterval = null;
 let publicDueData = null;
+let pendingSync = null;
+let lastDirectoryUpdate = null;
 
 const monthOrder = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 
@@ -59,47 +61,81 @@ async function initApp() {
 // ==========================================
 // DATA FETCH - Supabase API se
 // ==========================================
-async function fetchFromCloud() {
+function fetchFromCloud() {
+    if (!pendingSync) {
+        pendingSync = syncPublicData().finally(() => { pendingSync = null; });
+    }
+    return pendingSync;
+}
+
+async function syncPublicData() {
     const badge = document.getElementById('lastUpdatedBadge');
+    const label = document.getElementById('syncBadgeLabel');
+    const time = document.getElementById('syncBadgeTime');
+    const feedback = document.getElementById('directoryFeedback');
+    const status = document.getElementById('directoryStatus');
+    const retry = document.getElementById('retryDirectory');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
+    badge.dataset.state = 'checking';
+    badge.setAttribute('aria-busy', 'true');
+    label.textContent = 'Sync…';
+    retry.hidden = true;
+    feedback.hidden = Boolean(lastDirectoryUpdate);
+    document.body.dataset.directory = lastDirectoryUpdate ? 'ready' : 'loading';
+    status.textContent = 'Khate load ho rahe hain…';
+
     try {
-        if (badge) badge.innerHTML = `<span class="spin-icon">🔄</span><br>Updating ✨`;
-
-        // Refresh due/overdue statuses first on the server, then fetch the loan list.
-        const dueResponse = await fetch('/api/due?view=public', { cache: 'no-store' });
+        // The due endpoint refreshes statuses before the directory is read.
+        const options = { cache:'no-store', signal:controller.signal };
+        const dueResponse = await fetch('/api/due?view=public', options);
         if (!dueResponse.ok) throw new Error('Due API error');
-        publicDueData = await dueResponse.json();
-
-        const response = await fetch('/api/loans?action=directory', { cache: 'no-store' });
-        if (!response.ok) throw new Error('API error');
-        directory = await response.json();
-
+        const dueData = await dueResponse.json();
+        const response = await fetch('/api/loans?action=directory', options);
+        if (!response.ok) throw new Error('Directory API error');
+        const data = await response.json();
+        directory = data;
+        publicDueData = dueData;
+        lastDirectoryUpdate = new Date();
+        time.dateTime = lastDirectoryUpdate.toISOString();
+        time.title = lastDirectoryUpdate.toLocaleString('en-IN', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
+        time.textContent = lastDirectoryUpdate.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
         updateDashboard();
         if (!currentOpenFolder) refreshFolderSearch();
         if (currentTab === 'month') renderMonthFolders();
-        if (accountAccess) {
-            const access = accountAccess;
-            const details = await fetchVerifiedLoans();
-            if (accountAccess === access) {
-                loans = details;
-                if (currentOpenFolder) openFolder(currentOpenFolder);
-                else if (access.month) showVerifiedMonth(access.month);
+        document.body.dataset.directory = 'ready';
+        feedback.hidden = true;
+
+        const access = accountAccess;
+        if (access) {
+            try {
+                const details = await fetchVerifiedLoans(controller.signal);
+                if (accountAccess === access) {
+                    loans = details;
+                    if (currentOpenFolder) openFolder(currentOpenFolder);
+                    else if (access.month) showVerifiedMonth(access.month);
+                }
+            } catch (err) {
+                if (accountAccess === access) throw err;
             }
         }
-
-        if (badge) {
-            badge.innerHTML = `Updated! ✅🥰`;
-            setTimeout(() => {
-                badge.innerHTML = `Updated:<br>${new Date().toLocaleString('en-IN', {
-                    day: '2-digit', month: 'short',
-                    hour: '2-digit', minute: '2-digit', hour12: true
-                })}`;
-            }, 2000);
-        }
-
+        badge.dataset.state = 'ready';
+        label.textContent = 'Updated';
+        badge.setAttribute('aria-label', 'Updated ' + time.title + '. Data refresh karein.');
     } catch (err) {
         console.error('Fetch error:', err);
-        if (badge) badge.innerHTML = `Offline ❌`;
-        alert('Data load nahi hua. Internet check karein.');
+        badge.dataset.state = 'error';
+        label.textContent = 'Retry';
+        badge.setAttribute('aria-label', 'Sync nahi hua. Dobara koshish karein.');
+        document.body.dataset.directory = lastDirectoryUpdate ? 'ready' : 'unavailable';
+        feedback.hidden = false;
+        status.textContent = lastDirectoryUpdate
+            ? 'Refresh poora nahi hua. Pichhla data dikh raha hai.'
+            : 'Khate load nahi hue. Internet connection check karein.';
+        retry.hidden = false;
+    } finally {
+        clearTimeout(timeout);
+        badge.setAttribute('aria-busy', 'false');
     }
 }
 
@@ -486,6 +522,7 @@ function handleSearch() {
 }
 
 function refreshFolderSearch() {
+    if (!lastDirectoryUpdate) return;
     const sequence = ++directorySearch;
     clearTimeout(searchTimer);
     const query = document.getElementById('searchInput').value.trim();

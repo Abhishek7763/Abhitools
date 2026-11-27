@@ -2035,28 +2035,121 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
 #phoneDialog::backdrop { background: #0b1d38a8; backdrop-filter: blur(4px); }
 #phoneForm { position: relative; padding: 27px 23px 23px; }
 #phoneClose { position: absolute; right: 10px; top: 10px; width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 27px; cursor: pointer; }
-.phone-lock { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: #d9eafd; font-size: 22px; }
-#phoneTitle { margin: 15px 0 5px; font-size: 23px; line-height: 1.15; overflow-wrap: anywhere; color: inherit; }
+.phone-lock {
+    position: relative; display: grid; place-items: center; width: 48px; height: 48px;
+    border-radius: 15px; color: #2459a3; background: #dcecff;
+}
+.phone-symbol {
+    position: relative; width: 18px; height: 14px; margin-top: 6px; box-sizing: border-box;
+    border: 2px solid currentColor; border-radius: 4px;
+}
+.phone-symbol::before {
+    content: ""; position: absolute; left: 2px; bottom: 10px; width: 10px; height: 10px;
+    box-sizing: border-box; border: 2px solid currentColor; border-bottom: 0; border-radius: 8px 8px 0 0;
+}
+.phone-symbol::after {
+    content: ""; position: absolute; left: 6px; top: 3px; width: 2px; height: 5px;
+    border-radius: 1px; background: currentColor;
+}
+#phoneDialog[data-state=checking] .phone-lock { background: transparent; }
+#phoneDialog[data-state=checking] .phone-lock::after {
+    content: ""; position: absolute; inset: 1px; border: 2px solid #b9d6ed;
+    border-top-color: currentColor; border-right-color: currentColor; border-radius: 50%;
+}
+#phoneDialog[data-state=success] .phone-lock { background: #d9f4e8; color: #146849; }
+#phoneDialog[data-state=success] .phone-symbol {
+    width: 21px; height: 12px; margin: -4px 0 0;
+    border-width: 0 0 3px 3px; border-radius: 1px; transform: rotate(-45deg);
+}
+#phoneDialog[data-state=success] .phone-symbol::before,
+#phoneDialog[data-state=success] .phone-symbol::after { content: none; }
+.phone-heading { display: grid; grid-template-columns: 48px minmax(0,1fr); align-items: center; gap: 13px; margin: 0 24px 14px 0; }
+#phoneTitle { text-align: left; margin: 0; font-size: 23px; line-height: 1.15; overflow-wrap: anywhere; color: inherit; }
 #phoneHelp { margin: 0 0 20px; color: #49627a; font-size: 14px; line-height: 1.45; }
 #phoneForm label { display: block; margin: 0 0 7px; font-size: 13px; font-weight: 700; }
 .phone-field { display: flex; align-items: center; padding: 0 12px; border: 1.5px solid #a9bed2; border-radius: 11px; background: #fff; }
 .phone-field:focus-within { border-color: #286bc4; box-shadow: 0 0 0 3px #397cd41b; }
 .phone-field span { color: #4d6680; padding-right: 10px; border-right: 1px solid #d6dfe8; }
 #accountPhone { border: 0; outline: 0; width: 100%; min-width: 0; padding: 12px 8px; font: inherit; font-size: 16px; color: inherit; background: transparent; }
-#phoneFeedback { min-height: 1.25em; margin: 7px 0; font-size: 13px; }
+#phoneFeedback { min-height: 2.7em; margin: 7px 0 3px; color: #415c75; font-size: 13px; line-height: 1.35; }
 #phoneSubmit { width: 100%; min-height: 45px; border: 0; border-radius: 11px; background: linear-gradient(110deg,#245abc,#006e7a); color: white; font: inherit; font-weight: 700; cursor: pointer; }
-#phoneDialog[data-state=error] .phone-field { border-color: #be3446; }
-#phoneDialog[data-state=error] #phoneFeedback { color: #a22438; }
+#phoneDialog[data-state=invalid] .phone-field { border-color: #be3446; }
+#phoneDialog:is([data-state=error], [data-state=invalid]) #phoneFeedback { color: #a22438; }
 #phoneDialog[data-state=success] #phoneFeedback { color: #13704e; }
 #phoneDialog[data-state=success] #phoneSubmit { background: #146a51; }
 @media (prefers-reduced-motion:no-preference) {
     #phoneDialog[open] form { animation: phone-appear .18s ease-out; }
-    #phoneDialog[data-state=error] .phone-field { animation: phone-shake .24s ease-out; }
+    #phoneDialog[data-state=invalid] .phone-field { animation: phone-shake .24s ease-out; }
     @keyframes phone-appear { from { opacity: .6; transform: translateY(5px); } }
     @keyframes phone-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 }
 .dark-mode #phoneDialog { background: linear-gradient(145deg,#203449,#182633 60%); color: #e8f4ff; border-color: #38516b; }
 .dark-mode #phoneHelp,.dark-mode .phone-field span { color: #b9ccdf; }
 .dark-mode .phone-field,.dark-mode .phone-lock { background: #22364c; }
-.dark-mode #phoneDialog[data-state=error] #phoneFeedback { color: #ffb2bd; }
+.dark-mode #phoneDialog:is([data-state=error], [data-state=invalid]) #phoneFeedback { color: #ffb2bd; }
 .dark-mode #phoneDialog[data-state=success] #phoneFeedback { color: #8ce5bd; }
+
+#phoneSubmit:disabled { opacity: 1; cursor: default; }
+#phoneDialog[data-state=idle] #phoneSubmit::after { content: " →"; }
+#phoneDialog[data-state=checking] .phone-field { border-color: #7699ba; }
+#phoneDialog[data-state=checking] #phoneSubmit { background: #345c84; }
+#phoneDialog button:focus-visible, #retryDirectory:focus-visible, #lastUpdatedBadge:focus-visible {
+    outline: 3px solid #4389da; outline-offset: 2px;
+}
+.dark-mode #phoneFeedback, .dark-mode .phone-lock { color: #b7d8fa; }
+.dark-mode #phoneDialog[data-state=success] .phone-lock { background: #21473c; color: #a1f1cd; }
+
+body.public-page #lastUpdatedBadge {
+    display: block; min-width: 66px; min-height: 42px; padding: 5px 8px; border: 1px solid #c9dcef;
+    border-radius: 10px; color: #1c5184; background: #eef6ff; font: 700 11px/1.25 system-ui,sans-serif;
+    text-align: center; cursor: pointer;
+}
+#syncBadgeTime { display: block; font-size: 10px; font-variant-numeric: tabular-nums; }
+#lastUpdatedBadge[data-state=checking] #syncBadgeLabel::before {
+    content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 4px;
+    vertical-align: -1px; border: 1.5px solid currentColor; border-right-color: transparent; border-radius: 50%;
+}
+body.public-page #lastUpdatedBadge[data-state=error] { color: #8b361b; background: #fff2e8; border-color: #edc4ac; }
+body.public-page.dark-mode #lastUpdatedBadge { color: #c9e4ff; background: #21354b; border-color: #45607d; }
+body.public-page.dark-mode #lastUpdatedBadge[data-state=error] { color: #ffd5ba; background: #462e26; }
+
+#directoryFeedback { max-width: 940px; margin: 10px auto 18px; padding: 0 5px; color: #455c74; }
+#directoryFeedback[hidden], #retryDirectory[hidden],
+.public-page:not([data-directory=loading]) #directorySkeleton,
+.public-page:not([data-directory=ready]) #mainContent { display: none; }
+.directory-notice { display: flex; align-items: center; justify-content: space-between; gap: 6px 12px; flex-wrap: wrap; font-size: 13px; }
+#retryDirectory {
+    padding: 8px 12px; min-height: 40px; border: 1px solid #bdd3e7; border-radius: 9px;
+    background: #edf5ff; color: #194d81; font: inherit; font-weight: 650; cursor: pointer;
+}
+#directorySkeleton { display: grid; gap: 8px; margin-top: 9px; }
+#directorySkeleton i {
+    position: relative; display: block; overflow: hidden; height: 60px; border: 1px solid #d7e4ee;
+    border-radius: 12px; background: #f5f8fc;
+}
+#directorySkeleton i::before {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(#d7e3ed,#d7e3ed) 14px 50% / 31% 10px no-repeat,
+                linear-gradient(#deebe6,#deebe6) right 14px center / 18% 18px no-repeat;
+}
+#directorySkeleton i:nth-child(2)::before { background-size: 23% 10px, 16% 18px; }
+#directorySkeleton i::after { content: ""; position: absolute; inset: 0; }
+.dark-mode #directoryFeedback { color: #c7d9e9; }
+.dark-mode #directorySkeleton i { background: #213041; border-color: #34475a; }
+.dark-mode #directorySkeleton i::before { opacity: .2; }
+.dark-mode #retryDirectory { color: #c6e2fe; background: #21374f; border-color: #476582; }
+
+@media (prefers-reduced-motion: no-preference) {
+    #phoneDialog[data-state=checking] .phone-lock::after,
+    #lastUpdatedBadge[data-state=checking] #syncBadgeLabel::before { animation: borrower-spin .9s linear infinite; }
+    #phoneDialog[data-state=success] .phone-symbol { animation: borrower-confirm .18s ease-out both; }
+    #directorySkeleton i::after {
+        background: linear-gradient(100deg, transparent 28%, rgba(160,188,211,.16) 50%, transparent 72%);
+        animation: directory-sweep 1.6s ease-in-out infinite;
+    }
+    .public-page :is(.old-folder-card, .month-account, #phoneSubmit:enabled, #retryDirectory):active { transform: scale(.985); }
+    #phoneSubmit, .phone-field, .phone-lock { transition: background-color .16s, border-color .16s, transform .12s; }
+    @keyframes borrower-spin { to { transform: rotate(360deg); } }
+    @keyframes borrower-confirm { from { transform: rotate(-45deg) scale(.65); opacity: .2; } }
+    @keyframes directory-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+}
