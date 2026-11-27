@@ -7,8 +7,7 @@
 
     const body = document.body;
     const isAdmin = /(?:^|\/)admin\.html$/i.test(window.location.pathname);
-    const isPublic = window.location.pathname === '/' || /(?:^|\/)index\.html$/i.test(window.location.pathname);
-    const syncStorageKey = isAdmin ? 'abhi_last_sync_admin_v1' : 'abhi_last_sync_public_v1';
+    const syncStorageKey = 'abhi_last_sync_admin_v1';
     const syncFailureAlert = 'Data load nahi hua. Internet check karein.';
     const actionProcessingTimeoutMs = 7000;
     const modalSelectors = [
@@ -165,7 +164,6 @@
     }
 
     function installReadFailureSoftener() {
-        if (!isPublic && !isAdmin) return;
         const currentAlert = window.alert;
         if (currentAlert?.__abhiReadFailureSoftener) return;
         const nativeAlert = currentAlert.bind(window);
@@ -253,7 +251,9 @@
             target.classList.add('abhi-action-tap');
             window.setTimeout(() => target.classList.remove('abhi-action-tap'), 190);
 
-            if (target instanceof HTMLButtonElement) scheduleProcessingCheck(target);
+            if (target instanceof HTMLButtonElement && target.dataset.actionFeedback !== 'custom') {
+                scheduleProcessingCheck(target);
+            }
         }, true);
     }
 
@@ -279,22 +279,17 @@
         sync();
     }
 
-    if (isPublic) {
-        coalesceAsync('fetchFromCloud');
-        coalesceAsync('manualSync');
-    }
-
     if (isAdmin) {
         coalesceAsync('loadAllData');
         coalesceAsync('manualSync');
         coalesceAsync('refreshDueData');
         coalesceAsync('refreshReminderBadge');
         coalesceAsync('refreshHomeCommandCenter');
+        installReadFailureSoftener();
+        installSyncFeedbackGuard();
     }
 
-    installReadFailureSoftener();
     installSearchDebounce();
-    installSyncFeedbackGuard();
     installActionFeedback();
     installModalStatePolish();
     window.addEventListener('online', () => {

@@ -7,9 +7,31 @@ const phoneInput = document.getElementById('accountPhone');
 const phoneFeedback = document.getElementById('phoneFeedback');
 const phoneSubmit = document.getElementById('phoneSubmit');
 
+function stopPhoneRequest() {
+    phoneRequest?.controller?.abort();
+    phoneRequest = null;
+}
+
+function setPhoneState(state, message = '') {
+    const labels = {
+        idle: 'Account kholein',
+        checking: 'Number check ho raha hai…',
+        success: 'Account khul raha hai…',
+        invalid: 'Number check karein',
+        error: 'Dobara koshish karein'
+    };
+    phoneDialog.dataset.state = state;
+    phoneSubmit.textContent = labels[state];
+    phoneSubmit.disabled = state === 'checking' || state === 'success';
+    phoneInput.readOnly = phoneSubmit.disabled;
+    phoneInput.setAttribute('aria-invalid', String(state === 'invalid'));
+    phoneSubmit.setAttribute('aria-busy', String(state === 'checking'));
+    phoneFeedback.textContent = message;
+}
+
 function clearBorrowerAccess() {
     accountAccess = null;
-    phoneRequest = null;
+    stopPhoneRequest();
     clearTimeout(accessTimer);
     loans = [];
     currentOpenFolder = null;
@@ -20,33 +42,30 @@ function clearBorrowerAccess() {
     document.body.classList.remove('public-detail-active','public-dues-open','public-loan-detail-open');
 }
 
-async function fetchVerifiedLoans() {
+async function fetchVerifiedLoans(signal) {
     const access = accountAccess;
     if (!access) throw new Error('Account band hai.');
-    const response = await fetch('/api/loans?action=account',{cache:'no-store',headers:{Authorization:'Bearer '+access.token}});
+    const response = await fetch('/api/loans?action=account',{cache:'no-store',signal,headers:{Authorization:'Bearer '+access.token}});
     if (response.status === 401 && accountAccess === access) switchTab('folder');
     if (!response.ok) throw new Error('Account refresh nahi hua.');
     return response.json();
 }
 
 function requestBorrowerAccess(member,month = '') {
+    stopPhoneRequest();
     clearTimeout(accessTimer);
     accountAccess = null;
     loans = [];
     phoneRequest = { key:member.key, month };
     document.getElementById('phoneTitle').textContent = member.name;
     phoneInput.value = '';
-    phoneInput.removeAttribute('aria-invalid');
-    phoneFeedback.textContent = '';
-    phoneDialog.dataset.state = '';
-    phoneSubmit.disabled = false;
-    phoneSubmit.textContent = 'Account kholein →';
+    setPhoneState('idle');
     if (!phoneDialog.open) phoneDialog.showModal();
     phoneInput.focus();
 }
 
 function cancelBorrowerPrompt() {
-    phoneRequest = null;
+    stopPhoneRequest();
     phoneInput.value = '';
     phoneDialog.close();
 }
@@ -54,52 +73,61 @@ document.getElementById('phoneClose').onclick = cancelBorrowerPrompt;
 phoneDialog.addEventListener('cancel',event=>{ event.preventDefault(); cancelBorrowerPrompt(); });
 phoneDialog.addEventListener('click',event=>{ if (event.target === phoneDialog) cancelBorrowerPrompt(); });
 phoneInput.addEventListener('input',()=>{
-    if (phoneDialog.dataset.state !== 'error') return;
-    phoneDialog.dataset.state = '';
-    phoneFeedback.textContent = '';
-    phoneInput.removeAttribute('aria-invalid');
+    if (['invalid', 'error'].includes(phoneDialog.dataset.state)) setPhoneState('idle');
 });
 document.getElementById('phoneForm').addEventListener('submit',async event=>{
     event.preventDefault();
     const request = phoneRequest;
     if (!request || phoneSubmit.disabled) return;
-    const errorState = message => {
-        phoneDialog.dataset.state = 'error';
-        phoneInput.setAttribute('aria-invalid','true');
-        phoneFeedback.textContent = message;
-        phoneSubmit.disabled = false;
-        phoneSubmit.textContent = 'Account kholein →';
-        phoneInput.focus();
-    };
     const number = phoneInput.value.trim();
     if (!/^(?:91|0)?\d{10}$/.test(number.replace(/[\s()+.\-]/g,''))) {
-        errorState('10 digit ka mobile number daalein.');
+        setPhoneState('invalid', '10 digit ka mobile number daalein.');
+        phoneInput.focus();
         return;
     }
-    phoneSubmit.disabled = true;
-    phoneSubmit.textContent = 'Check ho raha hai…';
-    phoneFeedback.textContent = '';
+    setPhoneState('checking', 'Registered number se mila rahe hain…');
+    const controller = new AbortController();
+    request.controller = controller;
+    const slowNotice = setTimeout(() => {
+        if (phoneRequest === request && phoneDialog.dataset.state === 'checking') {
+            phoneFeedback.textContent = 'Server se jawab aane mein thoda waqt lag raha hai…';
+        }
+    }, 3500);
+    const timeout = setTimeout(() => controller.abort(), 20000);
     try {
-        const response = await fetch('/api/loans?action=unlock',{method:'POST',cache:'no-store',
+        const response = await fetch('/api/loans?action=unlock',{method:'POST',cache:'no-store',signal:controller.signal,
             headers:{'Content-Type':'application/json'},body:JSON.stringify({folder:request.key,phone:number})});
         const data = await response.json();
         if (phoneRequest !== request) return;
-        if (!response.ok) { errorState(data.error || 'Number check nahi hua.'); return; }
+        if (!response.ok) {
+            const invalid = response.status === 400 || response.status === 403;
+            setPhoneState(invalid ? 'invalid' : 'error', data.error || 'Number check nahi ho paaya.');
+            if (invalid) phoneInput.focus();
+            return;
+        }
         phoneInput.value = '';
-        phoneDialog.dataset.state = 'success';
-        phoneFeedback.textContent = '✓ Number match ho gaya';
-        phoneSubmit.textContent = 'Account khul raha hai…';
-        await new Promise(resolve=>setTimeout(resolve,320));
+        setPhoneState('success', 'Number match ho gaya.');
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            await new Promise(resolve => setTimeout(resolve, 320));
+        }
         if (phoneRequest !== request) return;
         phoneRequest = null;
-        accountAccess = { ...request,token:data.token,expires:data.expires };
+        accountAccess = { key:request.key,month:request.month,token:data.token,expires:data.expires };
         accessTimer = setTimeout(()=>switchTab('folder'),Math.max(0,data.expires-Date.now()));
         loans = data.loans;
         phoneDialog.close();
         if (request.month) showVerifiedMonth(request.month);
         else openFolder(request.key);
+        document.getElementById(request.month ? 'currentMonthName' : 'currentFolderName').focus({preventScroll:true});
     } catch {
-        if (phoneRequest === request) errorState('Connection check karke dobara koshish karein.');
+        if (phoneRequest === request) {
+            setPhoneState('error', controller.signal.aborted
+                ? 'Server ka jawab nahi aaya. Dobara koshish karein.'
+                : 'Connection check karke dobara koshish karein.');
+        }
+    } finally {
+        clearTimeout(slowNotice);
+        clearTimeout(timeout);
     }
 });
 window.addEventListener('pagehide',()=>clearBorrowerAccess());
