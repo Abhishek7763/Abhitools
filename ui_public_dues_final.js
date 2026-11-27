@@ -79,16 +79,7 @@
     }
 
     async function fetchFreshLoans() {
-        const response = await fetch('/api/loans?dues_refresh=1', {
-            method:'GET',
-            cache:'no-store',
-            credentials:'same-origin',
-            headers:{ Accept:'application/json' }
-        });
-        if (!response.ok) throw new Error(`Loan API ${response.status}`);
-        const data = await response.json();
-        if (!Array.isArray(data)) throw new Error('Loan API response invalid');
-        return data;
+        return fetchVerifiedLoans();
     }
 
     function currentLoans() {

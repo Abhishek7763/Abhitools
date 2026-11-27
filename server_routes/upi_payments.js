@@ -1,3 +1,4 @@
+import { verifiedOwner } from './borrower_access.js';
 import { noStore, requireAdmin, sendServerError, supabaseRequest } from '../server_shared.js';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -50,11 +51,16 @@ export default async function handler(req,res){
             return res.status(200).json({enabled:Boolean(config.enabled&&config.upi_id),payee_name:config.payee_name||'Abhishek Management'});
         }
 
+        const customerAction = ['active','start','status','reference','cancel'].includes(action);
+        const owner = customerAction ? verifiedOwner(req) : null;
+        if (customerAction && !owner) return res.status(401).json({error:'Registered mobile number se account kholein.'});
+        const ownerFilter = owner ? `&loans.borrower_id=eq.${owner}&loans.deleted_at=is.null&loans.borrowers.deleted_at=is.null` : '';
+
         if(req.method==='GET'&&action==='active'){
             const loanCode=cleanText(req.query?.loan_code,80);
             if(!loanCode)return res.status(400).json({error:'Loan ID required'});
             await expireOldPending();
-            const {data}=await supabaseRequest(`upi_payment_requests?loan_code=eq.${encodeURIComponent(loanCode)}&status=eq.pending&select=id,request_type,installment_number,amount,status,expires_at,user_reference,user_claimed_at&order=created_at.desc&limit=1`);
+            const {data}=await supabaseRequest(`upi_payment_requests?loan_code=eq.${encodeURIComponent(loanCode)}&status=eq.pending&select=id,request_type,installment_number,amount,status,expires_at,user_reference,user_claimed_at,loans!inner(borrowers!inner(id))${ownerFilter}&order=created_at.desc&limit=1`);
             return res.status(200).json({request:publicRequestShape(data?.[0]||null)});
         }
 
@@ -64,7 +70,7 @@ export default async function handler(req,res){
             const installment=positiveInt(req.body?.installment_number);
             if(!loanCode||(type==='emi'&&!installment))return res.status(400).json({error:'Loan ID and valid EMI number required'});
             try{
-                const {data}=await supabaseRequest('rpc/abhi_start_upi_payment_request','POST',{p_loan_code:loanCode,p_installment_number:installment,p_request_type:type});
+                const {data}=await supabaseRequest('rpc/abhi_borrower_upi_write','POST',{p_owner:owner,p_action:action,p_code:loanCode,p_installment:installment,p_type:type,p_request:null,p_reference:null});
                 const result=Array.isArray(data)?data[0]:data;
                 if(!result?.request_id||!result?.upi_id)throw requestError('UPI payment request could not be created',500);
                 return res.status(201).json({success:true,request_id:result.request_id,request_type:result.request_type||type,status:'pending',loan_code:result.loan_code,installment_number:Number(result.installment_number||0),amount:Number(result.amount||0),expires_at:result.expires_at,payee_name:result.payee_name,upi_id:result.upi_id,upi_uri:buildUpiUri(result),reference_submitted:false,verification_required:true});
@@ -75,7 +81,7 @@ export default async function handler(req,res){
             const requestId=validUuid(req.query?.request_id);
             if(!requestId)return res.status(400).json({error:'Valid request_id required'});
             await expireOldPending();
-            const {data}=await supabaseRequest(`upi_payment_requests?id=eq.${encodeURIComponent(requestId)}&select=id,request_type,installment_number,status,amount,expires_at,confirmed_at,resolved_at,user_reference,user_claimed_at&limit=1`);
+            const {data}=await supabaseRequest(`upi_payment_requests?id=eq.${encodeURIComponent(requestId)}&select=id,request_type,installment_number,status,amount,expires_at,confirmed_at,resolved_at,user_reference,user_claimed_at,loans!inner(borrowers!inner(id))${ownerFilter}&limit=1`);
             const row=data?.[0];if(!row)return res.status(404).json({error:'Payment request not found'});
             return res.status(200).json({...publicRequestShape(row),confirmed_at:row.confirmed_at||null,resolved_at:row.resolved_at||null});
         }
@@ -84,7 +90,7 @@ export default async function handler(req,res){
             const requestId=validUuid(req.body?.request_id);const reference=String(req.body?.reference||'').trim();
             if(!requestId||!REF_RE.test(reference))return res.status(400).json({error:'Valid request ID aur UPI UTR/transaction reference required'});
             try{
-                const {data}=await supabaseRequest('rpc/abhi_submit_upi_reference','POST',{p_request_id:requestId,p_reference:reference});
+                const {data}=await supabaseRequest('rpc/abhi_borrower_upi_write','POST',{p_owner:owner,p_action:action,p_code:null,p_installment:null,p_type:null,p_request:requestId,p_reference:reference});
                 const result=Array.isArray(data)?data[0]:data;return res.status(200).json(result||{success:true,reference_submitted:true});
             }catch(err){throw requestError(safeRpcMessage(err,'UTR submit nahi hua'),409);}
         }
@@ -92,7 +98,7 @@ export default async function handler(req,res){
         if(req.method==='POST'&&action==='cancel'){
             const requestId=validUuid(req.body?.request_id);if(!requestId)return res.status(400).json({error:'Valid request_id required'});
             try{
-                const {data}=await supabaseRequest('rpc/abhi_cancel_upi_payment_request','POST',{p_request_id:requestId});
+                const {data}=await supabaseRequest('rpc/abhi_borrower_upi_write','POST',{p_owner:owner,p_action:action,p_code:null,p_installment:null,p_type:null,p_request:requestId,p_reference:null});
                 return res.status(200).json(Array.isArray(data)?(data[0]||{success:true}):(data||{success:true}));
             }catch(err){throw requestError(safeRpcMessage(err,'Payment request cancel nahi hui'),409);}
         }

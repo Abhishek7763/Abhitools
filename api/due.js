@@ -106,16 +106,19 @@ export default async function handler(req, res) {
         res.setHeader('X-Abhi-Due-Refresh', String(refreshData.refresh_mode || 'fresh'));
         res.setHeader('Server-Timing', `due-refresh;dur=${refreshDuration}, due-query;dur=${queryDuration}`);
 
-        const isAdmin = isValidAdminSession(req);
+        const isAdmin = req.query?.view !== 'public' && isValidAdminSession(req);
         const all = [];
         let unknownYearCount = 0;
         let unknownYearAmount = 0;
+        const incompleteMonth = { count:0, amount:0 };
+        const monthName = new Date(businessDate + 'T00:00:00Z').toLocaleString('en-US',{month:'short',timeZone:'UTC'}).toUpperCase();
 
         for (const loan of (data || [])) {
             for (const emi of (loan.emis || [])) {
                 const remaining = remainingAmount(emi);
                 if (remaining <= 0) continue;
                 if (!emi.due_date || !emi.due_year) {
+                    if (emi.due_month === monthName) { incompleteMonth.count++; incompleteMonth.amount += remaining; }
                     unknownYearCount += 1;
                     unknownYearAmount += remaining;
                     continue;
@@ -160,15 +163,16 @@ export default async function handler(req, res) {
                 tomorrow: summarize(tomorrowItems),
                 next7: summarize(next7),
                 month: summarize(month),
+                incompleteMonth,
                 yearNotSet: { count: unknownYearCount, amount: unknownYearAmount }
             },
-            buckets: {
+            buckets: isAdmin ? {
                 overdue,
                 today,
                 tomorrow: tomorrowItems,
                 next7,
                 month
-            }
+            } : {}
         });
     } catch (err) {
         return sendServerError(res, 'Due API Error:', err);

@@ -2017,3 +2017,46 @@ body.public-page .public-detail-actions > div { display: flex; gap: 7px; }
 #collectionBreakdown dd { margin: 0; font-weight: 700; }
 #paymentProjection, #cashDifference { margin: 8px 0; font-weight: 600; }
 #importBorrowerReview select { display: block; width: 100%; }
+
+.folder.old-folder-card .folder-balance {
+    display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 2px 7px;
+    margin: 5px auto 0; padding: 4px 9px; border-radius: 9px; background: #e0f4ec; color: #075f48;
+}
+.folder.old-folder-card .folder-balance small { color: inherit; font-size: 11px; font-weight: 650; }
+.folder.old-folder-card .folder-balance b { color: inherit; font-size: 15px; font-variant-numeric: tabular-nums; }
+.dark-mode .folder.old-folder-card .folder-balance { background: #143e34; color: #a0f1d2; }
+.month-account { width: 100%; text-align: left; font: inherit; cursor: pointer; }
+#phoneDialog {
+    width: min(90vw, 365px); max-height: 90dvh; box-sizing: border-box; position: fixed; inset: 0;
+    padding: 0; border: 1px solid #d8e6f5; border-radius: 23px; margin: auto; overflow: auto;
+    color: #142b45; background: linear-gradient(145deg,#ebf5ff,#fff 54%,#f3faf9);
+    box-shadow: 0 18px 72px #12284b45; text-align: left;
+}
+#phoneDialog::backdrop { background: #0b1d38a8; backdrop-filter: blur(4px); }
+#phoneForm { position: relative; padding: 27px 23px 23px; }
+#phoneClose { position: absolute; right: 10px; top: 10px; width: 40px; height: 40px; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 27px; cursor: pointer; }
+.phone-lock { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; background: #d9eafd; font-size: 22px; }
+#phoneTitle { margin: 15px 0 5px; font-size: 23px; line-height: 1.15; overflow-wrap: anywhere; color: inherit; }
+#phoneHelp { margin: 0 0 20px; color: #49627a; font-size: 14px; line-height: 1.45; }
+#phoneForm label { display: block; margin: 0 0 7px; font-size: 13px; font-weight: 700; }
+.phone-field { display: flex; align-items: center; padding: 0 12px; border: 1.5px solid #a9bed2; border-radius: 11px; background: #fff; }
+.phone-field:focus-within { border-color: #286bc4; box-shadow: 0 0 0 3px #397cd41b; }
+.phone-field span { color: #4d6680; padding-right: 10px; border-right: 1px solid #d6dfe8; }
+#accountPhone { border: 0; outline: 0; width: 100%; min-width: 0; padding: 12px 8px; font: inherit; font-size: 16px; color: inherit; background: transparent; }
+#phoneFeedback { min-height: 1.25em; margin: 7px 0; font-size: 13px; }
+#phoneSubmit { width: 100%; min-height: 45px; border: 0; border-radius: 11px; background: linear-gradient(110deg,#245abc,#006e7a); color: white; font: inherit; font-weight: 700; cursor: pointer; }
+#phoneDialog[data-state=error] .phone-field { border-color: #be3446; }
+#phoneDialog[data-state=error] #phoneFeedback { color: #a22438; }
+#phoneDialog[data-state=success] #phoneFeedback { color: #13704e; }
+#phoneDialog[data-state=success] #phoneSubmit { background: #146a51; }
+@media (prefers-reduced-motion:no-preference) {
+    #phoneDialog[open] form { animation: phone-appear .18s ease-out; }
+    #phoneDialog[data-state=error] .phone-field { animation: phone-shake .24s ease-out; }
+    @keyframes phone-appear { from { opacity: .6; transform: translateY(5px); } }
+    @keyframes phone-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+}
+.dark-mode #phoneDialog { background: linear-gradient(145deg,#203449,#182633 60%); color: #e8f4ff; border-color: #38516b; }
+.dark-mode #phoneHelp,.dark-mode .phone-field span { color: #b9ccdf; }
+.dark-mode .phone-field,.dark-mode .phone-lock { background: #22364c; }
+.dark-mode #phoneDialog[data-state=error] #phoneFeedback { color: #ffb2bd; }
+.dark-mode #phoneDialog[data-state=success] #phoneFeedback { color: #8ce5bd; }

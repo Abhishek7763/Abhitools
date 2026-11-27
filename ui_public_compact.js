@@ -504,11 +504,6 @@
 
     // Build 5.1 clarity: verified due figures must not make incomplete legacy schedules look like zero obligations.
     function publicIncompleteScheduleSummary() {
-        let incompleteCount = 0;
-        let incompleteAmount = 0;
-        let currentMonthIncompleteCount = 0;
-        let currentMonthIncompleteAmount = 0;
-
         const businessDate = String(publicDueData?.businessDate || '').slice(0, 10);
         let currentMonth = '';
         if (/^\d{4}-\d{2}-\d{2}$/.test(businessDate)) {
@@ -517,36 +512,10 @@
                 .toUpperCase();
         }
 
-        for (const loan of (loans || [])) {
-            if (loan?.status && loan.status !== 'active') continue;
-            for (const emi of (loan?.emis || [])) {
-                const amount = Math.max(0, Number(emi?.amount) || 0);
-                const paid = typeof publicEmiPaid === 'function'
-                    ? publicEmiPaid(emi)
-                    : Math.min(Math.max(Number(emi?.paid_amount) || 0, 0), amount);
-                const remaining = Math.max(amount - paid, 0);
-                if (remaining <= 0) continue;
-
-                const due = String(emi?.due_date || '').slice(0, 10);
-                const incomplete = !emi?.due_year || !/^\d{4}-\d{2}-\d{2}$/.test(due);
-                if (!incomplete) continue;
-
-                incompleteCount += 1;
-                incompleteAmount += remaining;
-
-                if (currentMonth && String(emi?.due_month || '').toUpperCase() === currentMonth) {
-                    currentMonthIncompleteCount += 1;
-                    currentMonthIncompleteAmount += remaining;
-                }
-            }
-        }
-
+        const summary = publicDueData?.summary || {};
         return {
-            currentMonth,
-            incompleteCount,
-            incompleteAmount,
-            currentMonthIncompleteCount,
-            currentMonthIncompleteAmount
+            currentMonth, incompleteCount:summary.yearNotSet?.count || 0, incompleteAmount:summary.yearNotSet?.amount || 0,
+            currentMonthIncompleteCount:summary.incompleteMonth?.count || 0, currentMonthIncompleteAmount:summary.incompleteMonth?.amount || 0
         };
     }
 
