@@ -75,14 +75,14 @@ async function initApp() {
 // ==========================================
 // DATA FETCH - Supabase API se
 // ==========================================
-function fetchFromCloud() {
+function fetchFromCloud(showLoader = false) {
     if (!pendingSync) {
-        pendingSync = syncPublicData().finally(() => { pendingSync = null; });
+        pendingSync = syncPublicData(showLoader).finally(() => { pendingSync = null; });
     }
     return pendingSync;
 }
 
-async function syncPublicData() {
+async function syncPublicData(showLoader) {
     const badge = document.getElementById('lastUpdatedBadge');
     const label = document.getElementById('syncBadgeLabel');
     const time = document.getElementById('syncBadgeTime');
@@ -99,7 +99,7 @@ async function syncPublicData() {
     document.body.dataset.directory = lastDirectoryUpdate ? 'ready' : 'loading';
     status.textContent = '';
     const loader = document.getElementById('publicSyncLoader');
-    loader.hidden = false;
+    loader.hidden = Boolean(lastDirectoryUpdate) && !showLoader;
 
     try {
         // The due endpoint refreshes statuses before the directory is read.
@@ -111,6 +111,7 @@ async function syncPublicData() {
         if (!response.ok) throw new Error('Directory API error');
         const data = await response.json();
         directory = data;
+        const dayChanged = publicDueData?.businessDate !== dueData.businessDate;
         publicDueData = dueData;
         lastDirectoryUpdate = new Date();
         time.dateTime = lastDirectoryUpdate.toISOString();
@@ -126,10 +127,10 @@ async function syncPublicData() {
         if (access) {
             try {
                 const details = await fetchVerifiedLoans(controller.signal);
-                if (accountAccess === access) {
+                if (accountAccess === access && (dayChanged || JSON.stringify(loans) !== JSON.stringify(details))) {
                     loans = details;
-                    if (currentOpenFolder) openFolder(currentOpenFolder);
-                    else if (access.month) showVerifiedMonth(access.month);
+                    if (currentOpenFolder) openFolder(currentOpenFolder, true);
+                    else if (access.month) showVerifiedMonth(access.month, true);
                 }
             } catch (err) {
                 if (accountAccess === access) throw err;
@@ -157,7 +158,7 @@ async function syncPublicData() {
 }
 
 async function manualSync() {
-    await fetchFromCloud();
+    await fetchFromCloud(true);
 }
 
 // ==========================================
@@ -171,6 +172,38 @@ function publicEmiPaid(emi) {
 
 function publicEmiRemaining(emi) {
     return Math.max((Number.parseInt(emi?.amount, 10) || 0) - publicEmiPaid(emi), 0);
+}
+
+function publicInstallmentDate(emi) {
+    let iso = String(emi?.due_date || '').slice(0, 10);
+    if (!iso) {
+        const month = monthOrder.indexOf(String(emi?.due_month || '').trim().slice(0, 3).toUpperCase()) + 1;
+        if (!month || !emi?.due_year || !emi?.due_day) return '';
+        iso = [emi.due_year, String(month).padStart(2, '0'), String(emi.due_day).padStart(2, '0')].join('-');
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '';
+    const parsed = new Date(iso + 'T00:00:00Z');
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().startsWith(iso) ? iso : '';
+}
+
+function publicNextInstallment(emis) {
+    return emis.filter(emi => publicEmiRemaining(emi) > 0).sort((a, b) => {
+        const first = publicInstallmentDate(a), second = publicInstallmentDate(b);
+        if (Boolean(first) !== Boolean(second)) return first ? -1 : 1;
+        return first.localeCompare(second) || a.installment_number - b.installment_number;
+    })[0];
+}
+
+function publicDueLabel(emi) {
+    const due = publicInstallmentDate(emi);
+    if (!due) return 'Due date not set';
+    const today = publicDueData?.businessDate;
+    if (!today) return 'Due ' + due;
+    const days = Math.round((Date.parse(due) - Date.parse(today)) / 86400000);
+    if (days === 0) return 'Due today';
+    if (days === 1) return 'Due tomorrow';
+    if (days < 0) return Math.abs(days) + (days === -1 ? ' day overdue' : ' days overdue');
+    return days + ' days left';
 }
 
 function publicEmiPastDue(emi) {
@@ -245,6 +278,7 @@ function toggleLayout() {
 // TABS
 // ==========================================
 function switchTab(tab) {
+    resetPublicViews();
     clearBorrowerAccess();
     currentTab = tab;
     document.getElementById('searchInput').hidden = tab !== 'folder';
@@ -284,17 +318,19 @@ function switchTab(tab) {
 function renderFolders(rows = directory.folders, sortMode = 'name', showEmpty = true) {
     const folders = [...rows].sort((a,b) => sortMode === 'highest' ? b.sum-a.sum : sortMode === 'lowest' ? a.sum-b.sum : a.name.localeCompare(b.name));
     const folderDiv = document.getElementById('folderView');
+    const focused = folderDiv.contains(document.activeElement) ? publicReturnPosition(document.activeElement) : null;
     folderDiv.innerHTML = '';
     folders.forEach(f => {
         const name = f.name;
         const folderButton = document.createElement('button');
         const loanLabel = f.count === 1 ? 'Active Loan' : 'Active Loans';
         const amount = '₹' + Number(f.sum).toLocaleString('en-IN');
-        const remaining = '₹' + Number(f.remaining).toLocaleString('en-IN');
+        const remaining = f.remaining == null ? 'Schedule pending' : '₹' + Number(f.remaining).toLocaleString('en-IN');
         folderButton.type = 'button';
         folderButton.className = 'folder old-folder-card';
         folderButton.setAttribute('aria-label', `${name}: ${f.count} active loans, total loan amount ${amount}, outstanding balance ${remaining}`);
-        folderButton.onclick = () => requestBorrowerAccess(f);
+        folderButton.dataset.browseKey = f.key;
+        folderButton.onclick = () => requestBorrowerAccess(f, '', folderButton);
         folderButton.innerHTML = `
             <div class="old-folder-title">📁 ${publicEscapeHtml(name)} · ${publicEscapeHtml(f.label)}</div>
             <div class="old-folder-summary">
@@ -308,9 +344,10 @@ function renderFolders(rows = directory.folders, sortMode = 'name', showEmpty = 
     if (!folders.length && showEmpty) {
         folderDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;grid-column:1/-1;">No borrower accounts yet.</p>';
     }
+    if (focused) restorePublicPosition(focused);
 }
 
-function openFolder(key) {
+function openFolder(key, refresh = false) {
     if (!accountAccess || accountAccess.key !== key || Date.now() >= accountAccess.expires) {
         const folder = directory.folders.find(f => f.key === key);
         if (folder) requestBorrowerAccess(folder);
@@ -318,7 +355,6 @@ function openFolder(key) {
     }
     const name = borrowerFolderName(key);
     if (!name) { goBackToFolders(); return; }
-    resetFolderSearch();
     currentOpenFolder = key;
     document.body.classList.add('public-detail-active');
     document.getElementById('folderView').style.display = 'none';
@@ -341,19 +377,36 @@ function openFolder(key) {
         </span>
     `;
 
+    const list = document.getElementById('loanList');
+    const anchor = refresh && [...list.children].find(card => {
+        const rect = card.getBoundingClientRect();
+        return rect.bottom > 0 && rect.top < window.innerHeight;
+    });
+    const offset = anchor && anchor.getBoundingClientRect().top;
+    const focused = refresh && document.activeElement.closest('[data-loan-id]');
+    const nextButton = focused && document.activeElement.classList.contains('emi-clarity-next');
     renderLoanList(key);
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    if (!refresh) window.scrollTo({top:0, behavior:'instant'});
+    else if (anchor || focused) window.requestAnimationFrame(() => {
+        if (currentOpenFolder !== key) return;
+        const cards = [...list.children];
+        const visible = anchor && cards.find(card => card.dataset.loanId === anchor.dataset.loanId);
+        if (visible) window.scrollBy({top:visible.getBoundingClientRect().top - offset, behavior:'instant'});
+        const previousFocus = focused && cards.find(card => card.dataset.loanId === focused.dataset.loanId);
+        if (previousFocus) previousFocus.querySelector(nextButton ? '.emi-clarity-next' : '.public-loan-mini-open')?.focus({preventScroll:true});
+    });
 }
 
-function goBackToFolders() {
+function restoreFolderDirectory() {
     clearBorrowerAccess();
-    currentOpenFolder = null;
-    document.body.classList.remove('public-detail-active');
     document.getElementById('detailView').style.display = 'none';
     document.getElementById('folderView').style.display = 'block';
     document.getElementById('viewControlsContainer').style.display = 'flex';
-    handleSearch();
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    refreshFolderSearch(0, true);
+}
+
+function goBackToFolders() {
+    if (!leavePublicView()) restoreFolderDirectory();
 }
 
 // ==========================================
@@ -451,7 +504,13 @@ function renderMonthFolders() {
         monthButton.type = 'button';
         monthButton.className = 'month-folder';
         monthButton.setAttribute('aria-label', `${d.month || ''} ${d.year || 'year not set'}: EMI total ₹${d.total.toLocaleString('en-IN')}, collected ₹${d.collected.toLocaleString('en-IN')}`);
-        monthButton.onclick = () => openMonthMembers(key, d);
+        monthButton.dataset.browseKey = key;
+        monthButton.onclick = () => {
+            enterPublicView(restoreMonthDirectory, publicReturnPosition(monthButton));
+            openMonthMembers(key, d);
+            document.getElementById('currentMonthName').focus({preventScroll:true});
+            window.scrollTo({top:0, behavior:'instant'});
+        };
         monthButton.innerHTML = `
             <div>📅 ${publicEscapeHtml(d.month || '')} ${d.year ? publicEscapeHtml(d.year) : 'Year not set'}</div>
             <div>
@@ -480,19 +539,20 @@ function openMonthMembers(key,month) {
         button.type = 'button';
         button.className = 'monthly-item month-account';
         button.textContent = member.name + '  ›';
-        button.onclick = () => requestBorrowerAccess(member,key);
+        button.dataset.browseKey = member.key;
+        button.onclick = () => requestBorrowerAccess(member,key,button);
         list.append(button);
     }
 }
 
-function showVerifiedMonth(key) {
+function showVerifiedMonth(key, refresh = false) {
     const items = loans.flatMap(loan => (loan.emis || [])
         .filter(e => `${e.due_month} ${e.due_year || 'YEAR-NOT-SET'}` === key)
         .map(e => ({ ...e,name:loan.borrowers.name,loan_code:loan.loan_code })));
-    openMonthDetail(key,{items, total:items.reduce((n,e)=>n+Number(e.amount),0), collected:items.reduce((n,e)=>n+publicEmiPaid(e),0)});
+    openMonthDetail(key,{items, total:items.reduce((n,e)=>n+Number(e.amount),0), collected:items.reduce((n,e)=>n+publicEmiPaid(e),0)}, refresh);
 }
 
-function openMonthDetail(key, monthObj) {
+function openMonthDetail(key, monthObj, refresh) {
     document.body.classList.add('public-detail-active');
     document.getElementById('monthView').style.display = 'none';
     document.getElementById('monthDetailView').style.display = 'block';
@@ -521,15 +581,19 @@ function openMonthDetail(key, monthObj) {
         `;
         list.appendChild(div);
     });
-    window.requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+    if (!refresh) window.scrollTo({top:0, behavior:'instant'});
 }
 
-function goBackToMonths() {
+function restoreMonthDirectory() {
     clearBorrowerAccess();
     document.body.classList.remove('public-detail-active');
     document.getElementById('monthDetailView').style.display = 'none';
     document.getElementById('monthView').style.display = 'block';
     renderMonthFolders();
+}
+
+function goBackToMonths() {
+    if (!leavePublicView()) restoreMonthDirectory();
 }
 
 // ==========================================
@@ -569,7 +633,7 @@ function clearFolderSearch() {
     input.focus();
 }
 
-function refreshFolderSearch(delay = 180) {
+function refreshFolderSearch(delay = 180, keepResults = false) {
     if (!lastDirectoryUpdate || currentTab !== 'folder') return;
     const query = document.getElementById('searchInput').value.trim();
     const sort = document.getElementById('sortSelect').value;
@@ -584,7 +648,7 @@ function refreshFolderSearch(delay = 180) {
     const local = directory.folders.filter(folder =>
         String(folder.name ?? '').toLowerCase().includes(needle) || String(folder.label ?? '').toLowerCase().includes(needle)
     );
-    renderFolders(local, sort, false);
+    if (!keepResults) renderFolders(local, sort, false);
     showFolderSearchFeedback('pending', 'Searching accounts…');
 
     const controller = new AbortController();
@@ -603,6 +667,7 @@ function refreshFolderSearch(delay = 180) {
             showFolderSearchFeedback('done', message);
         } catch {
             if (activeFolderSearch !== controller) return;
+            renderFolders(local, sort, false);
             const message = local.length ? 'Search unavailable. Showing local matches.' : 'Search unavailable. Try again.';
             showFolderSearchFeedback('error', message);
         } finally {

@@ -27,7 +27,8 @@ test('directory is public, verified details are scoped, and private access is se
             if(body.p_phone==='9000000002')return Response.json({allowed:false,retry_after_seconds:100});
             return Response.json(body.p_phone==='9000000001'?{borrower_id:owner}:{allowed:true});
         }
-        reads.push(u);
+        assert.ok(u.pathname.endsWith('/rpc/abhi_borrower_account'));
+        reads.push(JSON.parse(opts.body));
         return Response.json([{id:'test-loan',borrowers:{name:'Demo'},emis:[]}]);
     });
     assert.deepEqual((await call(loans,'GET',undefined)).data,{folders:[],months:[]});
@@ -45,7 +46,7 @@ test('directory is public, verified details are scoped, and private access is se
     assert.equal((await call(loans,'GET','account',null,{authorization:'Bearer '+createAdminSession()})).code,401);
     const edited=ok.data.token.replace(owner,'00000000-0000-4000-8000-000000000000');
     assert.equal((await call(loans,'GET','account',null,{authorization:'Bearer '+edited})).code,401);
-    assert.ok(reads.every(u=>u.searchParams.get('borrower_id')==='eq.'+owner && !u.searchParams.get('select').includes('phone')));
+    assert.deepEqual(reads,[{p_owner:owner},{p_owner:owner}]);
     t.mock.method(Date,'now',()=>ok.data.expires+1);
     assert.equal((await call(loans,'GET','account',null,headers)).code,401);
 });

@@ -270,9 +270,9 @@
             ? publicEmiPaid(emi)
             : Math.min(Math.max(Number(emi?.paid_amount) || 0, 0), amount);
         const remaining = Math.max(amount - paid, 0);
-        const due = String(emi?.due_date || '').slice(0, 10);
+        const due = publicInstallmentDate(emi);
         const business = String(publicDueData?.businessDate || '').slice(0, 10);
-        const incomplete = !emi?.due_year || !validIso(due);
+        const incomplete = !validIso(due);
         const pastDue = !incomplete && remaining > 0 && validIso(business) && due < business;
         const dueToday = !incomplete && remaining > 0 && validIso(business) && due === business;
 
@@ -288,8 +288,8 @@
     }
 
     function dateText(emi) {
-        const due = String(emi?.due_date || '').slice(0, 10);
-        if (emi?.due_year && validIso(due)) {
+        const due = publicInstallmentDate(emi);
+        if (validIso(due)) {
             const d = new Date(`${due}T00:00:00Z`);
             if (!Number.isNaN(d.getTime())) {
                 return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric', timeZone:'UTC' });
@@ -297,7 +297,7 @@
         }
         const day = Number(emi?.due_day) || '—';
         const month = String(emi?.due_month || '').toUpperCase() || '—';
-        return `${day} ${month} • Year not set`;
+        return day !== '—' && month !== '—' && !emi?.due_year ? `${day} ${month} • Year not set` : 'Due date not set';
     }
 
     function totalsFor(loan) {
@@ -319,21 +319,26 @@
     function loanState(loan, totals) {
         if (loan?.status === 'closed') return { key:'closed', label:'CLOSED' };
         if (loan?.status === 'defaulted') return { key:'overdue', label:'DEFAULTED' };
+        if (!totals.emiCount) return { key:'incomplete', label:'SCHEDULE PENDING' };
         if (totals.overdue > 0) return { key:'overdue', label:'OVERDUE' };
         if (totals.incomplete > 0) return { key:'incomplete', label:'DATE INCOMPLETE' };
         if (totals.remaining <= 0 && totals.emiTotal > 0) return { key:'paid', label:'PAID' };
         return { key:'active', label:'ACTIVE' };
     }
 
+    let detailTrigger;
     function closeDetail() {
         document.getElementById('publicLoanDetailOverlay')?.remove();
         document.body.classList.remove('public-loan-detail-open');
+        if (detailTrigger?.isConnected) detailTrigger.focus({preventScroll:true});
+        detailTrigger = null;
     }
 
     function openDetail(loanId) {
         const loan = loans.find(item => String(item.id) === String(loanId));
         if (!loan) return;
         closeDetail();
+        detailTrigger = document.activeElement;
         const totals = totalsFor(loan);
         const borrower = loan.borrowers || {};
         const rows = [...(loan.emis || [])]
@@ -358,9 +363,9 @@
                 <div class="public-loan-detail-body">
                     <div class="public-loan-detail-summary">
                         <div><small>Loan Amount</small><strong>${money(loan.amount)}</strong></div>
-                        <div><small>EMI Scheduled</small><strong>${money(totals.emiTotal)}</strong></div>
+                        <div><small>EMI Scheduled</small><strong>${totals.emiCount ? money(totals.emiTotal) : '—'}</strong></div>
                         <div><small>Paid</small><strong>${money(totals.paid)}</strong></div>
-                        <div><small>Outstanding balance</small><strong>${money(totals.remaining)}</strong></div>
+                        <div><small>Outstanding balance</small><strong>${totals.emiCount ? money(totals.remaining) : '—'}</strong></div>
                     </div>
                     ${totals.incomplete ? `<div class="public-loan-detail-note">🧩 ${totals.incomplete} EMI date incomplete. Missing year is not treated as overdue.</div>` : ''}
                     <div class="public-emi-list">${rows}</div>
@@ -387,6 +392,7 @@
             const totals = totalsFor(loan);
             const state = loanState(loan, totals);
             const card = document.createElement('article');
+            card.dataset.loanId = loan.id;
             card.className = `card public-loan-mini-card state-${state.key}`;
             const quality = totals.overdue > 0
                 ? `<span class="public-loan-mini-overdue">🔴 Overdue ${money(totals.overdue)}</span>`
@@ -406,15 +412,15 @@
                 </div>
                 <div class="public-loan-mini-metrics">
                     <div class="public-loan-mini-metric"><small>Loan Amount</small><strong title="${money(loan.amount)}">${money(loan.amount)}</strong></div>
-                    <div class="public-loan-mini-metric"><small>Outstanding balance</small><strong title="${money(totals.remaining)}">${money(totals.remaining)}</strong></div>
-                    <div class="public-loan-mini-metric"><small>EMIs Paid</small><strong>${totals.paidCount}/${totals.emiCount}</strong></div>
+                    <div class="public-loan-mini-metric"><small>Outstanding balance</small><strong title="${totals.emiCount ? money(totals.remaining) : '—'}">${totals.emiCount ? money(totals.remaining) : '—'}</strong></div>
+                    <div class="public-loan-mini-metric"><small>EMIs Paid</small><strong>${totals.emiCount ? totals.paidCount + '/' + totals.emiCount : '—'}</strong></div>
                 </div>
                 <div class="public-loan-mini-info">
                     ${yearChip}${paidChip}${quality}
                 </div>
                 <div class="public-loan-mini-footer">
                     
-                    <button type="button" class="public-loan-mini-open no-print" onclick="publicOpenLoanCompactDetail('${esc(loan.id)}')">View EMI</button>
+                    <button type="button" class="public-loan-mini-open no-print" onclick="publicOpenLoanCompactDetail('${esc(loan.id)}')">View installments</button>
                 </div>`;
             list.appendChild(card);
         });
@@ -446,9 +452,9 @@
                 <div class="abhi-print-loan-head"><strong>${esc(loan.loan_code || 'Loan')}</strong><span>${esc(state.label)}</span></div>
                 <div class="abhi-print-kpis">
                     <div><small>Loan Amount</small><b>${money(loan.amount)}</b></div>
-                    <div><small>EMI Scheduled</small><b>${money(totals.emiTotal)}</b></div>
+                    <div><small>EMI Scheduled</small><b>${totals.emiCount ? money(totals.emiTotal) : '—'}</b></div>
                     <div><small>Paid</small><b>${money(totals.paid)}</b></div>
-                    <div><small>Outstanding balance</small><b>${money(totals.remaining)}</b></div>
+                    <div><small>Outstanding balance</small><b>${totals.emiCount ? money(totals.remaining) : '—'}</b></div>
                     <div><small>Loan Year</small><b>${esc(loan.loan_year || 'Not set')}</b></div>
                 </div>
                 <table class="abhi-print-table"><thead><tr><th>EMI</th><th>Due</th><th>Amount</th><th>Paid</th><th>Remaining</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>

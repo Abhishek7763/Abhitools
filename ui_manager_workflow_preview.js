@@ -3,21 +3,28 @@
 'use strict';
 if (window.__ABHI_MANAGER_PREVIEW__) return; window.__ABHI_MANAGER_PREVIEW__=true;
 const M=v=>`₹${Math.max(0,Number(v)||0).toLocaleString('en-IN')}`;
-const rem=e=>typeof publicEmiRemaining==='function'?publicEmiRemaining(e):Math.max((+e.amount||0)-(+e.paid_amount||0),0);
-const iso=e=>String(e?.due_date||'').slice(0,10);
-const today=()=>String(publicDueData?.businessDate||new Date().toISOString()).slice(0,10);
-const days=e=>/^\d{4}-\d{2}-\d{2}$/.test(iso(e))?Math.round((Date.parse(iso(e)+'T00:00:00Z')-Date.parse(today()+'T00:00:00Z'))/86400000):99999;
-const active=()=>Array.isArray(loans)?loans.filter(l=>l.status==='active'):[];
-function borrowerLoans(){return active().filter(l=>borrowerFolderKey(l)===currentOpenFolder)}
-function enhanceBorrower(){
- if(!currentOpenFolder)return;
- const h=document.getElementById('currentFolderName'); if(!h)return;
- const ls=borrowerLoans();
- const r=ls.reduce((s,l)=>s+(l.emis||[]).reduce((a,e)=>a+rem(e),0),0);
- const p=ls.flatMap(l=>(l.emis||[]).map(e=>({l,e,d:days(e)}))).filter(x=>rem(x.e)>0).sort((a,b)=>a.d-b.d)[0];
- let b=document.getElementById('mgrBorrower');
- if(!b){b=document.createElement('div');b.id='mgrBorrower';b.className='mgr-borrower';h.insertAdjacentElement('afterend',b)}
- b.innerHTML=`<div><small>Outstanding balance</small><b>${M(r)}</b></div><div><small>Next Due</small><b>${p?M(rem(p.e)):'₹0'}</b><span>${p?(p.d===0?'Today':p.d===1?'Tomorrow':p.d>1?p.d+' days left':Math.abs(p.d)+' days overdue'):'All paid'}</span></div><div><small>Active Loans</small><b>${ls.length}</b></div>`;
+function enhanceBorrower() {
+    if (!currentOpenFolder) return;
+    const heading = document.getElementById('currentFolderName');
+    if (!heading) return;
+    const active = loans.filter(loan => loan.status === 'active' && borrowerFolderKey(loan) === currentOpenFolder);
+    const pending = active.filter(loan => !loan.emis?.length).length;
+    const emis = active.flatMap(loan => loan.emis || []);
+    const balance = emis.reduce((sum, emi) => sum + publicEmiRemaining(emi), 0);
+    const next = publicNextInstallment(emis);
+    const nextLabel = next ? publicDueLabel(next) : pending ? 'Schedule pending' : active.length ? 'All paid' : 'No active loans';
+    const balanceLabel = pending ? 'Scheduled balance' : 'Outstanding balance';
+    let summary = document.getElementById('mgrBorrower');
+    if (!summary) {
+        summary = document.createElement('div');
+        summary.id = 'mgrBorrower';
+        summary.className = 'mgr-borrower';
+        heading.insertAdjacentElement('afterend', summary);
+    }
+    summary.innerHTML = `<div><small>${balanceLabel}</small><b>${pending && !emis.length ? '—' : M(balance)}</b>
+        ${pending ? `<span>${pending} schedule${pending === 1 ? '' : 's'} pending</span>` : ''}</div>
+        <div><small>Next due</small><b>${next ? M(publicEmiRemaining(next)) : pending ? '—' : M(0)}</b><span>${nextLabel}</span></div>
+        <div><small>Active loans</small><b>${active.length}</b></div>`;
 }
 function monthCardAmount(card){
  const match=String(card?.textContent||'').match(/Total\s*:\s*₹\s*([\d,]+(?:\.\d+)?)/i);
