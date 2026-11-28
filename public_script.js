@@ -11,7 +11,7 @@
 // ==========================================
 let loans = []; // Details of the currently verified account only.
 let directory = { folders:[], months:[] };
-let directorySearch = 0;
+let activeFolderSearch = null;
 let searchTimer;
 let currentTab = 'folder';
 let currentOpenFolder = null;
@@ -51,6 +51,20 @@ async function initApp() {
         const lb = document.getElementById('layoutToggleBtn');
         if (lb) lb.innerText = '📜 List View';
     }
+
+    const searchInput = document.getElementById('searchInput');
+    searchInput.addEventListener('input', event => {
+        if (!event.isComposing) handleSearch();
+    });
+    searchInput.addEventListener('compositionend', handleSearch);
+    searchInput.addEventListener('keydown', event => {
+        if (event.isComposing) return;
+        if (event.key === 'Escape' && searchInput.value) clearFolderSearch();
+        if (event.key === 'Enter' && searchInput.value.trim()) {
+            event.preventDefault();
+            if (!activeFolderSearch) refreshFolderSearch(0);
+        }
+    });
 
     await fetchFromCloud();
 
@@ -103,7 +117,7 @@ async function syncPublicData() {
         time.title = lastDirectoryUpdate.toLocaleString('en-IN', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'});
         time.textContent = lastDirectoryUpdate.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
         updateDashboard();
-        if (!currentOpenFolder) refreshFolderSearch();
+        if (currentTab === 'folder' && !currentOpenFolder) refreshFolderSearch();
         if (currentTab === 'month') renderMonthFolders();
         document.body.dataset.directory = 'ready';
         feedback.hidden = true;
@@ -233,6 +247,8 @@ function toggleLayout() {
 function switchTab(tab) {
     clearBorrowerAccess();
     currentTab = tab;
+    document.getElementById('searchInput').hidden = tab !== 'folder';
+    if (tab !== 'folder') resetFolderSearch();
     currentOpenFolder = null;
     document.body.classList.remove('public-detail-active');
     ['tabFolder','tabMonth'].forEach(id => {
@@ -265,7 +281,7 @@ function switchTab(tab) {
 // ==========================================
 // FOLDER VIEW
 // ==========================================
-function renderFolders(rows = directory.folders, sortMode = 'name') {
+function renderFolders(rows = directory.folders, sortMode = 'name', showEmpty = true) {
     const folders = [...rows].sort((a,b) => sortMode === 'highest' ? b.sum-a.sum : sortMode === 'lowest' ? a.sum-b.sum : a.name.localeCompare(b.name));
     const folderDiv = document.getElementById('folderView');
     folderDiv.innerHTML = '';
@@ -278,7 +294,7 @@ function renderFolders(rows = directory.folders, sortMode = 'name') {
         folderButton.type = 'button';
         folderButton.className = 'folder old-folder-card';
         folderButton.setAttribute('aria-label', `${name}: ${f.count} active loans, total loan amount ${amount}, outstanding balance ${remaining}`);
-        folderButton.onclick = () => openFolder(f.key);
+        folderButton.onclick = () => requestBorrowerAccess(f);
         folderButton.innerHTML = `
             <div class="old-folder-title">📁 ${publicEscapeHtml(name)} · ${publicEscapeHtml(f.label)}</div>
             <div class="old-folder-summary">
@@ -289,8 +305,8 @@ function renderFolders(rows = directory.folders, sortMode = 'name') {
         `;
         folderDiv.appendChild(folderButton);
     });
-    if (folders.length === 0) {
-        folderDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;grid-column:1/-1;">No matching accounts.</p>';
+    if (!folders.length && showEmpty) {
+        folderDiv.innerHTML = '<p style="text-align:center;color:#777;margin-top:20px;grid-column:1/-1;">No borrower accounts yet.</p>';
     }
 }
 
@@ -302,6 +318,7 @@ function openFolder(key) {
     }
     const name = borrowerFolderName(key);
     if (!name) { goBackToFolders(); return; }
+    resetFolderSearch();
     currentOpenFolder = key;
     document.body.classList.add('public-detail-active');
     document.getElementById('folderView').style.display = 'none';
@@ -524,22 +541,75 @@ function handleSearch() {
     refreshFolderSearch();
 }
 
-function refreshFolderSearch() {
-    if (!lastDirectoryUpdate) return;
-    const sequence = ++directorySearch;
+function showFolderSearchFeedback(state, message = '') {
+    const bar = document.getElementById('folderSearchFeedback');
+    const pending = state === 'pending';
+    bar.hidden = state === 'idle';
+    bar.querySelector('.abhi-sync-ring').hidden = !pending;
+    document.getElementById('retryFolderSearch').hidden = state !== 'error';
+    document.getElementById('folderView').setAttribute('aria-busy', String(pending));
+    document.getElementById('folderSearchStatus').textContent = message;
+}
+
+function cancelFolderSearch() {
     clearTimeout(searchTimer);
+    activeFolderSearch?.abort();
+    activeFolderSearch = null;
+}
+
+function resetFolderSearch() {
+    cancelFolderSearch();
+    showFolderSearchFeedback('idle');
+}
+
+function clearFolderSearch() {
+    const input = document.getElementById('searchInput');
+    input.value = '';
+    handleSearch();
+    input.focus();
+}
+
+function refreshFolderSearch(delay = 180) {
+    if (!lastDirectoryUpdate || currentTab !== 'folder') return;
     const query = document.getElementById('searchInput').value.trim();
     const sort = document.getElementById('sortSelect').value;
-    if (!query) { renderFolders(directory.folders,sort); return; }
-    renderFolders(directory.folders.filter(f => (f.name+' '+f.label).toLowerCase().includes(query.toLowerCase())),sort);
+    if (!query) {
+        resetFolderSearch();
+        renderFolders(directory.folders, sort);
+        return;
+    }
+
+    cancelFolderSearch();
+    const needle = query.toLowerCase();
+    const local = directory.folders.filter(folder =>
+        String(folder.name ?? '').toLowerCase().includes(needle) || String(folder.label ?? '').toLowerCase().includes(needle)
+    );
+    renderFolders(local, sort, false);
+    showFolderSearchFeedback('pending', 'Searching accounts…');
+
+    const controller = new AbortController();
+    activeFolderSearch = controller;
     searchTimer = setTimeout(async () => {
+        const timeout = setTimeout(() => controller.abort(), 16000);
         try {
-            const response = await fetch('/api/loans?action=directory&q=' + encodeURIComponent(query),{cache:'no-store'});
-            if (!response.ok) return;
-            const data = await response.json();
-            if (directorySearch === sequence) renderFolders(data.folders,sort);
-        } catch { /* Local name matches stay visible while offline. */ }
-    },180);
+            const url = '/api/loans?action=directory&q=' + encodeURIComponent(query);
+            const response = await fetch(url, {cache:'no-store', signal:controller.signal});
+            if (!response.ok) throw new Error('Directory search failed');
+            const {folders} = await response.json();
+            if (activeFolderSearch !== controller) return;
+            renderFolders(folders, sort, false);
+            const count = folders.length;
+            const message = count ? count + (count === 1 ? ' account found' : ' accounts found') : 'No matching accounts';
+            showFolderSearchFeedback('done', message);
+        } catch {
+            if (activeFolderSearch !== controller) return;
+            const message = local.length ? 'Search unavailable. Showing local matches.' : 'Search unavailable. Try again.';
+            showFolderSearchFeedback('error', message);
+        } finally {
+            clearTimeout(timeout);
+            if (activeFolderSearch === controller) activeFolderSearch = null;
+        }
+    }, delay);
 }
 
 function printStatement() {

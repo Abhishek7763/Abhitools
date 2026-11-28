@@ -287,9 +287,9 @@
         coalesceAsync('refreshHomeCommandCenter');
         installReadFailureSoftener();
         installSyncFeedbackGuard();
+        installSearchDebounce();
     }
 
-    installSearchDebounce();
     installActionFeedback();
     installModalStatePolish();
     window.addEventListener('online', () => {
