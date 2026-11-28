@@ -2184,3 +2184,19 @@ body.public-page.dark-mode #lastUpdatedBadge[data-state=error] { color: #ffd5ba;
     .public-page .abhi-dues-panel { animation: borrower-reveal .18s ease-out; }
     @keyframes borrower-reveal { from { opacity: .4; translate: 0 5px; } to { opacity: 1; translate: 0 0; } }
 }
+
+#folderSearchFeedback {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+    margin: 0 0 8px; padding: 4px 8px 4px 12px; border-radius: 10px;
+    background: #edf4fb; color: #294764; font-size: 13px;
+}
+#folderSearchFeedback[hidden], #folderSearchFeedback [hidden], #searchInput[hidden] { display: none !important; }
+#folderSearchFeedback .search-summary { flex: 1 1 165px; display: flex; align-items: center; gap: 8px; }
+#folderSearchFeedback .abhi-sync-ring { width: 16px; height: 16px; border-width: 2px; }
+#folderSearchFeedback button {
+    min-height: 40px; padding: 0 8px; border: 0; border-radius: 8px;
+    font: inherit; font-weight: 650; color: #1b548a; background: transparent; cursor: pointer;
+}
+#folderSearchFeedback button:focus-visible { outline: 2px solid currentColor; }
+.dark-mode #folderSearchFeedback { background: #23354a; color: #d2e3f4; }
+.dark-mode #folderSearchFeedback button { color: #abd4ff; }
