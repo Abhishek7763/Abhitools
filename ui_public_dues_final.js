@@ -270,9 +270,11 @@
     }
 
     function closeDues() {
-        document.getElementById('abhiBorrowerDuesOverlay')?.remove();
+        const wasOpen = document.getElementById('abhiBorrowerDuesOverlay');
+        wasOpen?.remove();
         document.getElementById('publicBorrowerDuesOverlay')?.remove();
         document.body.classList.remove('public-dues-open');
+        if (wasOpen) document.getElementById('publicBorrowerDuesBtn')?.focus({preventScroll:true});
     }
 
     function renderMonths(groups, warning = '') {

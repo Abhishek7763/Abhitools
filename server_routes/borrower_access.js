@@ -21,8 +21,7 @@ export function verifiedOwner(req) {
 
 async function accountLoans(owner) {
     const key = createHash('sha256').update('public-folder:' + owner).digest('hex');
-    const { data } = await supabaseRequest('loans?borrower_id=eq.' + owner +
-        '&deleted_at=is.null&borrowers.deleted_at=is.null&select=id,loan_code,amount,status,loan_year,borrowers!inner(name),emis(installment_number,due_date,due_day,due_month,due_year,amount,status,paid_date,paid_amount)&order=created_at.desc');
+    const { data } = await supabaseRequest('rpc/abhi_borrower_account','POST',{ p_owner:owner });
     return data.map(loan => ({ ...loan, folder_key:key }));
 }
 

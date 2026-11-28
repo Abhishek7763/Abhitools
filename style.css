@@ -2190,7 +2190,7 @@ body.public-page.dark-mode #lastUpdatedBadge[data-state=error] { color: #ffd5ba;
     margin: 0 0 8px; padding: 4px 8px 4px 12px; border-radius: 10px;
     background: #edf4fb; color: #294764; font-size: 13px;
 }
-#folderSearchFeedback[hidden], #folderSearchFeedback [hidden], #searchInput[hidden] { display: none !important; }
+.public-detail-active #folderSearchFeedback, #folderSearchFeedback[hidden], #folderSearchFeedback [hidden], #searchInput[hidden] { display: none !important; }
 #folderSearchFeedback .search-summary { flex: 1 1 165px; display: flex; align-items: center; gap: 8px; }
 #folderSearchFeedback .abhi-sync-ring { width: 16px; height: 16px; border-width: 2px; }
 #folderSearchFeedback button {

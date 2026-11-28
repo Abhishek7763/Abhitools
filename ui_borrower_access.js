@@ -51,12 +51,12 @@ async function fetchVerifiedLoans(signal) {
     return response.json();
 }
 
-function requestBorrowerAccess(member,month = '') {
+function requestBorrowerAccess(member,month = '', button = document.activeElement) {
     stopPhoneRequest();
     clearTimeout(accessTimer);
     accountAccess = null;
     loans = [];
-    phoneRequest = { key:member.key, month };
+    phoneRequest = { key:member.key, month, position:publicReturnPosition(button) };
     document.getElementById('phoneTitle').textContent = member.name;
     phoneInput.value = '';
     setPhoneState('idle');
@@ -116,8 +116,18 @@ document.getElementById('phoneForm').addEventListener('submit',async event=>{
         accessTimer = setTimeout(()=>switchTab('folder'),Math.max(0,data.expires-Date.now()));
         loans = data.loans;
         phoneDialog.close();
-        if (request.month) showVerifiedMonth(request.month);
-        else openFolder(request.key);
+        if (request.month) {
+            const monthKey = request.month;
+            enterPublicView(() => {
+                const month = directory.months.find(m => (m.month + ' ' + (m.year || 'YEAR-NOT-SET')) === monthKey);
+                if (month) openMonthMembers(monthKey, month);
+                else restoreMonthDirectory();
+            }, request.position);
+            showVerifiedMonth(monthKey);
+        } else {
+            enterPublicView(restoreFolderDirectory, request.position);
+            openFolder(request.key);
+        }
         document.getElementById(request.month ? 'currentMonthName' : 'currentFolderName').focus({preventScroll:true});
     } catch {
         if (phoneRequest === request) {
